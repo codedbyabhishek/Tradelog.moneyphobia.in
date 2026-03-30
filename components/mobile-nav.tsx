@@ -1,0 +1,121 @@
+'use client';
+
+import React from 'react';
+import { BarChart3, PlusCircle, Table, LineChart, Settings, Calendar, TrendingUp, Lightbulb, Palette, Target, Search, FileText, Brain, Ellipsis } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+
+interface MobileNavProps {
+  currentPage: string;
+  onPageChange: (page: 'dashboard' | 'add-trade' | 'log' | 'analytics' | 'profit-loss' | 'weekly-review' | 'data-utilities' | 'ideas' | 'add-idea' | 'advanced-analytics' | 'goals' | 'search' | 'reports' | 'emotion-analyzer') => void;
+}
+
+export default function MobileNav({ currentPage, onPageChange }: MobileNavProps) {
+  const primaryItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+    { id: 'add-trade', label: 'Add', icon: PlusCircle },
+    { id: 'log', label: 'Log', icon: Table },
+    { id: 'analytics', label: 'Analytics', icon: LineChart },
+  ];
+
+  const moreItems = [
+    { id: 'emotion-analyzer', label: 'Emotions', icon: Brain },
+    { id: 'reports', label: 'Reports', icon: FileText },
+    { id: 'goals', label: 'Goals', icon: Target },
+    { id: 'search', label: 'Search', icon: Search },
+    { id: 'profit-loss', label: 'P&L Summary', icon: TrendingUp },
+    { id: 'weekly-review', label: 'Weekly Review', icon: Calendar },
+    { id: 'ideas', label: 'Trade Ideas', icon: Lightbulb },
+    { id: 'add-idea', label: 'Add Idea', icon: PlusCircle },
+    { id: 'advanced-analytics', label: 'Advanced', icon: Settings },
+    { id: 'data-utilities', label: 'Settings', icon: Settings },
+  ];
+
+  const [moreOpen, setMoreOpen] = React.useState(false);
+
+  return (
+    <nav className="bg-sidebar/95 backdrop-blur border-t border-border flex min-h-[72px] pb-[max(env(safe-area-inset-bottom),0px)]">
+      {primaryItems.map((item) => {
+        const Icon = item.icon;
+        const isActive = currentPage === item.id;
+        return (
+          <button
+            key={item.id}
+            onClick={() => onPageChange(item.id as any)}
+            className={cn(
+              'flex-1 flex flex-col items-center justify-center gap-1 py-3 px-1 sm:px-2 min-w-fit transition-colors touch-none select-none',
+              isActive
+                ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+            )}
+            title={item.label}
+          >
+            <Icon className="w-5 h-5 flex-shrink-0" />
+            <span className="text-xs font-medium text-center truncate max-w-[3.5rem]">{item.label}</span>
+          </button>
+        );
+      })}
+
+      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+        <SheetTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              'flex-1 flex flex-col items-center justify-center gap-1 py-3 px-1 sm:px-2 min-w-fit transition-colors border-l border-border',
+              moreItems.some((item) => item.id === currentPage)
+                ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+            )}
+            title="More"
+          >
+            <Ellipsis className="w-5 h-5 flex-shrink-0" />
+            <span className="text-xs font-medium text-center truncate max-w-[3.5rem]">More</span>
+          </button>
+        </SheetTrigger>
+        <SheetContent side="bottom" className="max-h-[85vh] rounded-t-2xl">
+          <SheetHeader className="px-4 pb-2">
+            <SheetTitle>More Options</SheetTitle>
+            <SheetDescription>
+              Open the rest of the journal pages and switch your theme.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="grid grid-cols-2 gap-3 overflow-y-auto px-4 pb-4">
+            {moreItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = currentPage === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    onPageChange(item.id as any);
+                    setMoreOpen(false);
+                  }}
+                  className={cn(
+                    'flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors',
+                    isActive
+                      ? 'border-sidebar-primary bg-sidebar-primary text-sidebar-primary-foreground'
+                      : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-secondary'
+                  )}
+                >
+                  <Icon className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="border-t border-border px-4 py-4">
+            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
+              <Palette className="h-4 w-4 text-primary" />
+              Theme
+            </div>
+            <ThemeToggle />
+          </div>
+        </SheetContent>
+      </Sheet>
+    </nav>
+  );
+}

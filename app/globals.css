@@ -1,0 +1,318 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* Light theme (default) */
+:root, [data-theme="light"] {
+  --background: oklch(0.98 0 0);
+  --foreground: oklch(0.11 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.11 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.11 0 0);
+  --primary: oklch(0.52 0.25 262);
+  --primary-foreground: oklch(0.95 0 0);
+  --secondary: oklch(0.95 0 0);
+  --secondary-foreground: oklch(0.11 0 0);
+  --muted: oklch(0.92 0 0);
+  --muted-foreground: oklch(0.5 0 0);
+  --accent: oklch(0.52 0.25 262);
+  --accent-foreground: oklch(0.95 0 0);
+  --destructive: oklch(0.58 0.20 24);
+  --destructive-foreground: oklch(0.95 0 0);
+  --border: oklch(0.92 0 0);
+  --input: oklch(0.95 0 0);
+  --ring: oklch(0.52 0.25 262);
+  --chart-1: oklch(0.52 0.25 262);
+  --chart-2: oklch(0.70 0.20 180);
+  --chart-3: oklch(0.60 0.18 140);
+  --chart-4: oklch(0.68 0.18 24);
+  --chart-5: oklch(0.50 0.22 80);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.95 0 0);
+  --sidebar-foreground: oklch(0.11 0 0);
+  --sidebar-primary: oklch(0.52 0.25 262);
+  --sidebar-primary-foreground: oklch(0.95 0 0);
+  --sidebar-accent: oklch(0.92 0 0);
+  --sidebar-accent-foreground: oklch(0.11 0 0);
+  --sidebar-border: oklch(0.92 0 0);
+  --sidebar-ring: oklch(0.52 0.25 262);
+  color-scheme: light;
+}
+
+/* Dark theme */
+.dark, [data-theme="dark"] {
+  --background: oklch(0.09 0 0);
+  --foreground: oklch(0.95 0 0);
+  --card: oklch(0.12 0 0);
+  --card-foreground: oklch(0.95 0 0);
+  --popover: oklch(0.12 0 0);
+  --popover-foreground: oklch(0.95 0 0);
+  --primary: oklch(0.52 0.25 262);
+  --primary-foreground: oklch(0.95 0 0);
+  --secondary: oklch(0.18 0 0);
+  --secondary-foreground: oklch(0.95 0 0);
+  --muted: oklch(0.25 0 0);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.52 0.25 262);
+  --accent-foreground: oklch(0.95 0 0);
+  --destructive: oklch(0.58 0.20 24);
+  --destructive-foreground: oklch(0.95 0 0);
+  --border: oklch(0.18 0 0);
+  --input: oklch(0.15 0 0);
+  --ring: oklch(0.52 0.25 262);
+  --chart-1: oklch(0.52 0.25 262);
+  --chart-2: oklch(0.70 0.20 180);
+  --chart-3: oklch(0.60 0.18 140);
+  --chart-4: oklch(0.68 0.18 24);
+  --chart-5: oklch(0.50 0.22 80);
+  --sidebar: oklch(0.10 0 0);
+  --sidebar-foreground: oklch(0.95 0 0);
+  --sidebar-primary: oklch(0.52 0.25 262);
+  --sidebar-primary-foreground: oklch(0.95 0 0);
+  --sidebar-accent: oklch(0.18 0 0);
+  --sidebar-accent-foreground: oklch(0.95 0 0);
+  --sidebar-border: oklch(0.18 0 0);
+  --sidebar-ring: oklch(0.52 0.25 262);
+  color-scheme: dark;
+}
+
+/* Cyberpunk theme - Matrix/Hacker style */
+.cyberpunk, [data-theme="cyberpunk"] {
+  --background: #0a0e27;
+  --foreground: #00ff41;
+  --card: #0f1829;
+  --card-foreground: #00ff41;
+  --popover: #0f1829;
+  --popover-foreground: #00ff41;
+  --primary: #00ff41;
+  --primary-foreground: #0a0e27;
+  --secondary: #ff006e;
+  --secondary-foreground: #0a0e27;
+  --muted: #1a1f3a;
+  --muted-foreground: #00b82c;
+  --accent: #00f0ff;
+  --accent-foreground: #0a0e27;
+  --destructive: #ff0040;
+  --destructive-foreground: #0a0e27;
+  --border: #1a2d4d;
+  --input: #061019;
+  --ring: #00ff41;
+  --chart-1: #00ff41;
+  --chart-2: #00f0ff;
+  --chart-3: #ff006e;
+  --chart-4: #00b82c;
+  --chart-5: #ffd700;
+  --radius: 0.625rem;
+  --sidebar: #0f1829;
+  --sidebar-foreground: #00ff41;
+  --sidebar-primary: #00ff41;
+  --sidebar-primary-foreground: #0a0e27;
+  --sidebar-accent: #1a2d4d;
+  --sidebar-accent-foreground: #00f0ff;
+  --sidebar-border: #1a2d4d;
+  --sidebar-ring: #00ff41;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: 'Geist', 'Geist Fallback';
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  /* HTML & Body - Allow page scroll on mobile/tablet while avoiding horizontal overflow */
+  html, body {
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  html {
+    /* Smooth theme transitions without flickering */
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  /* Global element styling */
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  /* Body - Primary text and background with accessible font sizing */
+  body {
+    @apply bg-background text-foreground;
+    font-size: clamp(14px, 2vw, 16px);
+    -webkit-tap-highlight-color: transparent;
+    line-height: 1.5;
+    /* Smooth color transitions across all elements */
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  }
+
+  /* Form elements - Inherit font size for consistency */
+  button, input, select, textarea {
+    font-size: inherit;
+  }
+
+  /* Headings - Ensure proper contrast and hierarchy */
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--foreground);
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  /* Links - Ensure visible and accessible */
+  a {
+    color: var(--primary);
+    text-decoration: underline;
+    transition: opacity 0.2s ease;
+  }
+
+  a:hover {
+    opacity: 0.8;
+  }
+
+  /* Safe area support for notches and home indicators on mobile */
+  @supports (padding: max(0px)) {
+    body {
+      padding-left: max(env(safe-area-inset-left), 0);
+      padding-right: max(env(safe-area-inset-right), 0);
+    }
+  }
+
+  /* Focus states for accessibility */
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Smooth scrolling for better UX */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Improve text selection contrast */
+  ::selection {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+}
+
+/* Next.js dev tools portal positioning */
+nextjs-portal {
+  left: 1px !important;
+}
+
+/* Cyberpunk theme enhancements */
+.cyberpunk, [data-theme="cyberpunk"] {
+  /* Add subtle grid background pattern */
+  background-image:
+    linear-gradient(0deg, transparent 24%, rgba(0, 255, 65, 0.03) 25%, rgba(0, 255, 65, 0.03) 26%, transparent 27%, transparent 74%, rgba(0, 255, 65, 0.03) 75%, rgba(0, 255, 65, 0.03) 76%, transparent 77%, transparent),
+    linear-gradient(90deg, transparent 24%, rgba(0, 255, 65, 0.03) 25%, rgba(0, 255, 65, 0.03) 26%, transparent 27%, transparent 74%, rgba(0, 255, 65, 0.03) 75%, rgba(0, 255, 65, 0.03) 76%, transparent 77%, transparent);
+  background-size: 50px 50px;
+}
+
+.cyberpunk a {
+  color: var(--primary);
+  text-shadow: 0 0 8px rgba(0, 255, 65, 0.4);
+}
+
+.cyberpunk a:hover {
+  text-shadow: 0 0 16px rgba(0, 255, 65, 0.8);
+}
+
+.cyberpunk button:focus-visible,
+.cyberpunk input:focus-visible,
+.cyberpunk select:focus-visible,
+.cyberpunk textarea:focus-visible {
+  box-shadow: 0 0 12px rgba(0, 255, 65, 0.6);
+}
+
+/* Glowing effect for primary colored elements */
+.cyberpunk [class*="primary"] {
+  text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+}
+
+/* Card styling for cyberpunk */
+.cyberpunk .card {
+  border: 1px solid rgba(0, 255, 65, 0.2);
+  box-shadow: inset 0 0 20px rgba(0, 255, 65, 0.05);
+}
+
+.cyberpunk .card:hover {
+  box-shadow: inset 0 0 20px rgba(0, 255, 65, 0.1), 0 0 20px rgba(0, 255, 65, 0.1);
+}
+
+/* Scrollbar styling - Thin and elegant */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--muted-foreground);
+  border-radius: 3px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--foreground);
+  background-clip: content-box;
+}
+
+/* Cyberpunk scrollbar with glow */
+.cyberpunk::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 255, 65, 0.6);
+  background-clip: content-box;
+  box-shadow: inset 0 0 6px rgba(0, 255, 65, 0.4);
+}
+
+.cyberpunk::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 255, 65, 1);
+  box-shadow: 0 0 8px rgba(0, 255, 65, 0.8);
+}
