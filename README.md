@@ -1,35 +1,57 @@
 # Moneyphobia Journal
 
-A trading journal built with Next.js for logging trades, reviewing ideas, syncing broker history, and keeping favorite setups visible in one place.
+Moneyphobia Journal is a Next.js trading journal for logging manual trades, importing broker history, reviewing setups, and building a visual library of favorite trades and trade ideas.
 
-## What is included
+## Highlights
 
-- Manual trade journaling with setup, fib levels, notes, and screenshots
-- Favorite trades and favorite trade ideas board on the dashboard
-- Click-to-zoom screenshots for favorite trade images
-- Read-only Dhan broker sync with reusable saved credentials
-- Post-sync trade enrichment:
-  setup name, time frame, fib levels, notes, and screenshots
+- Manual trade journaling with notes, screenshots, setup tags, and Fibonacci levels
+- Read-only Dhan broker sync with saved credentials
+- Post-sync enrichment for broker-imported trades
+- Favorite trades board and favorite ideas board on the dashboard
 - Trade badges for `Dhan Synced` and `Journal Enriched`
 - Trade ideas and backtesting workspace
-- Theme switching and improved mobile navigation with a `More` sheet
-- Local temporary MySQL setup and PHP database admin for development
+- Mobile-friendly navigation with a `More` sheet
+- Local temp MySQL setup plus lightweight PHP DB admin for development
+
+## Feature overview
+
+### Trading workflow
+
+- Add trades manually with setup, fib limit, fib exit, confidence, and notes
+- Import closed trades from Dhan without overwriting manual entries
+- Edit synced trades afterward to add screenshots and journal-specific fields
+- Export journal data as JSON or CSV
+
+### Dashboard
+
+- Core performance metrics
+- Compact Dhan sync card
+- Calendar and quick insights
+- Favorite trade wall
+- Favorite trade idea wall
+
+### Trade research
+
+- Trade ideas and backtesting notes
+- Status tracking for ideas
+- Screenshot support
+- Search and filtering tools
 
 ## Local development
 
-### 1. Install dependencies
+### Install
 
 ```bash
 npm install
 ```
 
-### 2. Start the temporary MySQL database
+### Start the temporary MySQL database
 
 ```bash
 ./scripts/setup-temp-mysql.sh
 ```
 
-This creates a disposable MySQL instance for local development using:
+Local temp DB defaults:
 
 - Host: `127.0.0.1`
 - Port: `3307`
@@ -37,83 +59,66 @@ This creates a disposable MySQL instance for local development using:
 - Password: empty
 - Database: `trading_journal_temp`
 
-### 3. Run the app
+### Run the app
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000)
 
-### 4. Optional: run the PHP database admin
+### Optional PHP database admin
 
 ```bash
 ./scripts/start-php-db-admin.sh
 ```
 
-Open [http://127.0.0.1:8081](http://127.0.0.1:8081).
+Open [http://127.0.0.1:8081](http://127.0.0.1:8081)
 
 ## Dhan sync
 
-The Dhan integration is intentionally read-only so it does not disturb your normal journaling flow.
+The Dhan integration is intentionally read-only.
 
-### What it does
+### It does
 
-- Stores your Dhan `clientId` and access token server-side
-- Checks holdings, positions, and available balance
-- Imports matched closed trades from Dhan history
-- Re-syncs without duplicating imported trades
+- Save `clientId` and access token server-side
+- Check holdings, positions, and available balance
+- Import matched closed trades from Dhan history
+- Re-sync imported trades without duplicating them
 
-### What it does not do
+### It does not
 
-- It does not place live orders
-- It does not overwrite your manual trades
-- It does not require re-entering credentials on every sync unless you replace or remove them
+- Place broker orders
+- Overwrite unrelated manual trades
+- Require credentials on every sync unless you replace or remove them
 
-### After sync
+### After import
 
-You can edit synced trades from `Trade Log` and add:
+From `Trade Log`, synced trades can be enriched with:
 
 - setup name
 - time frame
-- Fibonacci limit and exit levels
+- Fibonacci limit level
+- Fibonacci exit level
 - pre/post trade notes
 - before-trade and after-exit screenshots
 
-## Dashboard updates
+More details: [docs/DHAN_SYNC.md](docs/DHAN_SYNC.md)
 
-The dashboard includes:
+## Deployment
 
-- compact Dhan sync card
-- favorite trades board
-- favorite trade ideas board
-- quick metrics and calendar
+Deployment instructions:
 
-## Mobile improvements
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+- [HOSTINGER_DEPLOYMENT.md](HOSTINGER_DEPLOYMENT.md)
 
-On mobile:
+The app supports:
 
-- the bottom navigation keeps primary pages visible
-- a `More` sheet exposes the rest of the pages
-- theme switching is available from the mobile sheet
+- Vercel
+- Hostinger
+- any Node-compatible host with MySQL access
 
-## Useful scripts
-
-```bash
-# start temp mysql
-./scripts/setup-temp-mysql.sh
-
-# stop temp mysql
-./scripts/stop-temp-mysql.sh
-
-# start php db admin
-./scripts/start-php-db-admin.sh
-
-# build app
-npm run build
-```
-
-## Main files
+## Main project areas
 
 - `components/dashboard.tsx`
 - `components/dhan-sync-card.tsx`
@@ -122,8 +127,27 @@ npm run build
 - `lib/server/dhan.ts`
 - `app/api/brokers/dhan/*`
 
+## Useful scripts
+
+```bash
+# temp mysql up
+./scripts/setup-temp-mysql.sh
+
+# temp mysql down
+./scripts/stop-temp-mysql.sh
+
+# php db admin
+./scripts/start-php-db-admin.sh
+
+# dev server
+npm run dev
+
+# production build
+npm run build
+```
+
 ## Notes
 
-- The project currently uses a local `.env.local` for development database settings.
-- Dhan trade matching is based on imported fill history and closed-leg pairing.
-- `baseline-browser-mapping` shows an outdated-data warning during build, but the app still builds successfully.
+- Local dev uses `.env.local`, which is ignored from git
+- Dhan trade pairing is based on imported fill history and closed-leg matching
+- `baseline-browser-mapping` may show an outdated-data warning during builds, but the app still builds successfully

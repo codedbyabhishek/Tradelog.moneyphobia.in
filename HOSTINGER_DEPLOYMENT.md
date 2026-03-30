@@ -14,7 +14,7 @@ This project now supports:
 ## 1. Prepare MySQL Database
 1. In Hostinger hPanel, create a MySQL database and user.
 2. Open phpMyAdmin for that database.
-3. Run the SQL from [sql/init.sql](/Users/abhishekkumar/Documents/trading-diary/sql/init.sql).
+3. Run the SQL from [sql/init.sql](sql/init.sql).
 
 ## 2. Configure Environment Variables
 Add these variables in your hosting app environment:
@@ -26,6 +26,7 @@ Add these variables in your hosting app environment:
 - `NODE_ENV=production`
 
 Template: [.env.example](/Users/abhishekkumar/Documents/trading-diary/.env.example)
+Template: [.env.example](.env.example)
 
 ## 3. Build and Start Commands
 Use these commands:
