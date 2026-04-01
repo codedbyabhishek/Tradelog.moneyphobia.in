@@ -20,6 +20,8 @@ import {
 import { Lightbulb, Search, Filter, Pencil, Trash2, ChevronDown, ChevronUp, FlaskConical, CheckCircle2, XCircle, Archive, Star } from 'lucide-react';
 import { ScreenshotViewer } from '@/components/screenshot-viewer';
 import IdeaForm from './idea-form';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import { EmptyStateIllustration } from './brand-illustrations';
 
 const STATUS_CONFIG: Record<IdeaStatus, { label: string; color: string; icon: typeof Lightbulb }> = {
   idea: { label: 'Idea', color: 'bg-blue-500/10 text-blue-400 border-blue-500/30', icon: Lightbulb },
@@ -122,14 +124,24 @@ export default function IdeasList() {
 
         {/* Ideas List */}
         {filtered.length === 0 ? (
-          <div className="text-center py-12">
-            <Lightbulb className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">
-              {ideas.length === 0
-                ? 'No trade ideas yet. Click "Add Idea" to get started!'
-                : 'No ideas match your search criteria.'}
-            </p>
-          </div>
+          <Card className="border-border bg-card">
+            <CardContent className="p-8 sm:p-12">
+              <Empty className="border-0 p-0">
+                <EmptyStateIllustration />
+                <EmptyHeader>
+                  <EmptyTitle>{ideas.length === 0 ? 'No trade ideas yet' : 'No ideas match your search'}</EmptyTitle>
+                  <EmptyDescription>
+                    {ideas.length === 0
+                      ? 'Use Add Idea to build your watchlist, backtest notes, and favorite setups in one place.'
+                      : 'Try a different keyword or clear the current status filter to reveal more ideas.'}
+                  </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Idea bank for repeatable setups</p>
+                </EmptyContent>
+              </Empty>
+            </CardContent>
+          </Card>
         ) : (
           <div className="space-y-3">
             {filtered.map((idea) => {

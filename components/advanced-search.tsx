@@ -47,18 +47,23 @@ export function AdvancedSearch({
   const [presetName, setPresetName] = useState('');
 
   useEffect(() => {
-    loadPresets();
+    let cancelled = false;
+
+    void getFilterPresets().then((loaded) => {
+      if (!cancelled) {
+        setPresets(loaded);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     const filtered = applyFilters(trades, filters);
     onFiltersChange(filtered);
-  }, [filters, trades]);
-
-  async function loadPresets() {
-    const loaded = await getFilterPresets();
-    setPresets(loaded);
-  }
+  }, [filters, trades, onFiltersChange]);
 
   function handleFilterChange(newFilters: Partial<TradeFilters>) {
     setFilters((prev) => ({ ...prev, ...newFilters }));
@@ -78,12 +83,14 @@ export function AdvancedSearch({
 
     setPresetName('');
     setShowSavePreset(false);
-    loadPresets();
+    const loaded = await getFilterPresets();
+    setPresets(loaded);
   }
 
   async function handleDeletePreset(presetId: string) {
     await deleteFilterPreset(presetId);
-    loadPresets();
+    const loaded = await getFilterPresets();
+    setPresets(loaded);
   }
 
   function handleLoadPreset(preset: FilterPreset) {

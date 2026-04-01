@@ -252,7 +252,7 @@ export function SentimentAnalysis({ trades }: SentimentAnalysisProps) {
         <Alert className="bg-red-50 border-red-200">
           <AlertCircle className="h-4 w-4 text-red-600" />
           <AlertDescription className="text-red-800">
-            You tend to lose money when feeling "{emotionImpacts[emotionImpacts.length - 1].emotion}". 
+            You tend to lose money when feeling &quot;{emotionImpacts[emotionImpacts.length - 1].emotion}&quot;.
             Consider taking a break or using a automated trading system in these states.
           </AlertDescription>
         </Alert>

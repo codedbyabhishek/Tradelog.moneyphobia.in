@@ -4,7 +4,6 @@ const DEFAULT_DB_PORT = 3306;
 const DB_CONNECT_TIMEOUT_MS = 10000;
 
 declare global {
-  // eslint-disable-next-line no-var
   var __tradingDiaryDbPool: Pool | undefined;
 }
 

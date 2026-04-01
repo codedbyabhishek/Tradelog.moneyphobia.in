@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Currency, Trade } from './types';
 import { convertToBaseCurrency, getExchangeRateToBase } from './trade-utils';
 import { useAuth } from '@/lib/auth-context';
@@ -75,7 +75,7 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [storagePercentage] = useState(0);
 
-  const refreshTrades = async () => {
+  const refreshTrades = useCallback(async () => {
     if (isAuthLoading) {
       return;
     }
@@ -96,11 +96,11 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
       const message = err instanceof Error ? err.message : 'Failed to load trades';
       setError(message);
     }
-  };
+  }, [isAuthLoading, user]);
 
   useEffect(() => {
     void refreshTrades();
-  }, [user, isAuthLoading]);
+  }, [refreshTrades]);
 
   const addTrade = (trade: Trade) => {
     try {

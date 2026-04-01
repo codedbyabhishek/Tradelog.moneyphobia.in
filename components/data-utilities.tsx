@@ -9,6 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Download, Upload, Trash2, Github, Loader2 } from 'lucide-react';
 import CurrencySettings from '@/components/currency-settings';
+import CapitalAdjustmentsSettings from '@/components/capital-adjustments-settings';
+import StartingBalanceSettings from '@/components/starting-balance-settings';
 import { fetchTradesFromGithub, parseGithubRepoUrl } from '@/lib/github-service';
 
 export default function DataUtilities() {
@@ -173,6 +175,12 @@ export default function DataUtilities() {
       {/* Currency Settings */}
       <CurrencySettings />
 
+      {/* Starting Balance Settings */}
+      <StartingBalanceSettings />
+
+      {/* Deposits / Withdrawals */}
+      <CapitalAdjustmentsSettings />
+
       {/* Export Section */}
       <Card className="bg-card border-border">
         <CardHeader>
@@ -280,7 +288,7 @@ export default function DataUtilities() {
                 )}
               </Button>
               <p className="text-xs text-muted-foreground">
-                💡 Tip: Make sure the repository has been synced using the "Sync to GitHub" button and contains a trades JSON file.
+                💡 Tip: Make sure the repository has been synced using the &quot;Sync to GitHub&quot; button and contains a trades JSON file.
               </p>
             </div>
           </div>

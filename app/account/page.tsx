@@ -1,4 +1,12 @@
+import type { Metadata } from 'next';
 import PublicPageLayout from '@/components/public-page-layout';
+import { createPublicMetadata } from '@/lib/seo';
+
+export const metadata: Metadata = createPublicMetadata({
+  title: 'Account Settings',
+  description: 'Learn how to manage account preferences and account-related requests in Moneyphobia Journal.',
+  path: '/account',
+});
 
 export default function AccountPage() {
   return (

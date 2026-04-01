@@ -99,6 +99,14 @@ export interface Trade {
   isScaledExit?: boolean;
 }
 
+export interface CapitalAdjustment {
+  id: string;
+  date: string;
+  type: 'deposit' | 'withdrawal';
+  amount: number;
+  note?: string;
+}
+
 export interface TradeFormData {
   date: string;
   symbol: string;

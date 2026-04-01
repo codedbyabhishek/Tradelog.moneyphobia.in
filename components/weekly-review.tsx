@@ -25,119 +25,110 @@ interface PeriodStats {
   worstMistake: { name: string; count: number } | null;
 }
 
+function getPeriodStats(trades: Trade[], periodType: ReviewPeriod): PeriodStats[] {
+  if (trades.length === 0) return [];
+
+  const sortedTrades = [...trades].sort((a, b) =>
+    new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  const stats: PeriodStats[] = [];
+  const groupedTrades: Record<string, Trade[]> = {};
+
+  sortedTrades.forEach((trade) => {
+    const tradeDate = new Date(trade.date);
+    let key: string;
+
+    if (periodType === 'weekly') {
+      const startOfYear = new Date(tradeDate.getFullYear(), 0, 1);
+      const diff = tradeDate.getTime() - startOfYear.getTime();
+      const msPerDay = 86400000;
+      const dayNumber = Math.floor(diff / msPerDay);
+      const weekNumber = Math.ceil((dayNumber + startOfYear.getDay() + 1) / 7);
+      key = `${tradeDate.getFullYear()}-W${weekNumber}`;
+    } else {
+      key = `${tradeDate.getFullYear()}-${String(tradeDate.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    if (!groupedTrades[key]) {
+      groupedTrades[key] = [];
+    }
+    groupedTrades[key].push(trade);
+  });
+
+  Object.values(groupedTrades).forEach((periodTrades) => {
+    const wins = periodTrades.filter((t) => t.pnl > 0).length;
+    const losses = periodTrades.filter((t) => t.pnl < 0).length;
+    const totalPnL = periodTrades.reduce((sum, t) => sum + t.pnl, 0);
+    const avgR = periodTrades.length > 0
+      ? periodTrades.reduce((sum, t) => sum + t.rFactor, 0) / periodTrades.length
+      : 0;
+
+    const setupStats = new Map<string, { count: number; pnl: number; wins: number; winRate: number }>();
+    periodTrades.forEach((trade) => {
+      const existing = setupStats.get(trade.setupName) || { count: 0, pnl: 0, wins: 0, winRate: 0 };
+      const isWin = trade.pnl > 0;
+      const newWins = existing.wins + (isWin ? 1 : 0);
+      const newCount = existing.count + 1;
+      setupStats.set(trade.setupName, {
+        count: newCount,
+        pnl: existing.pnl + trade.pnl,
+        wins: newWins,
+        winRate: Math.round((newWins / newCount) * 100),
+      });
+    });
+
+    const mistakeStats = new Map<string, number>();
+    periodTrades.forEach((trade) => {
+      if (trade.mistakeTag) {
+        mistakeStats.set(trade.mistakeTag, (mistakeStats.get(trade.mistakeTag) || 0) + 1);
+      }
+    });
+
+    let bestSetup: { name: string; pnl: number; count: number; winRate: number } | null = null;
+    setupStats.forEach((setupStat, setupName) => {
+      if (!bestSetup || setupStat.pnl > bestSetup.pnl) {
+        bestSetup = { name: setupName, pnl: setupStat.pnl, count: setupStat.count, winRate: setupStat.winRate };
+      }
+    });
+
+    let worstMistake: { name: string; count: number } | null = null;
+    mistakeStats.forEach((count, mistake) => {
+      if (!worstMistake || count > worstMistake.count) {
+        worstMistake = { name: mistake, count };
+      }
+    });
+
+    const periodDateRange = [...periodTrades].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const startDate = periodDateRange[0]?.date || '';
+    const endDate = periodDateRange[periodDateRange.length - 1]?.date || '';
+
+    stats.push({
+      startDate,
+      endDate,
+      trades: periodTrades,
+      totalTrades: periodTrades.length,
+      winCount: wins,
+      lossCount: losses,
+      winPercent: periodTrades.length > 0 ? Math.round((wins / periodTrades.length) * 100) : 0,
+      totalPnL: parseFloat(totalPnL.toFixed(2)),
+      avgRFactor: parseFloat(avgR.toFixed(2)),
+      setupStats,
+      mistakeStats,
+      bestSetup,
+      worstMistake,
+    });
+  });
+
+  return stats;
+}
+
 export default function WeeklyReview() {
   const { trades } = useTrades();
   const { baseCurrency } = useSettings();
   const baseCurrencySymbol = CURRENCY_SYMBOLS[baseCurrency];
   const [period, setPeriod] = useState<ReviewPeriod>('weekly');
-
-  const getPeriodStats = (periodType: ReviewPeriod): PeriodStats[] => {
-    if (trades.length === 0) return [];
-
-    const sortedTrades = [...trades].sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-
-    const stats: PeriodStats[] = [];
-    let groupedTrades: { [key: string]: Trade[] } = {};
-
-    sortedTrades.forEach(trade => {
-      const tradeDate = new Date(trade.date);
-      let key: string;
-
-      if (periodType === 'weekly') {
-        // Get week number (ISO 8601)
-        const startOfYear = new Date(tradeDate.getFullYear(), 0, 1);
-        const diff = tradeDate.getTime() - startOfYear.getTime();
-        const dayOfWeek = tradeDate.getDay();
-        const msPerDay = 86400000;
-        const dayNumber = Math.floor(diff / msPerDay);
-        const weekNumber = Math.ceil((dayNumber + startOfYear.getDay() + 1) / 7);
-        key = `${tradeDate.getFullYear()}-W${weekNumber}`;
-      } else {
-        // Monthly
-        key = `${tradeDate.getFullYear()}-${String(tradeDate.getMonth() + 1).padStart(2, '0')}`;
-      }
-
-      if (!groupedTrades[key]) {
-        groupedTrades[key] = [];
-      }
-      groupedTrades[key].push(trade);
-    });
-
-    Object.entries(groupedTrades).forEach(([key, periodTrades]) => {
-      const wins = periodTrades.filter(t => t.pnl > 0).length;
-      const losses = periodTrades.filter(t => t.pnl < 0).length;
-      const totalPnL = periodTrades.reduce((sum, t) => sum + t.pnl, 0);
-      const avgR = periodTrades.length > 0 
-        ? periodTrades.reduce((sum, t) => sum + t.rFactor, 0) / periodTrades.length 
-        : 0;
-
-      // Setup stats
-      const setupStats = new Map<string, { count: number; pnl: number; winRate: number }>();
-      periodTrades.forEach(trade => {
-        const existing = setupStats.get(trade.setupName) || { count: 0, pnl: 0, wins: 0 };
-        const isWin = trade.pnl > 0;
-        const newWins = existing.wins + (isWin ? 1 : 0);
-        const newCount = existing.count + 1;
-        setupStats.set(trade.setupName, {
-          count: newCount,
-          pnl: existing.pnl + trade.pnl,
-          wins: newWins,
-          winRate: Math.round((newWins / newCount) * 100),
-        });
-      });
-
-      // Mistake stats
-      const mistakeStats = new Map<string, number>();
-      periodTrades.forEach(trade => {
-        if (trade.mistakeTag) {
-          mistakeStats.set(trade.mistakeTag, (mistakeStats.get(trade.mistakeTag) || 0) + 1);
-        }
-      });
-
-      // Best setup
-      let bestSetup: { name: string; pnl: number; count: number; winRate: number } | null = null;
-      setupStats.forEach((stats, setupName) => {
-        if (!bestSetup || stats.pnl > bestSetup.pnl) {
-          bestSetup = { name: setupName, pnl: stats.pnl, count: stats.count, winRate: stats.winRate };
-        }
-      });
-
-      // Worst habit
-      let worstMistake: { name: string; count: number } | null = null;
-      mistakeStats.forEach((count, mistake) => {
-        if (!worstMistake || count > worstMistake.count) {
-          worstMistake = { name: mistake, count };
-        }
-      });
-
-      // Get date range
-      const periodDateRange = periodTrades.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-      const startDate = periodDateRange[0]?.date || '';
-      const endDate = periodDateRange[periodDateRange.length - 1]?.date || '';
-
-      stats.push({
-        startDate,
-        endDate,
-        trades: periodTrades,
-        totalTrades: periodTrades.length,
-        winCount: wins,
-        lossCount: losses,
-        winPercent: periodTrades.length > 0 ? Math.round((wins / periodTrades.length) * 100) : 0,
-        totalPnL: parseFloat(totalPnL.toFixed(2)),
-        avgRFactor: parseFloat(avgR.toFixed(2)),
-        setupStats,
-        mistakeStats,
-        bestSetup,
-        worstMistake,
-      });
-    });
-
-    return stats;
-  };
-
-  const periodStats = useMemo(() => getPeriodStats(period), [trades, period]);
+  const periodStats = useMemo(() => getPeriodStats(trades, period), [trades, period]);
 
   if (trades.length === 0) {
     return (

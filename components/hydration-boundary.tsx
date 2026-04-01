@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 
 /**
  * HydrationBoundary - Prevents rendering content until client is fully hydrated
@@ -8,11 +8,11 @@ import { useEffect, useState } from 'react';
  * @param children - Content to render after hydration
  */
 export function HydrationBoundary({ children }: { children: React.ReactNode }) {
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const isClient = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false
+  );
 
   // Render a lightweight shell during initial render so users never see a blank page
   // if hydration/chunks are delayed.

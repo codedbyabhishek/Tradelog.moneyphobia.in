@@ -35,93 +35,73 @@ interface CalendarViewProps {
   trades: Trade[];
 }
 
+function getDaysInMonth(date: Date, trades: Trade[], todayStr: string): DayStats[] {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const daysInMonth = lastDay.getDate();
+
+  const startDow = (firstDay.getDay() + 6) % 7;
+  const days: DayStats[] = [];
+
+  const getDayCharges = (dayTrades: Trade[]) =>
+    dayTrades.reduce((sum, t) => {
+      const ch = getTradeCharges(t);
+      return sum + (t.currency ? convertToBaseCurrency(ch, t.currency, t.exchangeRate) : ch);
+    }, 0);
+
+  const tradesByDate = new Map<string, Trade[]>();
+  trades.forEach((trade) => {
+    const existing = tradesByDate.get(trade.date) || [];
+    existing.push(trade);
+    tradesByDate.set(trade.date, existing);
+  });
+
+  const createDayStats = (targetDate: Date, isToday: boolean) => {
+    const dateStr = toLocalDateStr(targetDate);
+    const dayTrades = tradesByDate.get(dateStr) || [];
+    const pnl = dayTrades.reduce((sum, t) => sum + getTradeBasePnL(t), 0);
+    const charges = getDayCharges(dayTrades);
+
+    return {
+      date: dateStr,
+      dayOfMonth: targetDate.getDate(),
+      pnl,
+      grossPnl: pnl + charges,
+      charges,
+      tradeCount: dayTrades.length,
+      isToday,
+    };
+  };
+
+  const prevMonthLastDay = new Date(year, month, 0).getDate();
+  for (let i = startDow - 1; i >= 0; i--) {
+    const d = new Date(year, month - 1, prevMonthLastDay - i);
+    days.push(createDayStats(d, false));
+  }
+
+  for (let i = 1; i <= daysInMonth; i++) {
+    const d = new Date(year, month, i);
+    const dateStr = toLocalDateStr(d);
+    days.push(createDayStats(d, dateStr === todayStr));
+  }
+
+  const remainingCells = 42 - days.length;
+  for (let i = 1; i <= remainingCells; i++) {
+    const d = new Date(year, month + 1, i);
+    days.push(createDayStats(d, false));
+  }
+
+  return days;
+}
+
 export default function CalendarView({ trades }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const baseCurrencySymbol = CURRENCY_SYMBOLS[BASE_CURRENCY];
 
   const todayStr = useMemo(() => toLocalDateStr(new Date()), []);
-
-  // Get all days in month with stats - using base currency for P&L
-  const getDaysInMonth = (date: Date): DayStats[] => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-
-    // getDay() returns 0 = Sunday. Convert to Monday-first: Mon=0 .. Sun=6
-    const startDow = (firstDay.getDay() + 6) % 7;
-
-    const days: DayStats[] = [];
-
-    // Helper to compute day charges in base currency
-    const getDayCharges = (dayTrades: typeof trades) =>
-      dayTrades.reduce((sum, t) => {
-        const ch = getTradeCharges(t);
-        return sum + (t.currency ? convertToBaseCurrency(ch, t.currency, t.exchangeRate) : ch);
-      }, 0);
-
-    // Add previous month's trailing days
-    const prevMonthLastDay = new Date(year, month, 0).getDate();
-    for (let i = startDow - 1; i >= 0; i--) {
-      const d = new Date(year, month - 1, prevMonthLastDay - i);
-      const dateStr = toLocalDateStr(d);
-      const dayTrades = trades.filter(t => t.date === dateStr);
-      const pnl = dayTrades.reduce((sum, t) => sum + getTradeBasePnL(t), 0);
-      const charges = getDayCharges(dayTrades);
-      days.push({
-        date: dateStr,
-        dayOfMonth: d.getDate(),
-        pnl,
-        grossPnl: pnl + charges,
-        charges,
-        tradeCount: dayTrades.length,
-        isToday: false,
-      });
-    }
-
-    // Add current month's days
-    for (let i = 1; i <= daysInMonth; i++) {
-      const d = new Date(year, month, i);
-      const dateStr = toLocalDateStr(d);
-      const dayTrades = trades.filter(t => t.date === dateStr);
-      const pnl = dayTrades.reduce((sum, t) => sum + getTradeBasePnL(t), 0);
-      const charges = getDayCharges(dayTrades);
-      days.push({
-        date: dateStr,
-        dayOfMonth: i,
-        pnl,
-        grossPnl: pnl + charges,
-        charges,
-        tradeCount: dayTrades.length,
-        isToday: dateStr === todayStr,
-      });
-    }
-
-    // Add next month's leading days to fill 6-row grid
-    const totalCells = days.length;
-    const remainingCells = 42 - totalCells; // 6 rows x 7 days
-    for (let i = 1; i <= remainingCells; i++) {
-      const d = new Date(year, month + 1, i);
-      const dateStr = toLocalDateStr(d);
-      const dayTrades = trades.filter(t => t.date === dateStr);
-      const pnl = dayTrades.reduce((sum, t) => sum + getTradeBasePnL(t), 0);
-      const charges = getDayCharges(dayTrades);
-      days.push({
-        date: dateStr,
-        dayOfMonth: i,
-        pnl,
-        grossPnl: pnl + charges,
-        charges,
-        tradeCount: dayTrades.length,
-        isToday: false,
-      });
-    }
-
-    return days;
-  };
-
-  const daysInMonth = useMemo(() => getDaysInMonth(currentDate), [currentDate, trades]);
+  const daysInMonth = useMemo(() => getDaysInMonth(currentDate, trades, todayStr), [currentDate, todayStr, trades]);
 
   const weeks = useMemo(() => {
     const chunked: DayStats[][] = [];
@@ -381,7 +361,7 @@ export default function CalendarView({ trades }: CalendarViewProps) {
                   {/* Weekly summary column */}
                   <div className="min-h-24 sm:min-h-28 lg:min-h-32 p-2 sm:p-3 lg:p-4 rounded-xl bg-background/60 border border-border/70 flex flex-col justify-between">
                     <div className="text-[10px] sm:text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                      Weekly
+                      Week {weekIndex + 1}
                     </div>
                     <div
                       className={`text-sm sm:text-base font-semibold ${

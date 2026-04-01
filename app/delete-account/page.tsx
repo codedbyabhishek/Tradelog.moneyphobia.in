@@ -1,4 +1,12 @@
+import type { Metadata } from 'next';
 import PublicPageLayout from '@/components/public-page-layout';
+import { createPublicMetadata } from '@/lib/seo';
+
+export const metadata: Metadata = createPublicMetadata({
+  title: 'Delete Account',
+  description: 'Submit account deletion and personal data removal requests for Moneyphobia Journal.',
+  path: '/delete-account',
+});
 
 export default function DeleteAccountPage() {
   return (

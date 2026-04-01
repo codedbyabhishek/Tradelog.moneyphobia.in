@@ -1,4 +1,12 @@
+import type { Metadata } from 'next';
 import PublicPageLayout from '@/components/public-page-layout';
+import { createPublicMetadata } from '@/lib/seo';
+
+export const metadata: Metadata = createPublicMetadata({
+  title: 'Support',
+  description: 'Get help with login, database setup, UI issues, and product troubleshooting for Moneyphobia Journal.',
+  path: '/support',
+});
 
 export default function SupportPage() {
   return (

@@ -1,4 +1,12 @@
+import type { Metadata } from 'next';
 import PublicPageLayout from '@/components/public-page-layout';
+import { createPublicMetadata } from '@/lib/seo';
+
+export const metadata: Metadata = createPublicMetadata({
+  title: 'Privacy Policy',
+  description: 'Read how Moneyphobia Journal handles account data, journal records, and deletion requests.',
+  path: '/privacy',
+});
 
 export default function PrivacyPage() {
   return (

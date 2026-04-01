@@ -1,4 +1,12 @@
+import type { Metadata } from 'next';
 import PublicPageLayout from '@/components/public-page-layout';
+import { createPublicMetadata } from '@/lib/seo';
+
+export const metadata: Metadata = createPublicMetadata({
+  title: 'Cookie Policy',
+  description: 'Understand how Moneyphobia Journal uses cookies for authentication and core app functionality.',
+  path: '/cookies',
+});
 
 export default function CookiesPage() {
   return (

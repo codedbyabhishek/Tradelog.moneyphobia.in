@@ -1,4 +1,4 @@
-import { Trade, TradeFormData, Currency, TradeOutcome } from './types';
+import { CapitalAdjustment, Trade, TradeFormData, Currency, TradeOutcome } from './types';
 
 // Currency symbols for display
 export const CURRENCY_SYMBOLS: Record<Currency, string> = {
@@ -169,7 +169,8 @@ export function calculateRFactor(
  * @returns Day name (e.g., 'Monday')
  */
 export function getDayOfWeek(dateString: string): string {
-  const date = new Date(dateString);
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, (month || 1) - 1, day || 1);
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   // Use local day-of-week so it matches the user's trading day
   return days[date.getDay()];
@@ -319,6 +320,8 @@ export function getAccountStats(trades: Trade[]) {
     };
   }
 
+  const sortedTrades = [...trades].sort((a, b) => a.date.localeCompare(b.date));
+
   // Use P&L > 0 to determine wins (not deprecated isWin field)
   const wins = trades.filter(t => t.pnl > 0).length;
   const winRate = (wins / trades.length) * 100;
@@ -331,7 +334,7 @@ export function getAccountStats(trades: Trade[]) {
   let maxDrawdown = 0;
   let runningMax = 0;
   let cumulativePnL = 0;
-  for (const trade of trades) {
+  for (const trade of sortedTrades) {
     cumulativePnL += getTradeBasePnL(trade);
     if (cumulativePnL > runningMax) {
       runningMax = cumulativePnL;
@@ -468,18 +471,47 @@ export function formatCurrency(value: number, currency: Currency, decimals: numb
  * @param baseCurrency - The user's selected base currency for display
  * @returns Array of cumulative balance points for equity curve
  */
-export function getEquityCurveInBaseCurrency(trades: Trade[], baseCurrency: Currency = BASE_CURRENCY): Array<{ date: string; balance: number }> {
-  let cumulativeBalance = 0;
-  return trades
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .map(trade => {
-      // Use pnlBase to properly account for different trade currencies
-      cumulativeBalance += getTradeBasePnL(trade);
-      return {
-        date: trade.date,
-        balance: parseFloat(cumulativeBalance.toFixed(2)),
-      };
-    });
+export function getEquityCurveInBaseCurrency(
+  trades: Trade[],
+  baseCurrency: Currency = BASE_CURRENCY,
+  startingBalance: number = 0,
+  capitalAdjustments: CapitalAdjustment[] = []
+): Array<{ date: string; balance: number }> {
+  let cumulativeBalance = startingBalance;
+  const events = [
+    ...trades.map((trade) => ({
+      date: trade.date,
+      amount: getTradeBasePnL(trade),
+      order: 1,
+    })),
+    ...capitalAdjustments.map((adjustment) => ({
+      date: adjustment.date,
+      amount: adjustment.type === 'withdrawal' ? -Math.abs(adjustment.amount) : Math.abs(adjustment.amount),
+      order: 0,
+    })),
+  ].sort((a, b) => {
+    const byDate = new Date(a.date).getTime() - new Date(b.date).getTime();
+    if (byDate !== 0) return byDate;
+    return a.order - b.order;
+  });
+
+  return events.map((event) => {
+    cumulativeBalance += event.amount;
+    return {
+      date: event.date,
+      balance: parseFloat(cumulativeBalance.toFixed(2)),
+    };
+  });
+}
+
+export function getCapitalAdjustmentAmount(adjustment: CapitalAdjustment): number {
+  return adjustment.type === 'withdrawal' ? -Math.abs(adjustment.amount) : Math.abs(adjustment.amount);
+}
+
+export function getNetCapitalAdjustments(capitalAdjustments: CapitalAdjustment[]): number {
+  return capitalAdjustments.reduce((sum, adjustment) => {
+    return sum + getCapitalAdjustmentAmount(adjustment);
+  }, 0);
 }
 
 /**

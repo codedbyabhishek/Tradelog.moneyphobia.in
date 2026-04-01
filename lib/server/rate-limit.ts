@@ -23,7 +23,6 @@ interface RateLimitRow {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var __tradingDiaryRateLimitTableReady: boolean | undefined;
 }
 
@@ -162,4 +161,3 @@ export async function consumeRateLimit(options: RateLimitOptions): Promise<RateL
 
   return { allowed: true, remaining: Math.max(maxRequests - nextRequests, 0) };
 }
-

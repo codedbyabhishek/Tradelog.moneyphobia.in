@@ -1,4 +1,12 @@
+import type { Metadata } from 'next';
 import PublicPageLayout from '@/components/public-page-layout';
+import { createPublicMetadata } from '@/lib/seo';
+
+export const metadata: Metadata = createPublicMetadata({
+  title: 'Disclaimer',
+  description: 'Important educational-use and risk disclaimer for Moneyphobia Journal.',
+  path: '/disclaimer',
+});
 
 export default function DisclaimerPage() {
   return (

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import Image from 'next/image';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -20,11 +21,6 @@ interface ScreenshotViewerProps {
 export function ScreenshotViewer({ imageUrl, title = 'Screenshot', children }: ScreenshotViewerProps) {
   const [open, setOpen] = useState(false);
   const [zoom, setZoom] = useState(100);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const handleDownload = () => {
     const link = document.createElement('a');
@@ -50,18 +46,16 @@ export function ScreenshotViewer({ imageUrl, title = 'Screenshot', children }: S
   // Render static image during SSR and hydration
   const staticImage = (
     <div className="cursor-pointer hover:opacity-80 transition-opacity rounded-lg border border-border overflow-hidden">
-      <img
+      <Image
         src={imageUrl}
         alt={title}
+        width={1200}
+        height={800}
+        unoptimized
         className="max-h-64 w-full object-contain rounded-lg border border-border"
       />
     </div>
   );
-
-  // During hydration, render the interactive version only after mounted
-  if (!mounted) {
-    return staticImage;
-  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -117,9 +111,12 @@ export function ScreenshotViewer({ imageUrl, title = 'Screenshot', children }: S
 
         {/* Image Container */}
         <div className="flex-1 overflow-auto flex items-center justify-center bg-muted/50 p-4">
-          <img
+          <Image
             src={imageUrl}
             alt={title}
+            width={1600}
+            height={1200}
+            unoptimized
             style={{ width: `${zoom}%` }}
             className="max-w-full max-h-full object-contain rounded-lg border border-border"
           />

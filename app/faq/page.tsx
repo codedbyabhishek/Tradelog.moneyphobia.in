@@ -1,4 +1,12 @@
+import type { Metadata } from 'next';
 import PublicPageLayout from '@/components/public-page-layout';
+import { createPublicMetadata } from '@/lib/seo';
+
+export const metadata: Metadata = createPublicMetadata({
+  title: 'FAQ',
+  description: 'Frequently asked questions about storage, export, account access, and support for Moneyphobia Journal.',
+  path: '/faq',
+});
 
 export default function FaqPage() {
   return (

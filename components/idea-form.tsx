@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import React, { useState } from 'react';
 import { useIdeas } from '@/lib/ideas-context';
 import { TradeIdea, IdeaStatus } from '@/lib/types';
@@ -386,7 +387,14 @@ export default function IdeaForm({ onSuccess, editIdea }: IdeaFormProps) {
                     title={`${formData.name || 'Idea'} - Screenshot`}
                   >
                     <div className="cursor-pointer hover:opacity-80 transition-opacity rounded-lg border border-border overflow-hidden w-full">
-                      <img src={screenshot} alt="Idea screenshot" className="w-full rounded-lg border border-border max-h-64 object-cover" />
+                      <Image
+                        src={screenshot}
+                        alt="Idea screenshot"
+                        width={1200}
+                        height={800}
+                        unoptimized
+                        className="w-full rounded-lg border border-border max-h-64 object-cover"
+                      />
                     </div>
                   </ScreenshotViewer>
                   <button

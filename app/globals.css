@@ -200,7 +200,7 @@
   /* Links - Ensure visible and accessible */
   a {
     color: var(--primary);
-    text-decoration: underline;
+    text-decoration: none;
     transition: opacity 0.2s ease;
   }
 

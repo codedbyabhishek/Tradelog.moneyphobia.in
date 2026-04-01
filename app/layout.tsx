@@ -8,15 +8,63 @@ import { ChunkRecovery } from '@/components/chunk-recovery'
 import { ServiceWorkerRegister } from '@/components/service-worker-register'
 import { ThemeProvider } from '@/lib/theme-context'
 import { HydrationBoundary } from '@/components/hydration-boundary'
+import { getSiteUrl } from '@/lib/seo'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Trading Journal',
-  description: 'Professional trading journal app to track trades, analyze performance, and improve your trading strategy',
+  metadataBase: new URL(getSiteUrl()),
+  title: {
+    default: 'Moneyphobia Journal',
+    template: '%s | Moneyphobia Journal',
+  },
+  description: 'Trading journal for manual trade review, Dhan broker sync, setup tracking, screenshots, and performance analysis.',
   generator: 'v0.app',
+  applicationName: 'Moneyphobia Journal',
+  keywords: [
+    'trading journal',
+    'trade tracker',
+    'Dhan sync',
+    'broker sync',
+    'trading analytics',
+    'trading notes',
+    'trade review',
+  ],
+  category: 'finance',
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    title: 'Moneyphobia Journal',
+    description: 'Track trades, sync Dhan history, review setups, and build a disciplined trading journal.',
+    url: '/',
+    siteName: 'Moneyphobia Journal',
+    type: 'website',
+    images: [
+      {
+        url: '/icon.svg',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Moneyphobia Journal',
+    description: 'Track trades, sync Dhan history, review setups, and build a disciplined trading journal.',
+    images: ['/icon.svg'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
+  },
   icons: {
     icon: [
       {
@@ -48,8 +96,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#09090f' },
+  ],
 }
 
 export default function RootLayout({

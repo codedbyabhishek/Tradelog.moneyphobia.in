@@ -14,7 +14,7 @@ export default function PublicPageLayout({ title, description, children }: Publi
       <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-3xl font-bold sm:text-4xl">{title}</h1>
-          <Link href="/" className="text-sm underline underline-offset-4">
+          <Link href="/" className="text-sm">
             Back to Home
           </Link>
         </div>

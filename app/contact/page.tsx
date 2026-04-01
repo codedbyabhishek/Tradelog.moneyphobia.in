@@ -1,4 +1,12 @@
+import type { Metadata } from 'next';
 import PublicPageLayout from '@/components/public-page-layout';
+import { createPublicMetadata } from '@/lib/seo';
+
+export const metadata: Metadata = createPublicMetadata({
+  title: 'Contact',
+  description: 'Contact Moneyphobia Journal support for account, product, and troubleshooting help.',
+  path: '/contact',
+});
 
 export default function ContactPage() {
   return (

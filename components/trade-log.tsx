@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState, useMemo } from 'react';
 import { useTrades } from '@/lib/trade-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +12,8 @@ import { ScreenshotViewer } from './screenshot-viewer';
 import { useToast } from '@/hooks/use-toast';
 import { validateImageFile } from '@/lib/validation';
 import { FIB_LEVEL_OPTIONS, PRESET_SETUPS } from './trade-form';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import { EmptyStateIllustration } from './brand-illustrations';
 
 function isBrokerSyncedTrade(trade: Trade) {
   return trade.id.startsWith('dhan:');
@@ -193,7 +196,18 @@ export default function TradeLog() {
       {filteredAndSortedTrades.length === 0 ? (
         <Card className="bg-card border-border">
           <CardContent className="p-8 sm:p-12 text-center">
-            <p className="text-muted-foreground">No trades found. Add your first trade to get started!</p>
+            <Empty className="border-0 p-0">
+              <EmptyStateIllustration />
+              <EmptyHeader>
+                <EmptyTitle>No trades found</EmptyTitle>
+                <EmptyDescription>
+                  Add your first trade, sync Dhan history, or change the current filter to start reviewing entries.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Structured review starts here</p>
+              </EmptyContent>
+            </Empty>
           </CardContent>
         </Card>
       ) : (
@@ -785,7 +799,14 @@ export default function TradeLog() {
                   {editBeforeScreenshot && (
                     <ScreenshotViewer imageUrl={editBeforeScreenshot} title="Before Trade Screenshot">
                       <button type="button" className="w-full overflow-hidden rounded-lg border border-border">
-                        <img src={editBeforeScreenshot} alt="Before trade" className="max-h-56 w-full object-cover" />
+                        <Image
+                          src={editBeforeScreenshot}
+                          alt="Before trade"
+                          width={1200}
+                          height={800}
+                          unoptimized
+                          className="max-h-56 w-full object-cover"
+                        />
                       </button>
                     </ScreenshotViewer>
                   )}
@@ -812,7 +833,14 @@ export default function TradeLog() {
                   {editAfterScreenshot && (
                     <ScreenshotViewer imageUrl={editAfterScreenshot} title="After Exit Screenshot">
                       <button type="button" className="w-full overflow-hidden rounded-lg border border-border">
-                        <img src={editAfterScreenshot} alt="After exit" className="max-h-56 w-full object-cover" />
+                        <Image
+                          src={editAfterScreenshot}
+                          alt="After exit"
+                          width={1200}
+                          height={800}
+                          unoptimized
+                          className="max-h-56 w-full object-cover"
+                        />
                       </button>
                     </ScreenshotViewer>
                   )}

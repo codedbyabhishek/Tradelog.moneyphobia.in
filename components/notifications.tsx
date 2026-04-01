@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -21,23 +21,24 @@ interface NotificationsProps {
 }
 
 export function Notifications({ trades }: NotificationsProps) {
-  const [alerts, setAlerts] = useState<any[]>([]);
+  const [dismissedAlertIds, setDismissedAlertIds] = useState<string[]>([]);
   const [showDialog, setShowDialog] = useState(false);
+  const allAlerts = useMemo(() => checkTradeAlerts(trades), [trades]);
+  const alerts = useMemo(
+    () => allAlerts.filter((alert) => !dismissedAlertIds.includes(alert.id)),
+    [allAlerts, dismissedAlertIds]
+  );
 
   useEffect(() => {
-    const newAlerts = checkTradeAlerts(trades);
-    setAlerts(newAlerts);
-
-    // Send browser notification for critical alerts
-    newAlerts.forEach((alert) => {
+    allAlerts.forEach((alert) => {
       if (alert.type === 'warning' || alert.type === 'achievement') {
         sendNotification(alert.message, alert.id);
       }
     });
-  }, [trades]);
+  }, [allAlerts]);
 
   function dismissAlert(alertId: string) {
-    setAlerts((prev) => prev.filter((a) => a.id !== alertId));
+    setDismissedAlertIds((prev) => [...prev, alertId]);
   }
 
   function getAlertIcon(type: string) {

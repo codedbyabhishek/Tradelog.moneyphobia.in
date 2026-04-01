@@ -1,4 +1,12 @@
+import type { Metadata } from 'next';
 import PublicPageLayout from '@/components/public-page-layout';
+import { createPublicMetadata } from '@/lib/seo';
+
+export const metadata: Metadata = createPublicMetadata({
+  title: 'About',
+  description: 'Learn how Moneyphobia Journal helps traders review performance, track setups, and build discipline.',
+  path: '/about',
+});
 
 export default function AboutPage() {
   return (

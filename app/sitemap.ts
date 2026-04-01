@@ -1,7 +1,8 @@
 import type { MetadataRoute } from 'next';
+import { getSiteUrl } from '@/lib/seo';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://royalblue-parrot-186916.hostingersite.com';
+  const baseUrl = getSiteUrl();
   const now = new Date();
 
   return [
@@ -19,7 +20,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   ].map((path) => ({
     url: `${baseUrl}${path}`,
     lastModified: now,
-    changeFrequency: 'weekly',
-    priority: path === '' ? 1 : 0.7,
+    changeFrequency: path === '' ? 'daily' : 'weekly',
+    priority: path === '' ? 1 : path === '/about' || path === '/contact' || path === '/faq' ? 0.8 : 0.6,
   }));
 }

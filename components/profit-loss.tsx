@@ -3,15 +3,19 @@
 import { useContext } from 'react';
 import { TradeContext } from '@/lib/trade-context';
 import { useSettings } from '@/lib/settings-context';
-import { getTradeBasePnL, getTradeCharges, getTradeGrossPnL, CURRENCY_SYMBOLS, formatCurrency, convertToBaseCurrency } from '@/lib/trade-utils';
+import { getTradeBasePnL, getTradeCharges, getTradeGrossPnL, CURRENCY_SYMBOLS, formatCurrency, convertToBaseCurrency, getCapitalAdjustmentAmount, getNetCapitalAdjustments } from '@/lib/trade-utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 export default function ProfitLoss() {
-  const { baseCurrency } = useSettings(); // Move useSettings hook to the top level
+  const { baseCurrency, startingBalance, capitalAdjustments } = useSettings();
   const context = useContext(TradeContext);
   if (!context) return null;
 
   const { trades } = context;
+  const totalPnL = trades.reduce((sum, trade) => sum + getTradeBasePnL(trade), 0);
+  const netCapitalAdjustments = getNetCapitalAdjustments(capitalAdjustments);
+  const investedCapital = startingBalance + netCapitalAdjustments;
+  const currentBalance = investedCapital + totalPnL;
 
   // Base currency symbol for display
   const baseCurrencySymbol = CURRENCY_SYMBOLS[baseCurrency];
@@ -20,19 +24,44 @@ export default function ProfitLoss() {
   const sortedTrades = [...trades].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   // Calculate cumulative P&L using base currency
-  const cumulativeData = sortedTrades.reduce((acc: any[], trade) => {
-    const basePnL = getTradeBasePnL(trade);
-    const lastCumulative = acc.length > 0 ? acc[acc.length - 1].cumulativePnL : 0;
-    return [
-      ...acc,
-      {
-        date: new Date(trade.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        pnl: basePnL,
-        cumulativePnL: lastCumulative + basePnL,
-        symbol: trade.symbol,
-      },
-    ];
-  }, []);
+  const cumulativeData = [
+    ...sortedTrades.map((trade) => ({
+      date: trade.date,
+      amount: getTradeBasePnL(trade),
+      kind: 'trade' as const,
+      symbol: trade.symbol,
+      order: 1,
+    })),
+    ...capitalAdjustments.map((adjustment) => ({
+      date: adjustment.date,
+      amount: getCapitalAdjustmentAmount(adjustment),
+      kind: 'capital' as const,
+      symbol: adjustment.type === 'withdrawal' ? 'Withdrawal' : 'Deposit',
+      order: 0,
+    })),
+  ]
+    .sort((a, b) => {
+      const byDate = a.date.localeCompare(b.date);
+      if (byDate !== 0) return byDate;
+      return a.order - b.order;
+    })
+    .reduce((acc: any[], event) => {
+      const lastCumulative = acc.length > 0 ? acc[acc.length - 1].cumulativePnL : 0;
+      const cumulativePnL = event.kind === 'trade' ? lastCumulative + event.amount : lastCumulative;
+      const lastBalance = acc.length > 0 ? acc[acc.length - 1].accountBalance : startingBalance;
+      const accountBalance = lastBalance + event.amount;
+
+      return [
+        ...acc,
+        {
+          date: new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          pnl: event.kind === 'trade' ? event.amount : 0,
+          cumulativePnL,
+          accountBalance,
+          symbol: event.symbol,
+        },
+      ];
+    }, []);
 
   // Daily P&L Summary - using base currency to avoid mixing currencies
   // Now includes gross P&L, charges, and net P&L breakdown
@@ -128,9 +157,6 @@ export default function ProfitLoss() {
     return acc;
   }, []).sort((a: any, b: any) => b.pnl - a.pnl);
 
-  // Total P&L in base currency
-  const totalPnL = trades.reduce((sum, trade) => sum + getTradeBasePnL(trade), 0);
-  
   // Total charges and gross P&L
   const totalCharges = trades.reduce((sum, trade) => {
     const charges = getTradeCharges(trade);
@@ -166,6 +192,13 @@ export default function ProfitLoss() {
 
         {/* Overall Summary - All values in base currency */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+          <div className="bg-card p-4 sm:p-6 rounded-lg border border-border">
+            <p className="text-xs sm:text-sm text-muted-foreground mb-2">Current Balance ({baseCurrency})</p>
+            <p className={`text-2xl sm:text-3xl font-bold break-words ${currentBalance >= investedCapital ? 'text-green-400' : 'text-red-400'}`}>
+              {baseCurrencySymbol}{currentBalance.toFixed(0)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">Capital Base: {baseCurrencySymbol}{investedCapital.toFixed(0)}</p>
+          </div>
           <div className="bg-card p-4 sm:p-6 rounded-lg border border-border">
             <p className="text-xs sm:text-sm text-muted-foreground mb-2">Net P&L ({baseCurrency})</p>
             <p className={`text-2xl sm:text-3xl font-bold break-words ${totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
@@ -228,7 +261,7 @@ export default function ProfitLoss() {
         {/* Cumulative P&L Chart */}
         {cumulativeData.length > 0 && (
           <div className="bg-card p-4 sm:p-6 rounded-lg border border-border mb-6 sm:mb-8">
-            <h3 className="text-base sm:text-lg font-semibold text-foreground mb-4">Cumulative P&L Over Time</h3>
+            <h3 className="text-base sm:text-lg font-semibold text-foreground mb-4">Account Balance Over Time</h3>
             <ResponsiveContainer width="100%" height={250} minHeight={200}>
               <LineChart data={cumulativeData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#333" />
@@ -236,15 +269,18 @@ export default function ProfitLoss() {
                 <YAxis stroke="#666" />
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }}
-                  formatter={(value: any) => `${baseCurrencySymbol}${value.toFixed(0)}`}
+                  formatter={(value: any, name: string) => {
+                    const label = name === 'accountBalance' ? 'Balance' : 'Net P&L';
+                    return `${label}: ${baseCurrencySymbol}${value.toFixed(0)}`;
+                  }}
                 />
                 <Legend />
                 <Line 
                   type="monotone" 
-                  dataKey="cumulativePnL" 
+                  dataKey="accountBalance" 
                   stroke="#a78bfa" 
                   dot={false}
-                  name="Cumulative P&L"
+                  name="Account Balance"
                 />
               </LineChart>
             </ResponsiveContainer>

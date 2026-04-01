@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import SiteFooter from '@/components/site-footer';
+import { AuthSceneIllustration } from '@/components/brand-illustrations';
 
 export default function AuthScreen() {
   const { login, signup, error, clearError } = useAuth();
@@ -46,6 +47,7 @@ export default function AuthScreen() {
             </CardDescription>
           </CardHeader>
           <CardContent className="relative z-10 p-8 pt-0 space-y-3">
+            <AuthSceneIllustration className="mb-4" />
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="rounded-xl border border-border bg-background/80 p-3">
                 <p className="text-xs text-muted-foreground">Journaling</p>

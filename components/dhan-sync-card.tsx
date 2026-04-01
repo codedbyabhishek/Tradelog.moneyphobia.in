@@ -220,18 +220,18 @@ export default function DhanSyncCard() {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Card className="h-full cursor-pointer border-border bg-card transition-colors hover:border-primary/40">
-          <CardHeader className="p-3 sm:p-4 lg:p-6 pb-2 sm:pb-2 lg:pb-3">
+        <Card className="h-full cursor-pointer rounded-xl border-border bg-card transition-colors hover:border-primary/40">
+          <CardHeader className="p-3 pb-1.5 sm:p-3.5 sm:pb-1.5 lg:p-4 lg:pb-2">
             <div className="flex items-center justify-between gap-2">
-              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Dhan Sync</CardTitle>
-              <Database className={`h-4 w-4 sm:h-5 sm:w-5 ${configured ? 'text-emerald-400' : 'text-primary'}`} />
+              <CardTitle className="text-[11px] sm:text-xs font-medium text-muted-foreground">Dhan Sync</CardTitle>
+              <Database className={`h-4 w-4 ${configured ? 'text-emerald-400' : 'text-primary'}`} />
             </div>
           </CardHeader>
-          <CardContent className="p-3 sm:p-4 lg:p-6 space-y-3">
-            <div className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground">
+          <CardContent className="space-y-2 p-3 pt-0 sm:p-3.5 sm:pt-0 lg:p-4 lg:pt-0">
+            <div className="text-base sm:text-lg lg:text-xl font-bold leading-tight text-foreground">
               {configured ? 'Connected' : 'Setup'}
             </div>
-            <p className="text-xs sm:text-sm text-muted-foreground">
+            <p className="text-[11px] sm:text-xs text-muted-foreground leading-snug">
               {configured
                 ? `${status?.holdingsCount ?? '-'} holdings • ${status?.openPositionCount ?? '-'} open`
                 : 'Connect Dhan and sync broker trades'}

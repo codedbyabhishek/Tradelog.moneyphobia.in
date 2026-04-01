@@ -1,27 +1,37 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Currency } from './types';
+import { CapitalAdjustment, Currency } from './types';
 import { useAuth } from '@/lib/auth-context';
 
 interface SettingsContextType {
   baseCurrency: Currency;
   setBaseCurrency: (currency: Currency) => void;
+  startingBalance: number;
+  setStartingBalance: (balance: number) => void;
+  capitalAdjustments: CapitalAdjustment[];
+  saveCapitalAdjustments: (adjustments: CapitalAdjustment[]) => void;
 }
 
 export const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 const DEFAULT_BASE_CURRENCY: Currency = 'INR';
+const DEFAULT_STARTING_BALANCE = 0;
+const DEFAULT_CAPITAL_ADJUSTMENTS: CapitalAdjustment[] = [];
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const { user, isLoading: isAuthLoading } = useAuth();
   const [baseCurrency, setBaseCurrencyState] = useState<Currency>(DEFAULT_BASE_CURRENCY);
+  const [startingBalance, setStartingBalanceState] = useState<number>(DEFAULT_STARTING_BALANCE);
+  const [capitalAdjustments, setCapitalAdjustmentsState] = useState<CapitalAdjustment[]>(DEFAULT_CAPITAL_ADJUSTMENTS);
 
   useEffect(() => {
     const load = async () => {
       if (isAuthLoading) return;
       if (!user) {
         setBaseCurrencyState(DEFAULT_BASE_CURRENCY);
+        setStartingBalanceState(DEFAULT_STARTING_BALANCE);
+        setCapitalAdjustmentsState(DEFAULT_CAPITAL_ADJUSTMENTS);
         return;
       }
 
@@ -29,10 +39,28 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         const res = await fetch('/api/settings', { credentials: 'include', cache: 'no-store' });
         if (!res.ok) return;
         const data = await res.json();
-        const stored = data?.settings?.baseCurrency;
-        if (stored) {
-          setBaseCurrencyState(stored as Currency);
+        const storedCurrency = data?.settings?.baseCurrency;
+        const storedStartingBalance = Number(data?.settings?.startingBalance);
+        const storedCapitalAdjustments = Array.isArray(data?.settings?.capitalAdjustments)
+          ? data.settings.capitalAdjustments
+          : DEFAULT_CAPITAL_ADJUSTMENTS;
+        if (storedCurrency) {
+          setBaseCurrencyState(storedCurrency as Currency);
         }
+        if (Number.isFinite(storedStartingBalance)) {
+          setStartingBalanceState(storedStartingBalance);
+        }
+        setCapitalAdjustmentsState(
+          storedCapitalAdjustments
+            .filter((item: any) => item && item.id && item.date && Number.isFinite(Number(item.amount)))
+            .map((item: any) => ({
+              id: String(item.id),
+              date: String(item.date),
+              type: item.type === 'withdrawal' ? 'withdrawal' : 'deposit',
+              amount: Number(item.amount),
+              note: item.note ? String(item.note) : '',
+            }))
+        );
       } catch (error) {
         console.error('[SettingsContext] Failed to load settings:', error);
       }
@@ -56,7 +84,55 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  return <SettingsContext.Provider value={{ baseCurrency, setBaseCurrency }}>{children}</SettingsContext.Provider>;
+  const setStartingBalance = (balance: number) => {
+    const normalizedBalance = Number.isFinite(balance) ? balance : DEFAULT_STARTING_BALANCE;
+    setStartingBalanceState(normalizedBalance);
+
+    if (!user) return;
+
+    void fetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ key: 'startingBalance', value: normalizedBalance }),
+    }).catch((err) => {
+      console.error('[SettingsContext] Failed to save settings:', err);
+    });
+  };
+
+  const saveCapitalAdjustments = (adjustments: CapitalAdjustment[]) => {
+    const normalized = [...adjustments]
+      .filter((item) => item.id && item.date && Number.isFinite(item.amount))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    setCapitalAdjustmentsState(normalized);
+
+    if (!user) return;
+
+    void fetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ key: 'capitalAdjustments', value: normalized }),
+    }).catch((err) => {
+      console.error('[SettingsContext] Failed to save settings:', err);
+    });
+  };
+
+  return (
+    <SettingsContext.Provider
+      value={{
+        baseCurrency,
+        setBaseCurrency,
+        startingBalance,
+        setStartingBalance,
+        capitalAdjustments,
+        saveCapitalAdjustments,
+      }}
+    >
+      {children}
+    </SettingsContext.Provider>
+  );
 }
 
 export function useSettings(): SettingsContextType {

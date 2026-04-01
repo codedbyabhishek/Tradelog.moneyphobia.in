@@ -202,7 +202,7 @@ export default function GitHubSyncButton({ trades }: GitHubSyncButtonProps) {
                 href="https://github.com/settings/tokens"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary hover:underline"
+                className="text-primary"
               >
                 GitHub Settings
               </a>

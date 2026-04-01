@@ -1,11 +1,13 @@
 "use client";
 
+import type { ReactNode } from 'react';
 import { useMemo, useState } from "react";
 import { useTrades } from '@/lib/trade-context';
 import { useSettings } from '@/lib/settings-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Activity, AlertTriangle, Brain, CalendarRange, Clock3, Gauge, Layers3, Shield, TrendingDown, TrendingUp } from 'lucide-react';
 import { Trade } from '@/lib/types';
 import { getTradeBasePnL, getTradeCharges, CURRENCY_SYMBOLS, BASE_CURRENCY, formatCurrency, convertToBaseCurrency } from '@/lib/trade-utils';
 import { calculateExpectancy } from '@/lib/analytics-engine';
@@ -24,6 +26,90 @@ interface Analytics {
   worstDay: { date: string; pnl: number };
   emotionCorrelation: { emotion: string; wins: number; losses: number; winRate: number }[];
   sessionPerformance: { session: string; winRate: number; pnl: number }[];
+}
+
+function HeroMetricCard({
+  title,
+  value,
+  subtitle,
+  tone = 'neutral',
+}: {
+  title: string;
+  value: string;
+  subtitle: string;
+  tone?: 'positive' | 'negative' | 'neutral';
+}) {
+  const toneClass =
+    tone === 'positive'
+      ? 'text-emerald-300 border-emerald-500/20 bg-emerald-500/10'
+      : tone === 'negative'
+        ? 'text-rose-300 border-rose-500/20 bg-rose-500/10'
+        : 'text-foreground border-border/70 bg-background/80';
+
+  return (
+    <div className={`min-w-0 rounded-2xl border p-3 sm:p-4 ${toneClass}`}>
+      <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.14em] sm:tracking-[0.18em] text-muted-foreground break-words">
+        {title}
+      </p>
+      <p className="mt-2 text-xl sm:text-2xl font-semibold leading-tight break-words">{value}</p>
+      <p className="mt-2 text-[11px] sm:text-xs leading-5 text-muted-foreground break-words">{subtitle}</p>
+    </div>
+  );
+}
+
+function StatPanel({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: 'positive' | 'negative' | 'warning' | 'neutral';
+}) {
+  const accentClass =
+    accent === 'positive'
+      ? 'text-emerald-300'
+      : accent === 'negative'
+        ? 'text-rose-300'
+        : accent === 'warning'
+          ? 'text-amber-300'
+          : 'text-foreground';
+
+  return (
+    <div className="min-w-0 rounded-2xl border border-border/60 bg-background/60 p-3">
+      <p className="text-[10px] sm:text-xs uppercase tracking-[0.12em] sm:tracking-[0.16em] leading-4 text-muted-foreground break-words">
+        {label}
+      </p>
+      <p className={`mt-2 text-sm font-semibold leading-5 break-words ${accentClass}`}>{value}</p>
+    </div>
+  );
+}
+
+function InsightSection({
+  icon: Icon,
+  title,
+  description,
+  children,
+}: {
+  icon: typeof Activity;
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex min-w-0 items-start gap-3">
+        <div className="rounded-2xl border border-border/70 bg-background/70 p-2.5">
+          <Icon className="h-4 w-4 text-primary" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.14em] sm:tracking-[0.18em] text-muted-foreground break-words">{title}</h3>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground break-words">{description}</p>
+        </div>
+      </div>
+      {children}
+    </section>
+  );
 }
 
 export default function AdvancedAnalytics() {
@@ -449,9 +535,15 @@ export default function AdvancedAnalytics() {
 
   if (!trades || trades.length === 0) {
     return (
-      <div className="p-4 space-y-4">
-        <h1 className="text-3xl font-bold">Advanced Analytics</h1>
-        <Card>
+      <div className="p-4 sm:p-6 lg:p-8 space-y-4">
+        <div className="rounded-[28px] border border-border/70 bg-card p-6">
+          <Badge className="mb-3 border-primary/20 bg-primary/10 text-primary">Advanced Analytics</Badge>
+          <h1 className="text-3xl font-bold text-foreground">Performance command center</h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            This screen keeps your deeper review metrics, correlations, and risk readouts in one place.
+          </p>
+        </div>
+        <Card className="border-border bg-card">
           <CardContent className="pt-6">
             <p className="text-muted-foreground">No trades yet. Start trading and track your performance here!</p>
           </CardContent>
@@ -461,12 +553,51 @@ export default function AdvancedAnalytics() {
   }
 
   return (
-    <div className="p-4 space-y-6">
-      <h1 className="text-3xl font-bold">Advanced Analytics</h1>
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+      <section className="relative overflow-hidden rounded-[32px] border border-border/70 bg-card px-4 py-6 sm:px-6 lg:px-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.14),transparent_30%)]" />
+        <div className="relative flex min-w-0 flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 max-w-3xl">
+            <Badge className="border-primary/20 bg-primary/10 text-primary">Advanced Analytics</Badge>
+            <h1 className="mt-4 text-3xl font-bold tracking-tight text-foreground sm:text-4xl break-words">
+              See the full story behind your trading performance
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base break-words">
+              The core purpose stays the same: deeper performance review, emotional and session correlations,
+              risk metrics, and a denser stats layer than the main analytics page.
+            </p>
+          </div>
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 lg:w-full xl:w-[460px]">
+            <HeroMetricCard
+              title="Win Rate"
+              value={formatPercent(analytics.winRate)}
+              subtitle={`${trades.filter((t) => getTradeBasePnL(t) > 0).length} wins across ${trades.length} trades`}
+              tone={analytics.winRate >= 50 ? 'positive' : 'negative'}
+            />
+            <HeroMetricCard
+              title="Profit Factor"
+              value={analytics.profitFactor.toFixed(2)}
+              subtitle={`${formatPnl(analytics.avgWin)} avg win`}
+              tone={analytics.profitFactor >= 1 ? 'positive' : 'negative'}
+            />
+            <HeroMetricCard
+              title="Best Day"
+              value={formatPnl(analytics.bestDay.pnl)}
+              subtitle={analytics.bestDay.date}
+              tone={analytics.bestDay.pnl >= 0 ? 'positive' : 'negative'}
+            />
+            <HeroMetricCard
+              title="Worst Day"
+              value={formatPnl(analytics.worstDay.pnl)}
+              subtitle={analytics.worstDay.date}
+              tone="negative"
+            />
+          </div>
+        </div>
+      </section>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <Card className="border-border bg-card">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">Win Rate</CardTitle>
           </CardHeader>
@@ -475,58 +606,59 @@ export default function AdvancedAnalytics() {
             <div className="mt-2">
               <Progress value={analytics.winRate} className="h-2" />
             </div>
-            <p className="text-xs text-muted-foreground mt-2">{trades.filter(t => getTradeBasePnL(t) > 0).length} wins / {trades.length} trades</p>
+            <p className="text-xs text-muted-foreground mt-2">
+              {trades.filter((t) => getTradeBasePnL(t) > 0).length} wins / {trades.length} trades
+            </p>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Profit Factor</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{analytics.profitFactor.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground mt-2">Avg Win: {baseCurrencySymbol}{analytics.avgWin.toFixed(0)}</p>
-            <p className="text-xs text-muted-foreground">Avg Loss: {baseCurrencySymbol}{analytics.avgLoss.toFixed(0)}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Best Day</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${analytics.bestDay.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {baseCurrencySymbol}{analytics.bestDay.pnl.toFixed(0)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">{analytics.bestDay.date}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Worst Day</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${analytics.worstDay.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {baseCurrencySymbol}{analytics.worstDay.pnl.toFixed(0)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">{analytics.worstDay.date}</p>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Profit Factor</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{analytics.profitFactor.toFixed(2)}</div>
+              <p className="text-xs text-muted-foreground mt-2">Avg Win: {baseCurrencySymbol}{analytics.avgWin.toFixed(0)}</p>
+              <p className="text-xs text-muted-foreground">Avg Loss: {baseCurrencySymbol}{analytics.avgLoss.toFixed(0)}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Best Day</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${analytics.bestDay.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {baseCurrencySymbol}{analytics.bestDay.pnl.toFixed(0)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">{analytics.bestDay.date}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Worst Day</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${analytics.worstDay.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {baseCurrencySymbol}{analytics.worstDay.pnl.toFixed(0)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">{analytics.worstDay.date}</p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Your Stats */}
-      <Card className="bg-card border-border">
-        <CardHeader className="pb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+      <Card className="bg-card border-border overflow-hidden">
+        <CardHeader className="pb-3 flex flex-col gap-3 border-b border-border/60 bg-gradient-to-r from-background/60 to-transparent sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <CardTitle className="text-lg sm:text-xl">Your Stats</CardTitle>
             <CardDescription>
               Trading performance for the selected time range
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2 text-xs sm:text-sm">
+          <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
             <span className="text-muted-foreground">Range:</span>
-            <div className="inline-flex rounded-full bg-background/40 border border-border/60 p-1">
+            <div className="inline-flex flex-wrap rounded-full bg-background/40 border border-border/60 p-1">
               {[7, 30, 90].map((days) => (
                 <button
                   key={days}
@@ -562,418 +694,135 @@ export default function AdvancedAnalytics() {
             </p>
           ) : (
             <>
-              {/* Monthly Performance */}
-              <section className="space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  Monthly Performance
-                </h3>
+              <InsightSection
+                icon={CalendarRange}
+                title="Monthly Performance"
+                description="See the strongest and weakest months in the selected range."
+              >
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">Best Month</p>
-                    <p className="text-sm font-semibold">
-                      {yourStats.monthly.bestMonth
-                        ? yourStats.monthly.bestMonth.label
-                        : "—"}
-                    </p>
-                    <p
-                      className={`text-xs mt-1 ${
-                        (yourStats.monthly.bestMonth?.pnl ?? 0) >= 0
-                          ? "text-green-400"
-                          : "text-red-400"
-                      }`}
-                    >
-                      {yourStats.monthly.bestMonth
-                        ? formatPnl(yourStats.monthly.bestMonth.pnl)
-                        : "—"}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">Worst Month</p>
-                    <p className="text-sm font-semibold">
-                      {yourStats.monthly.worstMonth
-                        ? yourStats.monthly.worstMonth.label
-                        : "—"}
-                    </p>
-                    <p
-                      className={`text-xs mt-1 ${
-                        (yourStats.monthly.worstMonth?.pnl ?? 0) >= 0
-                          ? "text-green-400"
-                          : "text-red-400"
-                      }`}
-                    >
-                      {yourStats.monthly.worstMonth
-                        ? formatPnl(yourStats.monthly.worstMonth.pnl)
-                        : "—"}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Average Monthly P&amp;L
-                    </p>
-                    <p
-                      className={`text-sm font-semibold ${
-                        yourStats.monthly.avgMonthlyPnl >= 0
-                          ? "text-green-400"
-                          : "text-red-400"
-                      }`}
-                    >
-                      {formatPnl(yourStats.monthly.avgMonthlyPnl)}
-                    </p>
-                  </div>
+                  <StatPanel
+                    label="Best Month"
+                    value={yourStats.monthly.bestMonth ? yourStats.monthly.bestMonth.label : "—"}
+                  />
+                  <StatPanel
+                    label="Best Month P&L"
+                    value={yourStats.monthly.bestMonth ? formatPnl(yourStats.monthly.bestMonth.pnl) : "—"}
+                    accent={(yourStats.monthly.bestMonth?.pnl ?? 0) >= 0 ? 'positive' : 'negative'}
+                  />
+                  <StatPanel
+                    label="Worst Month"
+                    value={yourStats.monthly.worstMonth ? yourStats.monthly.worstMonth.label : "—"}
+                    accent={(yourStats.monthly.worstMonth?.pnl ?? 0) >= 0 ? 'positive' : 'negative'}
+                  />
                 </div>
-              </section>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <StatPanel
+                    label="Worst Month P&L"
+                    value={yourStats.monthly.worstMonth ? formatPnl(yourStats.monthly.worstMonth.pnl) : "—"}
+                    accent={(yourStats.monthly.worstMonth?.pnl ?? 0) >= 0 ? 'positive' : 'negative'}
+                  />
+                  <StatPanel
+                    label="Average Monthly P&L"
+                    value={formatPnl(yourStats.monthly.avgMonthlyPnl)}
+                    accent={yourStats.monthly.avgMonthlyPnl >= 0 ? 'positive' : 'negative'}
+                  />
+                </div>
+              </InsightSection>
 
-              {/* General Performance */}
-              <section className="space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  General Performance
-                </h3>
+              <InsightSection
+                icon={Gauge}
+                title="General Performance"
+                description="Core P&L and trade quality numbers for the chosen period."
+              >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">Total P&amp;L</p>
-                    <p
-                      className={`text-sm font-semibold ${
-                        yourStats.general.totalPnl >= 0
-                          ? "text-green-400"
-                          : "text-red-400"
-                      }`}
-                    >
-                      {formatPnl(yourStats.general.totalPnl)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Average Daily Volume
-                    </p>
-                    <p className="text-sm font-semibold">
-                      {yourStats.general.avgDailyVolume > 0
-                        ? yourStats.general.avgDailyVolume.toFixed(1)
-                        : "—"}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Average Winning Trade
-                    </p>
-                    <p className="text-sm font-semibold text-green-400">
-                      {formatPnl(yourStats.general.avgWinningTrade)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Average Losing Trade
-                    </p>
-                    <p className="text-sm font-semibold text-red-400">
-                      {formatPnl(yourStats.general.avgLosingTrade)}
-                    </p>
-                  </div>
+                  <StatPanel label="Total P&L" value={formatPnl(yourStats.general.totalPnl)} accent={yourStats.general.totalPnl >= 0 ? 'positive' : 'negative'} />
+                  <StatPanel label="Average Daily Volume" value={yourStats.general.avgDailyVolume > 0 ? yourStats.general.avgDailyVolume.toFixed(1) : "—"} />
+                  <StatPanel label="Average Winning Trade" value={formatPnl(yourStats.general.avgWinningTrade)} accent="positive" />
+                  <StatPanel label="Average Losing Trade" value={formatPnl(yourStats.general.avgLosingTrade)} accent="negative" />
                 </div>
-              </section>
+              </InsightSection>
 
-              {/* Trade Statistics & Streaks */}
-              <section className="space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  Trade Statistics
-                </h3>
+              <InsightSection
+                icon={Layers3}
+                title="Trade Statistics"
+                description="Break down count, streak behavior, and how outcomes are distributed."
+              >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Total Trades
-                    </p>
-                    <p className="text-sm font-semibold">
-                      {formatPlainNumber(yourStats.tradeStats.totalTrades)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Winning Trades
-                    </p>
-                    <p className="text-sm font-semibold text-green-400">
-                      {formatPlainNumber(yourStats.tradeStats.winningTrades)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Losing Trades
-                    </p>
-                    <p className="text-sm font-semibold text-red-400">
-                      {formatPlainNumber(yourStats.tradeStats.losingTrades)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Break-even Trades
-                    </p>
-                    <p className="text-sm font-semibold">
-                      {formatPlainNumber(yourStats.tradeStats.breakevenTrades)}
-                    </p>
-                  </div>
+                  <StatPanel label="Total Trades" value={formatPlainNumber(yourStats.tradeStats.totalTrades)} />
+                  <StatPanel label="Winning Trades" value={formatPlainNumber(yourStats.tradeStats.winningTrades)} accent="positive" />
+                  <StatPanel label="Losing Trades" value={formatPlainNumber(yourStats.tradeStats.losingTrades)} accent="negative" />
+                  <StatPanel label="Break-even Trades" value={formatPlainNumber(yourStats.tradeStats.breakevenTrades)} />
                 </div>
 
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mt-4">
-                  Streak Statistics
-                </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Max Consecutive Wins
-                    </p>
-                    <p className="text-sm font-semibold text-green-400">
-                      {formatPlainNumber(yourStats.streaks.maxConsecutiveWins)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Max Consecutive Losses
-                    </p>
-                    <p className="text-sm font-semibold text-red-400">
-                      {formatPlainNumber(yourStats.streaks.maxConsecutiveLosses)}
-                    </p>
-                  </div>
+                  <StatPanel label="Max Consecutive Wins" value={formatPlainNumber(yourStats.streaks.maxConsecutiveWins)} accent="positive" />
+                  <StatPanel label="Max Consecutive Losses" value={formatPlainNumber(yourStats.streaks.maxConsecutiveLosses)} accent="negative" />
                 </div>
-              </section>
+              </InsightSection>
 
-              {/* Trading Costs & Extremes */}
-              <section className="space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  Trading Costs
-                </h3>
+              <InsightSection
+                icon={TrendingDown}
+                title="Trading Costs And Extremes"
+                description="Track friction costs and the edge cases that shape your overall expectancy."
+              >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Total Commissions
-                    </p>
-                    <p className="text-sm font-semibold text-orange-400">
-                      {formatPnl(yourStats.costs.totalCommissions)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">Total Swap</p>
-                    <p className="text-sm font-semibold">
-                      {yourStats.costs.totalSwap !== 0
-                        ? formatPnl(yourStats.costs.totalSwap)
-                        : '—'}
-                    </p>
-                  </div>
+                  <StatPanel label="Total Commissions" value={formatPnl(yourStats.costs.totalCommissions)} accent="warning" />
+                  <StatPanel label="Total Swap" value={yourStats.costs.totalSwap !== 0 ? formatPnl(yourStats.costs.totalSwap) : '—'} />
                 </div>
-
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mt-4">
-                  Trade Extremes
-                </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Largest Profit
-                    </p>
-                    <p className="text-sm font-semibold text-green-400">
-                      {yourStats.extremes.largestProfit
-                        ? formatPnl(yourStats.extremes.largestProfit)
-                        : '—'}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Largest Loss
-                    </p>
-                    <p className="text-sm font-semibold text-red-400">
-                      {yourStats.extremes.largestLoss
-                        ? formatPnl(yourStats.extremes.largestLoss)
-                        : '—'}
-                    </p>
-                  </div>
+                  <StatPanel label="Largest Profit" value={yourStats.extremes.largestProfit ? formatPnl(yourStats.extremes.largestProfit) : '—'} accent="positive" />
+                  <StatPanel label="Largest Loss" value={yourStats.extremes.largestLoss ? formatPnl(yourStats.extremes.largestLoss) : '—'} accent="negative" />
                 </div>
-              </section>
+              </InsightSection>
 
-              {/* Trade Duration */}
-              <section className="space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  Trade Duration
-                </h3>
+              <InsightSection
+                icon={Clock3}
+                title="Trade Duration"
+                description="Measure how long you tend to hold all trades, wins, and losses."
+              >
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Avg Hold Time (All)
-                    </p>
-                    <p className="text-sm font-semibold">
-                      {formatDuration(yourStats.durations.avgHoldAll)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Avg Hold Time (Wins)
-                    </p>
-                    <p className="text-sm font-semibold">
-                      {formatDuration(yourStats.durations.avgHoldWinning)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Avg Hold Time (Losses)
-                    </p>
-                    <p className="text-sm font-semibold">
-                      {formatDuration(yourStats.durations.avgHoldLosing)}
-                    </p>
-                  </div>
+                  <StatPanel label="Avg Hold Time (All)" value={formatDuration(yourStats.durations.avgHoldAll)} />
+                  <StatPanel label="Avg Hold Time (Wins)" value={formatDuration(yourStats.durations.avgHoldWinning)} accent="positive" />
+                  <StatPanel label="Avg Hold Time (Losses)" value={formatDuration(yourStats.durations.avgHoldLosing)} accent="negative" />
                 </div>
-              </section>
+              </InsightSection>
 
-              {/* Trading Activity & Day Streaks */}
-              <section className="space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  Trading Activity
-                </h3>
+              <InsightSection
+                icon={Activity}
+                title="Trading Activity"
+                description="Review how often you trade and how daily outcomes cluster together."
+              >
                 <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">Open Trades</p>
-                    <p className="text-sm font-semibold">0</p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Total Trading Days
-                    </p>
-                    <p className="text-sm font-semibold">
-                      {formatPlainNumber(yourStats.activity.totalTradingDays)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Winning Days
-                    </p>
-                    <p className="text-sm font-semibold text-green-400">
-                      {formatPlainNumber(yourStats.activity.winningDays)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Losing Days
-                    </p>
-                    <p className="text-sm font-semibold text-red-400">
-                      {formatPlainNumber(yourStats.activity.losingDays)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Breakeven Days
-                    </p>
-                    <p className="text-sm font-semibold">
-                      {formatPlainNumber(yourStats.activity.breakevenDays)}
-                    </p>
-                  </div>
+                  <StatPanel label="Open Trades" value="0" />
+                  <StatPanel label="Total Trading Days" value={formatPlainNumber(yourStats.activity.totalTradingDays)} />
+                  <StatPanel label="Winning Days" value={formatPlainNumber(yourStats.activity.winningDays)} accent="positive" />
+                  <StatPanel label="Losing Days" value={formatPlainNumber(yourStats.activity.losingDays)} accent="negative" />
+                  <StatPanel label="Breakeven Days" value={formatPlainNumber(yourStats.activity.breakevenDays)} />
                 </div>
-
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mt-4">
-                  Day Streaks
-                </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Max Consecutive Winning Days
-                    </p>
-                    <p className="text-sm font-semibold text-green-400">
-                      {formatPlainNumber(yourStats.dayStreaks.maxWinningDayStreak)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Max Consecutive Losing Days
-                    </p>
-                    <p className="text-sm font-semibold text-red-400">
-                      {formatPlainNumber(yourStats.dayStreaks.maxLosingDayStreak)}
-                    </p>
-                  </div>
+                  <StatPanel label="Max Consecutive Winning Days" value={formatPlainNumber(yourStats.dayStreaks.maxWinningDayStreak)} accent="positive" />
+                  <StatPanel label="Max Consecutive Losing Days" value={formatPlainNumber(yourStats.dayStreaks.maxLosingDayStreak)} accent="negative" />
                 </div>
-              </section>
+              </InsightSection>
 
-              {/* Daily Performance & Risk Metrics */}
-              <section className="space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  Daily Performance
-                </h3>
+              <InsightSection
+                icon={Shield}
+                title="Daily Performance And Risk"
+                description="Study the daily P&L rhythm and how deep drawdowns become over time."
+              >
                 <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Avg Daily P&amp;L
-                    </p>
-                    <p
-                      className={`text-sm font-semibold ${
-                        yourStats.dailyPerformance.avgDailyPnl >= 0
-                          ? "text-green-400"
-                          : "text-red-400"
-                      }`}
-                    >
-                      {formatPnl(yourStats.dailyPerformance.avgDailyPnl)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Avg Winning Day P&amp;L
-                    </p>
-                    <p className="text-sm font-semibold text-green-400">
-                      {formatPnl(yourStats.dailyPerformance.avgWinningDayPnl)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Avg Losing Day P&amp;L
-                    </p>
-                    <p className="text-sm font-semibold text-red-400">
-                      {formatPnl(yourStats.dailyPerformance.avgLosingDayPnl)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Largest Profitable Day
-                    </p>
-                    <p className="text-sm font-semibold text-green-400">
-                      {formatPnl(yourStats.dailyPerformance.largestProfitableDay)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Largest Losing Day
-                    </p>
-                    <p className="text-sm font-semibold text-red-400">
-                      {formatPnl(yourStats.dailyPerformance.largestLosingDay)}
-                    </p>
-                  </div>
+                  <StatPanel label="Avg Daily P&L" value={formatPnl(yourStats.dailyPerformance.avgDailyPnl)} accent={yourStats.dailyPerformance.avgDailyPnl >= 0 ? 'positive' : 'negative'} />
+                  <StatPanel label="Avg Winning Day P&L" value={formatPnl(yourStats.dailyPerformance.avgWinningDayPnl)} accent="positive" />
+                  <StatPanel label="Avg Losing Day P&L" value={formatPnl(yourStats.dailyPerformance.avgLosingDayPnl)} accent="negative" />
+                  <StatPanel label="Largest Profitable Day" value={formatPnl(yourStats.dailyPerformance.largestProfitableDay)} accent="positive" />
+                  <StatPanel label="Largest Losing Day" value={formatPnl(yourStats.dailyPerformance.largestLosingDay)} accent="negative" />
                 </div>
-
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mt-4">
-                  Risk Metrics
-                </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Trade Expectancy
-                    </p>
-                    <p
-                      className={`text-sm font-semibold ${
-                        yourStats.risk.tradeExpectancy >= 0
-                          ? "text-green-400"
-                          : "text-red-400"
-                      }`}
-                    >
-                      {formatPnl(yourStats.risk.tradeExpectancy)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Maximum Drawdown
-                    </p>
-                    <p className="text-sm font-semibold text-red-400">
-                      {formatPnl(yourStats.risk.maxDrawdown)}
-                    </p>
-                  </div>
-                  <div className="bg-background/60 border border-border/60 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Maximum Drawdown %
-                    </p>
-                    <p className="text-sm font-semibold text-red-400">
-                      {formatPercent(yourStats.risk.maxDrawdownPct)}
-                    </p>
-                  </div>
+                  <StatPanel label="Trade Expectancy" value={formatPnl(yourStats.risk.tradeExpectancy)} accent={yourStats.risk.tradeExpectancy >= 0 ? 'positive' : 'negative'} />
+                  <StatPanel label="Maximum Drawdown" value={formatPnl(yourStats.risk.maxDrawdown)} accent="negative" />
+                  <StatPanel label="Maximum Drawdown %" value={formatPercent(yourStats.risk.maxDrawdownPct)} accent="negative" />
                 </div>
-              </section>
+              </InsightSection>
             </>
           )}
         </CardContent>
@@ -981,9 +830,9 @@ export default function AdvancedAnalytics() {
 
       {/* Emotion Correlation */}
       {analytics.emotionCorrelation.length > 0 && (
-        <Card>
+        <Card className="border-border bg-card overflow-hidden">
           <CardHeader>
-            <CardTitle>Emotion vs Performance</CardTitle>
+            <CardTitle className="flex items-center gap-2"><Brain className="h-4 w-4 text-primary" />Emotion vs Performance</CardTitle>
             <CardDescription>Win rate by emotional state during trading</CardDescription>
           </CardHeader>
           <CardContent>
@@ -1009,9 +858,9 @@ export default function AdvancedAnalytics() {
 
       {/* Session Performance */}
       {analytics.sessionPerformance.length > 0 && (
-        <Card>
+        <Card className="border-border bg-card overflow-hidden">
           <CardHeader>
-            <CardTitle>Session Performance</CardTitle>
+            <CardTitle className="flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" />Session Performance</CardTitle>
             <CardDescription>Performance by trading session</CardDescription>
           </CardHeader>
           <CardContent>
@@ -1033,9 +882,9 @@ export default function AdvancedAnalytics() {
 
       {/* Radar Chart for Multi-Metric Analysis */}
       {analytics.emotionCorrelation.length >= 3 && (
-        <Card>
+        <Card className="border-border bg-card overflow-hidden">
           <CardHeader>
-            <CardTitle>Performance Radar</CardTitle>
+            <CardTitle className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-primary" />Performance Radar</CardTitle>
             <CardDescription>Multi-dimensional performance view</CardDescription>
           </CardHeader>
           <CardContent>

@@ -1,11 +1,13 @@
 'use client';
 
-import { useMemo } from 'react';
+import Image from 'next/image';
+import { useMemo, useState } from 'react';
 import { useTrades } from '@/lib/trade-context';
 import { useIdeas } from '@/lib/ideas-context';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { CURRENCY_SYMBOLS, getTradeOutcome } from '@/lib/trade-utils';
 import { Lightbulb, Star, TrendingUp } from 'lucide-react';
 import { ScreenshotViewer } from './screenshot-viewer';
@@ -38,9 +40,12 @@ function FavoriteTradeCard({
               className="h-full w-full cursor-zoom-in"
               aria-label={`Zoom ${trade.symbol} favorite trade image`}
             >
-              <img
+              <Image
                 src={imageUrl}
                 alt={`${trade.symbol} chart`}
+                width={1200}
+                height={750}
+                unoptimized
                 className="h-full w-full object-cover opacity-90 transition-transform duration-300 group-hover:scale-[1.03]"
               />
             </button>
@@ -93,13 +98,26 @@ function FavoriteTradeCard({
 function FavoriteIdeaCard({
   idea,
   onToggle,
+  onOpen,
 }: {
   idea: ReturnType<typeof useIdeas>['ideas'][number];
   onToggle: () => void;
+  onOpen: () => void;
 }) {
   return (
     <Card className="group overflow-hidden rounded-2xl border-border/70 bg-[#0b0b12] text-white shadow-[0_16px_40px_rgba(0,0,0,0.35)]">
-      <div className="relative min-h-[210px] overflow-hidden p-4">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onOpen}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onOpen();
+          }
+        }}
+        className="relative min-h-[210px] w-full overflow-hidden p-4 text-left cursor-pointer"
+      >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(251,191,36,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.16),transparent_30%),linear-gradient(135deg,rgba(24,24,27,1),rgba(9,9,11,1))]" />
         <div className="relative flex h-full flex-col">
           <div className="flex items-start justify-between gap-3">
@@ -118,7 +136,10 @@ function FavoriteIdeaCard({
               type="button"
               size="icon"
               variant="ghost"
-              onClick={onToggle}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggle();
+              }}
               className="h-8 w-8 rounded-full bg-black/35 text-amber-300 hover:bg-black/55 hover:text-amber-200"
             >
               <Star className="h-4 w-4 fill-current" />
@@ -175,6 +196,7 @@ function EmptyFavoriteCard({
 export default function FavoritesBoard() {
   const { trades, updateTrade } = useTrades();
   const { ideas, updateIdea } = useIdeas();
+  const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
 
   const favoriteTrades = useMemo(
     () =>
@@ -192,6 +214,11 @@ export default function FavoritesBoard() {
         .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
         .slice(0, 6),
     [ideas]
+  );
+
+  const selectedIdea = useMemo(
+    () => favoriteIdeas.find((idea) => idea.id === selectedIdeaId) || null,
+    [favoriteIdeas, selectedIdeaId]
   );
 
   return (
@@ -250,6 +277,7 @@ export default function FavoritesBoard() {
                   key={idea.id}
                   idea={idea}
                   onToggle={() => updateIdea(idea.id, { ...idea, isFavorite: false })}
+                  onOpen={() => setSelectedIdeaId(idea.id)}
                 />
               ))
             ) : (
@@ -269,6 +297,112 @@ export default function FavoritesBoard() {
           </div>
         </section>
       </div>
+
+      <Dialog open={Boolean(selectedIdea)} onOpenChange={(open) => !open && setSelectedIdeaId(null)}>
+        <DialogContent className="max-w-3xl">
+          {selectedIdea ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedIdea.name}</DialogTitle>
+                <DialogDescription>
+                  {selectedIdea.symbol || 'Trade Idea'} • {selectedIdea.status} • {formatIdeaDate(selectedIdea.updatedAt)}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  <Badge className="border-sky-400/30 bg-sky-300/15 text-sky-200">
+                    {selectedIdea.status}
+                  </Badge>
+                  {selectedIdea.outcome ? (
+                    <Badge variant="outline">{selectedIdea.outcome}</Badge>
+                  ) : null}
+                  {selectedIdea.timeFrame ? (
+                    <Badge variant="outline">{selectedIdea.timeFrame}</Badge>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-xl border border-border bg-card/40 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Setup</p>
+                    <p className="mt-2 text-sm text-foreground">{selectedIdea.setup}</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card/40 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Reasoning</p>
+                    <p className="mt-2 text-sm text-foreground whitespace-pre-wrap">{selectedIdea.reasoning}</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-xl border border-border bg-card/40 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Entry Logic</p>
+                    <p className="mt-2 text-sm text-foreground whitespace-pre-wrap">{selectedIdea.entryLogic}</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card/40 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Exit Logic</p>
+                    <p className="mt-2 text-sm text-foreground whitespace-pre-wrap">{selectedIdea.exitLogic}</p>
+                  </div>
+                </div>
+
+                {selectedIdea.stopLossLogic ? (
+                  <div className="rounded-xl border border-border bg-card/40 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Stop Loss Logic</p>
+                    <p className="mt-2 text-sm text-foreground whitespace-pre-wrap">{selectedIdea.stopLossLogic}</p>
+                  </div>
+                ) : null}
+
+                {selectedIdea.notes ? (
+                  <div className="rounded-xl border border-border bg-card/40 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Notes</p>
+                    <p className="mt-2 text-sm text-foreground whitespace-pre-wrap">{selectedIdea.notes}</p>
+                  </div>
+                ) : null}
+
+                {selectedIdea.backtestResults || selectedIdea.backtestWinRate !== undefined || selectedIdea.backtestSampleSize !== undefined ? (
+                  <div className="rounded-xl border border-border bg-card/40 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Backtest</p>
+                    <div className="mt-2 flex flex-wrap gap-4 text-sm text-foreground">
+                      {selectedIdea.backtestWinRate !== undefined ? <span>Win Rate: {selectedIdea.backtestWinRate}%</span> : null}
+                      {selectedIdea.backtestSampleSize !== undefined ? <span>Sample: {selectedIdea.backtestSampleSize}</span> : null}
+                    </div>
+                    {selectedIdea.backtestResults ? (
+                      <p className="mt-2 text-sm text-foreground whitespace-pre-wrap">{selectedIdea.backtestResults}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {selectedIdea.tags && selectedIdea.tags.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedIdea.tags.map((tag) => (
+                      <Badge key={tag} variant="outline">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+
+                {selectedIdea.screenshot ? (
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Screenshot</p>
+                    <ScreenshotViewer imageUrl={selectedIdea.screenshot} title={`${selectedIdea.name} screenshot`}>
+                      <button type="button" className="overflow-hidden rounded-xl border border-border">
+                        <Image
+                          src={selectedIdea.screenshot}
+                          alt={`${selectedIdea.name} screenshot`}
+                          width={1200}
+                          height={800}
+                          unoptimized
+                          className="max-h-[320px] w-full object-cover"
+                        />
+                      </button>
+                    </ScreenshotViewer>
+                  </div>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

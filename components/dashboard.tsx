@@ -2,20 +2,48 @@
 
 import { useTrades } from '@/lib/trade-context';
 import { useSettings } from '@/lib/settings-context';
-import { getAccountStats, getTradeCharges, convertToBaseCurrency, CURRENCY_SYMBOLS } from '@/lib/trade-utils';
+import { getAccountStats, getTradeCharges, convertToBaseCurrency, CURRENCY_SYMBOLS, getNetCapitalAdjustments } from '@/lib/trade-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, DollarSign, Target, AlertCircle, Zap } from 'lucide-react';
 import CalendarView from './calendar-view';
 import GitHubSyncButton from './github-sync-button';
 import FavoritesBoard from './favorites-board';
 import DhanSyncCard from './dhan-sync-card';
+import { EmptyStateIllustration } from './brand-illustrations';
 
+interface StatCardProps {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  value: React.ReactNode;
+  subtitle?: string;
+  isPositive?: boolean;
+}
+
+function StatCard({ icon: Icon, title, value, subtitle, isPositive }: StatCardProps) {
+  return (
+    <Card className="bg-card border-border h-full rounded-xl">
+      <CardHeader className="p-3 pb-1.5 sm:p-3.5 sm:pb-1.5 lg:p-4 lg:pb-2">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-[11px] sm:text-xs font-medium text-muted-foreground truncate">{title}</CardTitle>
+          <Icon className={`h-4 w-4 flex-shrink-0 ${isPositive !== undefined ? (isPositive ? 'text-green-400' : 'text-red-400') : 'text-primary'}`} />
+        </div>
+      </CardHeader>
+      <CardContent className="p-3 pt-0 sm:p-3.5 sm:pt-0 lg:p-4 lg:pt-0">
+        <div className="text-base sm:text-lg lg:text-xl font-bold text-foreground break-words leading-tight">{value}</div>
+        {subtitle && <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground leading-snug">{subtitle}</p>}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function Dashboard() {
   const { trades } = useTrades();
-  const { baseCurrency } = useSettings();
+  const { baseCurrency, startingBalance, capitalAdjustments } = useSettings();
   const stats = getAccountStats(trades);
   const baseCurrencySymbol = CURRENCY_SYMBOLS[baseCurrency];
+  const netCapitalAdjustments = getNetCapitalAdjustments(capitalAdjustments);
+  const investedCapital = startingBalance + netCapitalAdjustments;
+  const currentBalance = investedCapital + stats.totalPnL;
   
   // Total brokerage paid across all trades
   const totalBrokerage = trades.reduce((sum, t) => {
@@ -24,26 +52,11 @@ export default function Dashboard() {
     return sum + baseCharges;
   }, 0);
 
-  const StatCard = ({ icon: Icon, title, value, subtitle, isPositive }: any) => (
-    <Card className="bg-card border-border h-full">
-      <CardHeader className="p-3 sm:p-4 lg:p-6 pb-2 sm:pb-2 lg:pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground truncate">{title}</CardTitle>
-          <Icon className={`w-4 sm:w-5 h-4 sm:h-5 flex-shrink-0 ${isPositive !== undefined ? (isPositive ? 'text-green-400' : 'text-red-400') : 'text-primary'}`} />
-        </div>
-      </CardHeader>
-      <CardContent className="p-3 sm:p-4 lg:p-6">
-        <div className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground break-words">{value}</div>
-        {subtitle && <p className="text-xs sm:text-sm text-muted-foreground mt-1">{subtitle}</p>}
-      </CardContent>
-    </Card>
-  );
-
   return (
     <div className="w-full min-w-0 flex flex-col bg-background">
       {/* Main content with responsive padding and proper spacing */}
-      <div className="flex flex-col gap-3 sm:gap-4 lg:gap-6 w-full p-2 sm:p-4 lg:p-6">
-        <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 lg:p-8 relative overflow-hidden">
+      <div className="flex flex-col gap-3 sm:gap-4 lg:gap-5 w-full p-2 sm:p-4 lg:p-5">
+        <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 lg:p-6 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent pointer-events-none" />
           <div className="relative z-10 flex items-start justify-between gap-4">
             <div className="space-y-2 flex-1">
@@ -65,8 +78,15 @@ export default function Dashboard() {
         </div>
 
         {/* Stats & setup cards grid - All P&L values in base currency */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 sm:gap-3.5 w-full">
           <StatCard icon={Zap} title="Total Trades" value={stats.totalTrades} subtitle={`${stats.winRate}% win rate`} />
+          <StatCard
+            icon={DollarSign}
+            title={`Current Balance (${baseCurrency})`}
+            value={`${baseCurrencySymbol}${currentBalance.toFixed(2)}`}
+            subtitle={`Capital: ${baseCurrencySymbol}${investedCapital.toFixed(2)}`}
+            isPositive={currentBalance >= investedCapital}
+          />
           <StatCard
             icon={TrendingUp}
             title={`Net P&L (${baseCurrency})`}
@@ -84,29 +104,29 @@ export default function Dashboard() {
               subtitle="Total charges deducted"
             />
           )}
-          <Card className="bg-card border-border sm:col-span-2 lg:col-span-2">
-            <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                <TrendingUp className="w-4 sm:w-5 h-4 sm:h-5 text-green-400 flex-shrink-0" />
+          <Card className="bg-card border-border rounded-xl sm:col-span-1 lg:col-span-2 xl:col-span-1">
+            <CardHeader className="p-3 sm:p-3.5 lg:p-4 pb-1.5">
+              <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+                <TrendingUp className="h-4 w-4 text-green-400 flex-shrink-0" />
                 <span>Best Setup</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 sm:p-6 pt-0">
-              <div className="text-xl sm:text-2xl font-bold text-foreground break-words">{stats.bestSetup}</div>
-              <p className="text-xs sm:text-sm text-muted-foreground mt-2">Most profitable setup</p>
+            <CardContent className="p-3 sm:p-3.5 lg:p-4 pt-0">
+              <div className="text-base sm:text-lg font-bold text-foreground break-words leading-tight">{stats.bestSetup}</div>
+              <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground">Most profitable setup</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-border sm:col-span-2 lg:col-span-2">
-            <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                <TrendingDown className="w-4 sm:w-5 h-4 sm:h-5 text-red-400 flex-shrink-0" />
+          <Card className="bg-card border-border rounded-xl sm:col-span-1 lg:col-span-2 xl:col-span-1">
+            <CardHeader className="p-3 sm:p-3.5 lg:p-4 pb-1.5">
+              <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+                <TrendingDown className="h-4 w-4 text-red-400 flex-shrink-0" />
                 <span>Worst Setup</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 sm:p-6 pt-0">
-              <div className="text-xl sm:text-2xl font-bold text-foreground break-words">{stats.worstSetup}</div>
-              <p className="text-xs sm:text-sm text-muted-foreground mt-2">Least profitable setup</p>
+            <CardContent className="p-3 sm:p-3.5 lg:p-4 pt-0">
+              <div className="text-base sm:text-lg font-bold text-foreground break-words leading-tight">{stats.worstSetup}</div>
+              <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground">Least profitable setup</p>
             </CardContent>
           </Card>
         </div>
@@ -128,9 +148,12 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="p-3 sm:p-4 lg:p-6 space-y-3 sm:space-y-4">
             {trades.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No trades recorded yet. Start logging trades to get insights!
-              </p>
+              <div className="flex flex-col items-center gap-4 py-2 text-center">
+                <EmptyStateIllustration className="max-w-[220px]" />
+                <p className="max-w-md text-sm text-muted-foreground">
+                  No trades recorded yet. Start logging trades or sync your broker history to unlock dashboard insights.
+                </p>
+              </div>
             ) : (
               <>
                 <div className="flex items-start gap-3">
@@ -140,7 +163,7 @@ export default function Dashboard() {
                       Win Rate: {stats.winRate}%
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      You're winning {stats.winRate}% of your trades
+                      You&apos;re winning {stats.winRate}% of your trades
                     </p>
                   </div>
                 </div>
@@ -153,6 +176,19 @@ export default function Dashboard() {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       You risk {stats.averageR.toFixed(2)} units to make 1 unit on average
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 rounded-full bg-cyan-400 mt-2 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-medium text-foreground">
+                      Current Balance: {baseCurrencySymbol}
+                      {currentBalance.toFixed(2)} ({baseCurrency})
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Starting balance + deposits/withdrawals = {baseCurrencySymbol}{investedCapital.toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -194,9 +230,9 @@ export default function Dashboard() {
               <CardTitle className="text-base sm:text-lg">Getting Started</CardTitle>
             </CardHeader>
             <CardContent className="p-4 sm:p-6 pt-2 space-y-3">
-              <p className="text-xs sm:text-sm text-foreground">Welcome to your trading journal! Here's how to get started:</p>
+              <p className="text-xs sm:text-sm text-foreground">Welcome to your trading journal! Here&apos;s how to get started:</p>
               <ol className="list-decimal list-inside space-y-2 text-xs sm:text-sm text-muted-foreground">
-                <li>Click "Add Trade" to record your first trade</li>
+                <li>Click &quot;Add Trade&quot; to record your first trade</li>
                 <li>Fill in all trade details including entry, exit, and stop loss</li>
                 <li>Add notes about your setup and what you learned</li>
                 <li>View your progress in the Trade Log</li>
