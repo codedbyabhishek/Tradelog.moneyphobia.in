@@ -2,17 +2,19 @@
 
 import { useMemo, useState } from 'react';
 import { useTrades } from '@/lib/trade-context';
+import { useSettings } from '@/lib/settings-context';
+import { getTradeBasePnL, CURRENCY_SYMBOLS } from '@/lib/trade-utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CURRENCY_SYMBOLS } from '@/lib/trade-utils';
-import { useSettings } from '@/lib/settings-context';
-import { AlertCircle, TrendingUp, TrendingDown, Zap, Heart, Brain } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertCircle, Brain, Heart, Sparkles, TrendingDown, TrendingUp } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import type { Trade } from '@/lib/types';
 
 type EmotionMetric = 'entry' | 'exit' | 'overall';
+type TimeFilter = 'all' | 'month' | 'week';
 
 interface EmotionPerformance {
   emotion: string;
@@ -22,8 +24,8 @@ interface EmotionPerformance {
   winRate: number;
   avgPnL: number;
   totalPnL: number;
-  consistency: number; // Std dev of P&L (lower is better)
-  avgDuration: number; // In minutes
+  consistency: number;
+  avgDuration: number;
 }
 
 interface EmotionCorrelation {
@@ -42,223 +44,342 @@ interface PsychologicalPattern {
   recommendation: string;
 }
 
+const MIN_PATTERN_TRADES = 3;
+
+function getSelectedEmotion(trade: Trade, metric: EmotionMetric): string | null {
+  if (metric === 'entry') return trade.emotionEntry ?? null;
+  if (metric === 'exit') return trade.emotionExit ?? null;
+  if (!trade.emotionEntry || !trade.emotionExit) return null;
+  return `${trade.emotionEntry} → ${trade.emotionExit}`;
+}
+
+function getTradeDurationMinutes(trade: Trade): number | null {
+  if (!trade.entryTime || !trade.exitTime) return null;
+
+  const [entryHours, entryMinutes] = trade.entryTime.split(':').map(Number);
+  const [exitHours, exitMinutes] = trade.exitTime.split(':').map(Number);
+  const diff = exitHours * 60 + exitMinutes - (entryHours * 60 + entryMinutes);
+
+  if (!Number.isFinite(diff) || diff < 0) return null;
+  return diff;
+}
+
+function getDateCutoff(timeFilter: TimeFilter): Date | null {
+  if (timeFilter === 'all') return null;
+  const now = new Date();
+  return timeFilter === 'week'
+    ? new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+}
+
 export default function EmotionAnalyzer() {
   const { trades } = useTrades();
   const { baseCurrency } = useSettings();
   const [emotionMetric, setEmotionMetric] = useState<EmotionMetric>('entry');
-  const [timeFilter, setTimeFilter] = useState<'all' | 'month' | 'week'>('all');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
 
   const symbol = CURRENCY_SYMBOLS[baseCurrency];
 
   const filteredTrades = useMemo(() => {
-    if (timeFilter === 'all') return trades;
-    
-    const now = new Date();
-    const cutoff = timeFilter === 'week' 
-      ? new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    
-    return trades.filter(t => new Date(t.date) >= cutoff);
-  }, [trades, timeFilter]);
+    const cutoff = getDateCutoff(timeFilter);
+    if (!cutoff) return trades;
+    return trades.filter((trade) => new Date(trade.date) >= cutoff);
+  }, [timeFilter, trades]);
+
+  const analyzedTrades = useMemo(
+    () => filteredTrades.filter((trade) => getSelectedEmotion(trade, emotionMetric)),
+    [emotionMetric, filteredTrades],
+  );
 
   const emotionPerformance = useMemo(() => {
-    if (!filteredTrades.length) return [];
-    
-    const emotions = new Map<string, EmotionPerformance>();
-    
-    filteredTrades.forEach(trade => {
-      const emotion = emotionMetric === 'entry' 
-        ? trade.entryEmotion 
-        : emotionMetric === 'exit' 
-        ? trade.exitEmotion 
-        : `${trade.entryEmotion} → ${trade.exitEmotion}`;
-      
+    if (!analyzedTrades.length) return [];
+
+    const emotionMap = new Map<
+      string,
+      { pnlValues: number[]; durations: number[]; totalTrades: number; wins: number; losses: number; totalPnL: number }
+    >();
+
+    analyzedTrades.forEach((trade) => {
+      const emotion = getSelectedEmotion(trade, emotionMetric);
       if (!emotion) return;
-      
-      if (!emotions.has(emotion)) {
-        emotions.set(emotion, {
+
+      const pnl = getTradeBasePnL(trade);
+      const duration = getTradeDurationMinutes(trade);
+      const existing = emotionMap.get(emotion) ?? {
+        pnlValues: [],
+        durations: [],
+        totalTrades: 0,
+        wins: 0,
+        losses: 0,
+        totalPnL: 0,
+      };
+
+      existing.totalTrades += 1;
+      existing.totalPnL += pnl;
+      existing.pnlValues.push(pnl);
+      if (pnl > 0) existing.wins += 1;
+      if (pnl < 0) existing.losses += 1;
+      if (duration !== null) existing.durations.push(duration);
+
+      emotionMap.set(emotion, existing);
+    });
+
+    return Array.from(emotionMap.entries())
+      .map(([emotion, data]) => {
+        const avgPnL = data.totalPnL / data.totalTrades;
+        const consistency = Math.sqrt(
+          data.pnlValues.reduce((sum, pnl) => sum + Math.pow(pnl - avgPnL, 2), 0) / data.totalTrades,
+        );
+        const avgDuration = data.durations.length
+          ? data.durations.reduce((sum, minutes) => sum + minutes, 0) / data.durations.length
+          : 0;
+
+        return {
           emotion,
-          totalTrades: 0,
-          wins: 0,
-          losses: 0,
-          winRate: 0,
-          avgPnL: 0,
-          totalPnL: 0,
-          consistency: 0,
-          avgDuration: 0,
-        });
-      }
-      
-      const perf = emotions.get(emotion)!;
-      perf.totalTrades++;
-      if (trade.pnl > 0) perf.wins++;
-      if (trade.pnl < 0) perf.losses++;
-      perf.totalPnL += trade.pnl;
-      
-      // Calculate duration
-      const duration = new Date(trade.exitDate || new Date()).getTime() - new Date(trade.date).getTime();
-      perf.avgDuration = (perf.avgDuration * (perf.totalTrades - 1) + duration / (1000 * 60)) / perf.totalTrades;
-    });
-    
-    // Calculate metrics
-    emotions.forEach(perf => {
-      perf.winRate = (perf.wins / perf.totalTrades) * 100;
-      perf.avgPnL = perf.totalPnL / perf.totalTrades;
-      
-      // Calculate consistency (standard deviation)
-      let sumSquareDiff = 0;
-      filteredTrades.forEach(trade => {
-        const emotion = emotionMetric === 'entry' 
-          ? trade.entryEmotion 
-          : emotionMetric === 'exit' 
-          ? trade.exitEmotion 
-          : `${trade.entryEmotion} → ${trade.exitEmotion}`;
-        
-        if (emotion === perf.emotion) {
-          sumSquareDiff += Math.pow(trade.pnl - perf.avgPnL, 2);
-        }
+          totalTrades: data.totalTrades,
+          wins: data.wins,
+          losses: data.losses,
+          winRate: (data.wins / data.totalTrades) * 100,
+          avgPnL,
+          totalPnL: data.totalPnL,
+          consistency,
+          avgDuration,
+        };
+      })
+      .sort((a, b) => {
+        if (b.totalTrades !== a.totalTrades) return b.totalTrades - a.totalTrades;
+        return b.avgPnL - a.avgPnL;
       });
-      
-      perf.consistency = Math.sqrt(sumSquareDiff / perf.totalTrades);
-    });
-    
-    return Array.from(emotions.values()).sort((a, b) => b.totalTrades - a.totalTrades);
-  }, [filteredTrades, emotionMetric]);
+  }, [analyzedTrades, emotionMetric]);
 
   const emotionCorrelations = useMemo(() => {
     if (!filteredTrades.length || emotionMetric !== 'entry') return [];
-    
-    const correlations = new Map<string, EmotionCorrelation>();
-    
-    filteredTrades.forEach(trade => {
-      if (!trade.entryEmotion || !trade.exitEmotion) return;
-      
-      const key = `${trade.entryEmotion}|${trade.exitEmotion}`;
-      
-      if (!correlations.has(key)) {
-        correlations.set(key, {
-          entryEmotion: trade.entryEmotion,
-          exitEmotion: trade.exitEmotion,
-          tradeCount: 0,
-          winRate: 0,
-          avgPnL: 0,
-        });
-      }
-      
-      const corr = correlations.get(key)!;
-      corr.tradeCount++;
+
+    const correlationMap = new Map<
+      string,
+      { entryEmotion: string; exitEmotion: string; pnls: number[]; tradeCount: number; wins: number }
+    >();
+
+    filteredTrades.forEach((trade) => {
+      if (!trade.emotionEntry || !trade.emotionExit) return;
+
+      const key = `${trade.emotionEntry}|${trade.emotionExit}`;
+      const pnl = getTradeBasePnL(trade);
+      const existing = correlationMap.get(key) ?? {
+        entryEmotion: trade.emotionEntry,
+        exitEmotion: trade.emotionExit,
+        pnls: [],
+        tradeCount: 0,
+        wins: 0,
+      };
+
+      existing.tradeCount += 1;
+      existing.pnls.push(pnl);
+      if (pnl > 0) existing.wins += 1;
+      correlationMap.set(key, existing);
     });
-    
-    // Calculate metrics
-    correlations.forEach(corr => {
-      let wins = 0;
-      let totalPnL = 0;
-      
-      filteredTrades.forEach(trade => {
-        if (trade.entryEmotion === corr.entryEmotion && trade.exitEmotion === corr.exitEmotion) {
-          if (trade.pnl > 0) wins++;
-          totalPnL += trade.pnl;
-        }
-      });
-      
-      corr.winRate = (wins / corr.tradeCount) * 100;
-      corr.avgPnL = totalPnL / corr.tradeCount;
-    });
-    
-    return Array.from(correlations.values())
-      .filter(c => c.tradeCount >= 3) // Only show patterns with at least 3 trades
+
+    return Array.from(correlationMap.values())
+      .filter((item) => item.tradeCount >= MIN_PATTERN_TRADES)
+      .map((item) => ({
+        entryEmotion: item.entryEmotion,
+        exitEmotion: item.exitEmotion,
+        tradeCount: item.tradeCount,
+        winRate: (item.wins / item.tradeCount) * 100,
+        avgPnL: item.pnls.reduce((sum, pnl) => sum + pnl, 0) / item.tradeCount,
+      }))
       .sort((a, b) => b.tradeCount - a.tradeCount);
-  }, [filteredTrades, emotionMetric]);
+  }, [emotionMetric, filteredTrades]);
+
+  const summary = useMemo(() => {
+    const sampleReady = emotionPerformance.filter((item) => item.totalTrades >= 2);
+    const bestEmotion = [...sampleReady].sort((a, b) => {
+      if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+      return b.avgPnL - a.avgPnL;
+    })[0] ?? null;
+
+    const worstEmotion = [...sampleReady].sort((a, b) => {
+      if (a.winRate !== b.winRate) return a.winRate - b.winRate;
+      return a.avgPnL - b.avgPnL;
+    })[0] ?? null;
+
+    const trackedTradeCount = analyzedTrades.length;
+    const coverage = filteredTrades.length ? (trackedTradeCount / filteredTrades.length) * 100 : 0;
+    const totalPnL = analyzedTrades.reduce((sum, trade) => sum + getTradeBasePnL(trade), 0);
+    const avgConsistency = emotionPerformance.length
+      ? emotionPerformance.reduce((sum, item) => sum + item.consistency, 0) / emotionPerformance.length
+      : 0;
+
+    return {
+      bestEmotion,
+      worstEmotion,
+      trackedTradeCount,
+      coverage,
+      totalPnL,
+      avgConsistency,
+    };
+  }, [analyzedTrades, emotionPerformance, filteredTrades]);
 
   const psychologicalPatterns = useMemo(() => {
     const patterns: PsychologicalPattern[] = [];
-    
-    if (!emotionPerformance.length) return patterns;
-    
-    // Find best and worst performing emotions
-    const best = emotionPerformance.reduce((a, b) => a.winRate > b.winRate ? a : b);
-    const worst = emotionPerformance.reduce((a, b) => a.winRate < b.winRate ? a : b);
-    
-    if (best.winRate > 60) {
+    const sampleReady = emotionPerformance.filter((item) => item.totalTrades >= MIN_PATTERN_TRADES);
+
+    if (!sampleReady.length) return patterns;
+
+    const best = [...sampleReady].sort((a, b) => {
+      if (b.avgPnL !== a.avgPnL) return b.avgPnL - a.avgPnL;
+      return b.winRate - a.winRate;
+    })[0];
+
+    const worst = [...sampleReady].sort((a, b) => {
+      if (a.avgPnL !== b.avgPnL) return a.avgPnL - b.avgPnL;
+      return a.winRate - b.winRate;
+    })[0];
+
+    if (best.avgPnL > 0 || best.winRate >= 60) {
       patterns.push({
         pattern: `${best.emotion} State Excellence`,
-        description: `Trading with ${best.emotion} emotion shows superior performance`,
+        description: `${best.emotion} has your strongest emotional profile with ${best.winRate.toFixed(1)}% win rate and ${symbol}${best.avgPnL.toFixed(0)} average P&L.`,
         tradeCount: best.totalTrades,
         impact: 'positive',
-        recommendation: `Consider preparing/priming for ${best.emotion} state before trading sessions`
+        recommendation: `Recreate the routines, preparation, and market conditions that tend to put you into ${best.emotion}.`,
       });
     }
-    
-    if (worst.winRate < 40 && worst.totalTrades >= 3) {
+
+    if (worst.avgPnL < 0 || worst.winRate <= 40) {
       patterns.push({
         pattern: `${worst.emotion} State Avoidance`,
-        description: `${worst.emotion} emotion correlates with poor performance (${worst.winRate.toFixed(1)}% win rate)`,
+        description: `${worst.emotion} is dragging results with ${worst.winRate.toFixed(1)}% win rate and ${symbol}${worst.avgPnL.toFixed(0)} average P&L.`,
         tradeCount: worst.totalTrades,
         impact: 'negative',
-        recommendation: `Implement emotional resets or take breaks when you notice ${worst.emotion} feeling`
+        recommendation: `Use a cooldown, smaller size, or a no-trade rule when you notice ${worst.emotion}.`,
       });
     }
-    
-    // Find consistency outliers
-    const avgConsistency = emotionPerformance.reduce((sum, p) => sum + p.consistency, 0) / emotionPerformance.length;
-    const inconsistent = emotionPerformance.find(p => p.consistency > avgConsistency * 1.5);
-    
-    if (inconsistent) {
+
+    const unstable = [...sampleReady].sort((a, b) => b.consistency - a.consistency)[0];
+    const stable = [...sampleReady].sort((a, b) => a.consistency - b.consistency)[0];
+
+    if (unstable && unstable.consistency > stable.consistency * 1.5) {
       patterns.push({
         pattern: 'Emotional Volatility',
-        description: `${inconsistent.emotion} emotion produces highly variable trade outcomes`,
-        tradeCount: inconsistent.totalTrades,
+        description: `${unstable.emotion} has the widest spread in outcomes, which suggests inconsistent execution under that state.`,
+        tradeCount: unstable.totalTrades,
         impact: 'negative',
-        recommendation: 'Use risk management rules to control position size during this emotional state'
+        recommendation: 'Reduce risk and follow a stricter checklist when this emotion shows up.',
       });
     }
-    
-    // Emotional transition patterns
+
     if (emotionCorrelations.length > 0) {
-      const bestTransition = emotionCorrelations.reduce((a, b) => a.winRate > b.winRate ? a : b);
-      const worstTransition = emotionCorrelations.reduce((a, b) => a.winRate < b.winRate ? a : b);
-      
-      if (bestTransition.winRate > 60) {
+      const bestTransition = [...emotionCorrelations].sort((a, b) => {
+        if (b.avgPnL !== a.avgPnL) return b.avgPnL - a.avgPnL;
+        return b.winRate - a.winRate;
+      })[0];
+      const worstTransition = [...emotionCorrelations].sort((a, b) => {
+        if (a.avgPnL !== b.avgPnL) return a.avgPnL - b.avgPnL;
+        return a.winRate - b.winRate;
+      })[0];
+
+      if (bestTransition.avgPnL > 0 || bestTransition.winRate >= 60) {
         patterns.push({
           pattern: 'Beneficial Emotional Transition',
-          description: `${bestTransition.entryEmotion} → ${bestTransition.exitEmotion} shows strong performance`,
+          description: `${bestTransition.entryEmotion} → ${bestTransition.exitEmotion} is your strongest transition pattern.`,
           tradeCount: bestTransition.tradeCount,
           impact: 'positive',
-          recommendation: 'This emotional journey supports good trading outcomes'
+          recommendation: 'Note what changed during the trade that helped this transition finish well.',
         });
       }
-      
-      if (worstTransition.winRate < 40 && worstTransition.tradeCount >= 3) {
+
+      if (worstTransition.avgPnL < 0 || worstTransition.winRate <= 40) {
         patterns.push({
           pattern: 'Problematic Emotional Transition',
-          description: `${worstTransition.entryEmotion} → ${worstTransition.exitEmotion} shows poor results`,
+          description: `${worstTransition.entryEmotion} → ${worstTransition.exitEmotion} is repeatedly associated with weak outcomes.`,
           tradeCount: worstTransition.tradeCount,
           impact: 'negative',
-          recommendation: 'Be aware of this emotional pattern and implement preventative measures'
+          recommendation: 'Review these trades together and identify the trigger that shifted the emotion in the wrong direction.',
         });
       }
     }
-    
-    return patterns;
-  }, [emotionPerformance, emotionCorrelations]);
 
-  const emotionMetricData = useMemo(() => {
-    return emotionPerformance.slice(0, 8).map(ep => ({
-      name: ep.emotion.length > 12 ? ep.emotion.substring(0, 10) + '...' : ep.emotion,
-      fullName: ep.emotion,
-      winRate: parseFloat(ep.winRate.toFixed(1)),
-      avgPnL: parseFloat(ep.avgPnL.toFixed(2)),
-      tradeCount: ep.totalTrades,
-    }));
-  }, [emotionPerformance]);
+    return patterns.slice(0, 4);
+  }, [emotionCorrelations, emotionPerformance, symbol]);
 
-  if (!trades || trades.length === 0) {
+  const emotionMetricData = useMemo(
+    () =>
+      emotionPerformance.slice(0, 8).map((item) => ({
+        name: item.emotion.length > 14 ? `${item.emotion.slice(0, 12)}...` : item.emotion,
+        fullName: item.emotion,
+        winRate: Number(item.winRate.toFixed(1)),
+        avgPnL: Number(item.avgPnL.toFixed(2)),
+        tradeCount: item.totalTrades,
+      })),
+    [emotionPerformance],
+  );
+
+  const emotionalHealthScore = useMemo(() => {
+    if (!emotionPerformance.length) return 0;
+    const consistencyPenalty = Math.min(summary.avgConsistency / 500, 1) * 35;
+    const coverageBonus = Math.min(summary.coverage, 100) * 0.25;
+    const patternPenalty = psychologicalPatterns.filter((item) => item.impact === 'negative').length * 8;
+    return Math.max(0, Math.min(100, 70 + coverageBonus - consistencyPenalty - patternPenalty));
+  }, [emotionPerformance.length, psychologicalPatterns, summary.avgConsistency, summary.coverage]);
+
+  if (!trades.length) {
     return (
-      <div className="p-4 space-y-4">
+      <div className="space-y-4 p-4">
         <h1 className="text-3xl font-bold">Emotion Psychology Analyzer</h1>
         <Card>
           <CardContent className="pt-6">
-            <p className="text-muted-foreground">No trades yet. Record emotional states in trades to analyze patterns.</p>
+            <p className="text-muted-foreground">
+              No trades yet. Record emotional states in trades to analyze patterns.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!analyzedTrades.length) {
+    return (
+      <div className="space-y-6 p-4">
+        <div className="rounded-3xl border border-border/70 bg-card/70 p-6 shadow-sm">
+          <h1 className="text-3xl font-bold">Emotion Psychology Analyzer</h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            This analyzer is ready, but the current trade selection does not have enough emotion data yet.
+            Add entry and exit emotions to your trades to unlock psychology patterns.
+          </p>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Analysis Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4 md:flex-row">
+            <div className="w-full md:w-56">
+              <label className="mb-2 block text-sm font-medium">Emotion Type</label>
+              <Select value={emotionMetric} onValueChange={(value) => setEmotionMetric(value as EmotionMetric)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="entry">Entry Emotion</SelectItem>
+                  <SelectItem value="exit">Exit Emotion</SelectItem>
+                  <SelectItem value="overall">Emotional Journey</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full md:w-56">
+              <label className="mb-2 block text-sm font-medium">Time Period</label>
+              <Select value={timeFilter} onValueChange={(value) => setTimeFilter(value as TimeFilter)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="month">Last 30 Days</SelectItem>
+                  <SelectItem value="week">Last 7 Days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -266,23 +387,82 @@ export default function EmotionAnalyzer() {
   }
 
   return (
-    <div className="p-4 space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Emotion Psychology Analyzer</h1>
-          <p className="text-muted-foreground mt-1">Understand how emotions impact your trading performance</p>
-        </div>
-      </div>
+    <div className="space-y-6 p-4">
+      <section className="overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-br from-card via-card to-muted/50 shadow-sm">
+        <div className="grid gap-6 p-6 lg:grid-cols-[1.4fr_1fr]">
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+              <Heart className="h-3.5 w-3.5" />
+              Emotion-aware performance review
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold tracking-tight">Emotion Psychology Analyzer</h1>
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                See which emotional states help your execution, which ones hurt it, and how your
+                entry-to-exit emotional journey is affecting real trading outcomes.
+              </p>
+            </div>
+          </div>
 
-      {/* Controls */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Card className="border-border/60 bg-background/75 shadow-none">
+              <CardContent className="flex items-center justify-between p-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Tracked Trades</p>
+                  <p className="mt-2 text-2xl font-semibold">{summary.trackedTradeCount}</p>
+                </div>
+                <Brain className="h-8 w-8 text-primary/70" />
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/60 bg-background/75 shadow-none">
+              <CardContent className="p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Coverage</p>
+                <p className="mt-2 text-2xl font-semibold">{summary.coverage.toFixed(0)}%</p>
+                <p className="mt-1 text-xs text-muted-foreground">Emotion data coverage in this view</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/60 bg-background/75 shadow-none">
+              <CardContent className="p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Best State</p>
+                <p className="mt-2 truncate text-base font-semibold">
+                  {summary.bestEmotion?.emotion ?? 'Need 2+ trades'}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {summary.bestEmotion
+                    ? `${summary.bestEmotion.winRate.toFixed(1)}% win rate`
+                    : 'More samples needed for a reliable signal'}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/60 bg-background/75 shadow-none">
+              <CardContent className="p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Emotional Drag</p>
+                <p className="mt-2 truncate text-base font-semibold">
+                  {summary.worstEmotion?.emotion ?? 'Need 2+ trades'}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {summary.worstEmotion
+                    ? `${symbol}${summary.worstEmotion.avgPnL.toFixed(0)} average P&L`
+                    : 'More samples needed for a reliable signal'}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-4">
           <CardTitle>Analysis Settings</CardTitle>
+          <CardDescription>Switch between entry, exit, or full emotional journey analysis.</CardDescription>
         </CardHeader>
-        <CardContent className="flex gap-6">
-          <div className="w-48">
-            <label className="text-sm font-medium mb-2 block">Emotion Type</label>
-            <Select value={emotionMetric} onValueChange={(v) => setEmotionMetric(v as EmotionMetric)}>
+        <CardContent className="flex flex-col gap-4 md:flex-row">
+          <div className="w-full md:w-56">
+            <label className="mb-2 block text-sm font-medium">Emotion Type</label>
+            <Select value={emotionMetric} onValueChange={(value) => setEmotionMetric(value as EmotionMetric)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -293,9 +473,9 @@ export default function EmotionAnalyzer() {
               </SelectContent>
             </Select>
           </div>
-          <div className="w-48">
-            <label className="text-sm font-medium mb-2 block">Time Period</label>
-            <Select value={timeFilter} onValueChange={(v) => setTimeFilter(v as any)}>
+          <div className="w-full md:w-56">
+            <label className="mb-2 block text-sm font-medium">Time Period</label>
+            <Select value={timeFilter} onValueChange={(value) => setTimeFilter(value as TimeFilter)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -306,78 +486,102 @@ export default function EmotionAnalyzer() {
               </SelectContent>
             </Select>
           </div>
+          <div className="flex min-w-0 flex-1 items-end">
+            <Alert className="w-full border-primary/20 bg-primary/5">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <AlertTitle>Signal quality</AlertTitle>
+              <AlertDescription>
+                Patterns are strongest when each emotion has at least {MIN_PATTERN_TRADES} trades in the
+                selected period.
+              </AlertDescription>
+            </Alert>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Key Psychological Patterns */}
       {psychologicalPatterns.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-xl font-bold">Key Patterns Detected</h2>
-          {psychologicalPatterns.map((pattern, idx) => (
-            <Alert key={idx} className={pattern.impact === 'positive' ? 'border-green-500/50 bg-green-50/30 dark:bg-green-950/20' : 'border-red-500/50 bg-red-50/30 dark:bg-red-950/20'}>
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  {pattern.impact === 'positive' ? (
-                    <TrendingUp className="w-5 h-5 text-green-600" />
-                  ) : (
-                    <AlertCircle className="w-5 h-5 text-red-600" />
-                  )}
-                  <div className="flex-1">
-                    <p className="font-semibold">{pattern.pattern}</p>
-                    <p className="text-sm text-muted-foreground">{pattern.description}</p>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {psychologicalPatterns.map((pattern) => (
+              <Alert
+                key={pattern.pattern}
+                className={
+                  pattern.impact === 'positive'
+                    ? 'border-emerald-500/30 bg-emerald-500/5'
+                    : pattern.impact === 'negative'
+                      ? 'border-rose-500/30 bg-rose-500/5'
+                      : 'border-border bg-background'
+                }
+              >
+                {pattern.impact === 'positive' ? (
+                  <TrendingUp className="h-4 w-4 text-emerald-600" />
+                ) : pattern.impact === 'negative' ? (
+                  <TrendingDown className="h-4 w-4 text-rose-600" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                )}
+                <AlertTitle>{pattern.pattern}</AlertTitle>
+                <AlertDescription className="space-y-2">
+                  <p>{pattern.description}</p>
+                  <p className="text-xs text-muted-foreground">{pattern.tradeCount} supporting trades</p>
+                  <div className="rounded-xl border border-border/60 bg-background/80 p-3 text-sm">
+                    <span className="font-medium">Recommendation:</span> {pattern.recommendation}
                   </div>
-                  <Badge>{pattern.tradeCount} trades</Badge>
-                </div>
-                <div className="ml-8 p-3 bg-background rounded border border-border">
-                  <p className="text-sm">
-                    <span className="font-semibold">Recommendation:</span> {pattern.recommendation}
-                  </p>
-                </div>
-              </div>
-            </Alert>
-          ))}
+                </AlertDescription>
+              </Alert>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Emotion Performance Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {emotionPerformance.slice(0, 6).map((perf, idx) => (
-          <Card key={idx}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{perf.emotion}</CardTitle>
-                <Badge>{perf.totalTrades} trades</Badge>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {emotionPerformance.slice(0, 6).map((performance) => (
+          <Card key={performance.emotion} className="overflow-hidden">
+            <CardHeader className="space-y-3 pb-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <CardTitle className="truncate text-lg">{performance.emotion}</CardTitle>
+                  <CardDescription>
+                    {performance.totalTrades >= MIN_PATTERN_TRADES
+                      ? 'Reliable sample'
+                      : 'Low sample, treat carefully'}
+                  </CardDescription>
+                </div>
+                <Badge variant="secondary">{performance.totalTrades} trades</Badge>
               </div>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
               <div>
-                <div className="flex justify-between mb-1">
-                  <p className="text-sm font-medium">Win Rate</p>
-                  <p className="text-sm font-bold">{perf.winRate.toFixed(1)}%</p>
+                <div className="mb-1 flex items-center justify-between text-sm">
+                  <span className="font-medium">Win Rate</span>
+                  <span className="font-semibold">{performance.winRate.toFixed(1)}%</span>
                 </div>
-                <Progress value={perf.winRate} className="h-2" />
+                <Progress value={performance.winRate} className="h-2" />
               </div>
 
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total P&L</span>
-                  <span className={perf.totalPnL >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
-                    {symbol}{perf.totalPnL.toFixed(0)}
-                  </span>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-xl bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Total P&L</p>
+                  <p className={performance.totalPnL >= 0 ? 'mt-1 font-semibold text-emerald-600' : 'mt-1 font-semibold text-rose-600'}>
+                    {symbol}{performance.totalPnL.toFixed(0)}
+                  </p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Avg per Trade</span>
-                  <span className={perf.avgPnL >= 0 ? 'text-green-600' : 'text-red-600'}>
-                    {symbol}{perf.avgPnL.toFixed(2)}
-                  </span>
+                <div className="rounded-xl bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Avg Per Trade</p>
+                  <p className={performance.avgPnL >= 0 ? 'mt-1 font-semibold text-emerald-600' : 'mt-1 font-semibold text-rose-600'}>
+                    {symbol}{performance.avgPnL.toFixed(0)}
+                  </p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Consistency (σ)</span>
-                  <span className="font-mono text-xs">{symbol}{perf.consistency.toFixed(2)}</span>
+                <div className="rounded-xl bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Consistency</p>
+                  <p className="mt-1 font-semibold">{symbol}{performance.consistency.toFixed(0)}</p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Avg Duration</span>
-                  <span className="text-xs">{perf.avgDuration.toFixed(0)}m</span>
+                <div className="rounded-xl bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Avg Hold Time</p>
+                  <p className="mt-1 font-semibold">
+                    {performance.avgDuration > 0 ? `${performance.avgDuration.toFixed(0)}m` : 'N/A'}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -385,174 +589,181 @@ export default function EmotionAnalyzer() {
         ))}
       </div>
 
-      {/* Win Rate Comparison Chart */}
       {emotionMetricData.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Win Rate by {emotionMetric === 'entry' ? 'Entry ' : emotionMetric === 'exit' ? 'Exit ' : 'Overall '}Emotion</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={emotionMetricData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (active && payload?.[0]) {
+        <div className="grid gap-6 xl:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                Win Rate by {emotionMetric === 'entry' ? 'Entry ' : emotionMetric === 'exit' ? 'Exit ' : 'Journey '}
+                Emotion
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={emotionMetricData} margin={{ left: 8, right: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={12} />
+                  <YAxis tickLine={false} axisLine={false} width={36} />
+                  <Tooltip
+                    cursor={{ fill: 'hsl(var(--muted) / 0.35)' }}
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.[0]) return null;
                       const data = payload[0].payload;
                       return (
-                        <div className="bg-background border border-border rounded p-2 text-sm">
+                        <div className="rounded-lg border border-border bg-background p-3 text-sm shadow-lg">
                           <p className="font-semibold">{data.fullName}</p>
-                          <p className="text-xs">Win Rate: {data.winRate}%</p>
-                          <p className="text-xs">Trades: {data.tradeCount}</p>
+                          <p className="text-xs text-muted-foreground">Win rate: {data.winRate}%</p>
+                          <p className="text-xs text-muted-foreground">Trades: {data.tradeCount}</p>
                         </div>
                       );
-                    }
-                    return null;
-                  }}
-                />
-                <Bar dataKey="winRate" fill="#8b5cf6" name="Win Rate %" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
+                    }}
+                  />
+                  <Bar dataKey="winRate" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
 
-      {/* Avg P&L Comparison */}
-      {emotionMetricData.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Average P&L by Emotion</CardTitle>
-            <CardDescription>Positive/Negative profit average per trade</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={emotionMetricData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (active && payload?.[0]) {
+          <Card>
+            <CardHeader>
+              <CardTitle>Average P&amp;L by Emotion</CardTitle>
+              <CardDescription>Base-currency P&amp;L per trade for each emotional state.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={emotionMetricData} margin={{ left: 8, right: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={12} />
+                  <YAxis tickLine={false} axisLine={false} width={48} />
+                  <Tooltip
+                    cursor={{ fill: 'hsl(var(--muted) / 0.35)' }}
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.[0]) return null;
                       const data = payload[0].payload;
                       return (
-                        <div className="bg-background border border-border rounded p-2 text-sm">
+                        <div className="rounded-lg border border-border bg-background p-3 text-sm shadow-lg">
                           <p className="font-semibold">{data.fullName}</p>
-                          <p className={data.avgPnL >= 0 ? 'text-green-600' : 'text-red-600'}>
-                            Avg P&L: {symbol}{data.avgPnL}
+                          <p className={data.avgPnL >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                            Avg P&amp;L: {symbol}{data.avgPnL}
                           </p>
                         </div>
                       );
-                    }
-                    return null;
-                  }}
-                />
-                <Bar
-                  dataKey="avgPnL"
-                  fill="#6366f1"
-                  name="Avg P&L"
-                  radius={[8, 8, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+                    }}
+                  />
+                  <Bar dataKey="avgPnL" radius={[8, 8, 0, 0]}>
+                    {emotionMetricData.map((item) => (
+                      <Cell key={item.fullName} fill={item.avgPnL >= 0 ? '#10b981' : '#f43f5e'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
-      {/* Emotional Transitions */}
       {emotionCorrelations.length > 0 && emotionMetric === 'entry' && (
         <Card>
           <CardHeader>
             <CardTitle>Emotional Transitions</CardTitle>
-            <CardDescription>How emotional states change from entry to exit</CardDescription>
+            <CardDescription>How entry emotions tend to resolve by the time you exit.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {emotionCorrelations.map((correlation, idx) => (
-                <div key={idx} className="p-4 border border-border rounded-lg hover:bg-muted/50 transition">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="text-sm">
-                        <p className="font-semibold">{correlation.entryEmotion}</p>
-                        <p className="text-xs text-muted-foreground">Entry</p>
-                      </div>
-                      <div className="text-muted-foreground">→</div>
-                      <div className="text-sm">
-                        <p className="font-semibold">{correlation.exitEmotion}</p>
-                        <p className="text-xs text-muted-foreground">Exit</p>
-                      </div>
+          <CardContent className="space-y-3">
+            {emotionCorrelations.map((correlation) => (
+              <div key={`${correlation.entryEmotion}-${correlation.exitEmotion}`} className="rounded-2xl border border-border/70 p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">{correlation.entryEmotion}</p>
+                      <p className="text-xs text-muted-foreground">Entry</p>
                     </div>
-                    <Badge>{correlation.tradeCount} trades</Badge>
+                    <div className="text-muted-foreground">→</div>
+                    <div>
+                      <p className="text-sm font-semibold">{correlation.exitEmotion}</p>
+                      <p className="text-xs text-muted-foreground">Exit</p>
+                    </div>
                   </div>
-
-                  <div className="grid grid-cols-3 gap-3 text-sm">
-                    <div>
-                      <p className="text-muted-foreground text-xs">Win Rate</p>
-                      <p className="font-bold text-lg">{correlation.winRate.toFixed(1)}%</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs">Avg P&L</p>
-                      <p className={`font-bold text-lg ${correlation.avgPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {symbol}{correlation.avgPnL.toFixed(0)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs">Frequency</p>
-                      <p className="font-bold text-lg">{Math.round((correlation.tradeCount / filteredTrades.length) * 100)}%</p>
-                    </div>
+                  <Badge variant="outline">{correlation.tradeCount} trades</Badge>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl bg-muted/40 p-3">
+                    <p className="text-xs text-muted-foreground">Win Rate</p>
+                    <p className="mt-1 text-lg font-semibold">{correlation.winRate.toFixed(1)}%</p>
+                  </div>
+                  <div className="rounded-xl bg-muted/40 p-3">
+                    <p className="text-xs text-muted-foreground">Avg P&amp;L</p>
+                    <p className={correlation.avgPnL >= 0 ? 'mt-1 text-lg font-semibold text-emerald-600' : 'mt-1 text-lg font-semibold text-rose-600'}>
+                      {symbol}{correlation.avgPnL.toFixed(0)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-muted/40 p-3">
+                    <p className="text-xs text-muted-foreground">Frequency</p>
+                    <p className="mt-1 text-lg font-semibold">
+                      {Math.round((correlation.tradeCount / filteredTrades.length) * 100)}%
+                    </p>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}
 
-      {/* Emotional Health Summary */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Brain className="w-5 h-5" />
+            <Brain className="h-5 w-5" />
             Emotional Trading Health
           </CardTitle>
+          <CardDescription>
+            A lighter-weight health score based on emotional coverage, consistency, and risk patterns.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5">
           <div>
-            <div className="flex justify-between mb-2">
-              <span className="text-sm font-medium">Emotional Consistency</span>
-              <span className="text-sm font-bold">
-                {emotionPerformance.length > 0 
-                  ? (100 - (emotionPerformance.reduce((sum, p) => sum + p.consistency, 0) / (emotionPerformance.length * 500) * 100)).toFixed(0) 
-                  : 0}%
-              </span>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-medium">Emotional Health Score</span>
+              <span className="text-sm font-semibold">{emotionalHealthScore.toFixed(0)}%</span>
             </div>
-            <Progress 
-              value={emotionPerformance.length > 0 
-                ? Math.max(0, 100 - (emotionPerformance.reduce((sum, p) => sum + p.consistency, 0) / (emotionPerformance.length * 500) * 100)) 
-                : 0} 
-              className="h-2" 
-            />
-            <p className="text-xs text-muted-foreground mt-2">Lower variance in P&L across emotional states indicates better control</p>
+            <Progress value={emotionalHealthScore} className="h-2" />
+            <p className="mt-2 text-xs text-muted-foreground">
+              Higher scores mean better emotional coverage and more stable outcomes across the emotions you log.
+            </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-            <div>
-              <p className="text-xs text-muted-foreground mb-2">Recommended Actions</p>
-              <ul className="text-sm space-y-1">
-                {psychologicalPatterns.length > 0 ? psychologicalPatterns.slice(0, 3).map((pattern, idx) => (
-                  <li key={idx} className="text-xs">• {pattern.pattern}</li>
-                )) : (
-                  <li className="text-xs text-muted-foreground">Maintain current emotional discipline</li>
+          <div className="grid gap-4 border-t pt-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Recommended Focus</p>
+              <div className="space-y-2 text-sm">
+                {psychologicalPatterns.length > 0 ? (
+                  psychologicalPatterns.slice(0, 3).map((pattern) => (
+                    <div key={pattern.pattern} className="rounded-xl bg-muted/40 p-3">
+                      <p className="font-medium">{pattern.pattern}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{pattern.recommendation}</p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-xl bg-muted/40 p-3 text-sm text-muted-foreground">
+                    Keep logging emotions consistently to unlock stronger psychology feedback.
+                  </div>
                 )}
-              </ul>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground mb-2">Tracked Emotions</p>
+
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Tracked Emotions</p>
               <div className="flex flex-wrap gap-2">
-                {emotionPerformance.slice(0, 5).map((ep, idx) => (
-                  <Badge key={idx} variant="outline">{ep.emotion}</Badge>
+                {emotionPerformance.slice(0, 8).map((item) => (
+                  <Badge key={item.emotion} variant="outline">
+                    {item.emotion}
+                  </Badge>
                 ))}
+              </div>
+              <div className="rounded-xl bg-muted/40 p-3 text-sm">
+                <p className="text-xs text-muted-foreground">Emotion-aware P&amp;L</p>
+                <p className={summary.totalPnL >= 0 ? 'mt-1 font-semibold text-emerald-600' : 'mt-1 font-semibold text-rose-600'}>
+                  {symbol}{summary.totalPnL.toFixed(0)}
+                </p>
               </div>
             </div>
           </div>
