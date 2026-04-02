@@ -299,7 +299,7 @@ export default function FavoritesBoard() {
       </div>
 
       <Dialog open={Boolean(selectedIdea)} onOpenChange={(open) => !open && setSelectedIdeaId(null)}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-h-[88vh] max-w-3xl overflow-y-auto">
           {selectedIdea ? (
             <>
               <DialogHeader>
@@ -309,7 +309,7 @@ export default function FavoritesBoard() {
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-4">
+              <div className="space-y-4 pb-1">
                 <div className="flex flex-wrap gap-2">
                   <Badge className="border-sky-400/30 bg-sky-300/15 text-sky-200">
                     {selectedIdea.status}
