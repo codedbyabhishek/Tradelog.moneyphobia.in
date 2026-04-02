@@ -84,6 +84,7 @@ export default function Analytics() {
   const { baseCurrency, startingBalance, capitalAdjustments } = useSettings();
   const [dateRange, setDateRange] = useState<DateRangeKey>('all');
   const [setupFilter, setSetupFilter] = useState<string>('all');
+  const [tagFilter, setTagFilter] = useState<string>('all');
   const [brokerFilter, setBrokerFilter] = useState<BrokerFilter>('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -98,6 +99,10 @@ export default function Analytics() {
 
   const setupOptions = useMemo(() => {
     return [...new Set(trades.map((trade) => trade.setupName).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  }, [trades]);
+
+  const tagOptions = useMemo(() => {
+    return [...new Set(trades.flatMap((trade) => trade.tags || []).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   }, [trades]);
 
   const dateBounds = useMemo(() => {
@@ -119,6 +124,7 @@ export default function Analytics() {
   const filteredTrades = useMemo(() => {
     return sortedTrades.filter((trade) => {
       if (setupFilter !== 'all' && trade.setupName !== setupFilter) return false;
+      if (tagFilter !== 'all' && !(trade.tags || []).includes(tagFilter)) return false;
       if (brokerFilter === 'dhan' && !isDhanTrade(trade)) return false;
       if (brokerFilter === 'manual' && isDhanTrade(trade)) return false;
 
@@ -126,7 +132,7 @@ export default function Analytics() {
       if (dateBounds.end && trade.date > dateBounds.end) return false;
       return true;
     });
-  }, [sortedTrades, setupFilter, brokerFilter, dateBounds]);
+  }, [sortedTrades, setupFilter, tagFilter, brokerFilter, dateBounds]);
 
   const capitalAdjustmentsBeforeWindow = useMemo(() => {
     if (!dateBounds.start) return [];
@@ -394,7 +400,7 @@ export default function Analytics() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Broker Filter</label>
               <Select value={brokerFilter} onValueChange={(value) => setBrokerFilter(value as BrokerFilter)}>
@@ -419,6 +425,22 @@ export default function Analytics() {
                   {setupOptions.map((setup) => (
                     <SelectItem key={setup} value={setup}>
                       {setup}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Tag Filter</label>
+              <Select value={tagFilter} onValueChange={setTagFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Tags</SelectItem>
+                  {tagOptions.map((tag) => (
+                    <SelectItem key={tag} value={tag}>
+                      {tag}
                     </SelectItem>
                   ))}
                 </SelectContent>

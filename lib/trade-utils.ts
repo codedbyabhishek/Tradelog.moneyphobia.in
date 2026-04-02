@@ -216,8 +216,20 @@ export function convertFormToTrade(formData: TradeFormData): Trade {
   // Auto-derive isWin from P&L (for backwards compatibility with existing code)
   const isWin = pnl > 0;
 
+  const parsedTags = formData.tags
+    ? Array.from(
+        new Set(
+          formData.tags
+            .split(',')
+            .map((tag) => tag.trim())
+            .filter(Boolean)
+        )
+      )
+    : undefined;
+
   return {
     id: Date.now().toString(),
+    tags: parsedTags,
     date: formData.date,
     dayOfWeek: getDayOfWeek(formData.date),
     symbol: formData.symbol.toUpperCase(),

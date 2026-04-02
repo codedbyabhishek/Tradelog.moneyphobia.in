@@ -71,6 +71,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
   // Form data state
   const [formData, setFormData] = useState<TradeFormData>({
     date: new Date().toISOString().split('T')[0],
+    tags: '',
     symbol: '',
     tradeType: 'Intraday',
     setupName: '',
@@ -114,7 +115,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     // Sanitize text inputs to prevent XSS
     // Pass trim=false during live typing so spaces between words are preserved
     let sanitizedValue = value;
-    const textFields = ['symbol', 'setupName', 'preNotes', 'postNotes', 'timeFrame'];
+    const textFields = ['symbol', 'setupName', 'preNotes', 'postNotes', 'timeFrame', 'tags'];
     if (textFields.includes(name)) {
       sanitizedValue = sanitizeString(value, false);
     }
@@ -270,6 +271,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
       // Reset form after successful submission (keep the same currency preference)
       setFormData(prev => ({
         date: new Date().toISOString().split('T')[0],
+        tags: '',
         symbol: '',
         tradeType: 'Intraday',
         setupName: '',
@@ -718,6 +720,19 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
             )}
 
             {/* Notes */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Trade Tags</label>
+              <input
+                type="text"
+                name="tags"
+                value={formData.tags}
+                onChange={handleInputChange}
+                placeholder="e.g., A+, breakout, FOMO, news, high confidence"
+                className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">Separate tags with commas to improve filtering and analytics.</p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Pre-Trade Notes</label>
               <textarea

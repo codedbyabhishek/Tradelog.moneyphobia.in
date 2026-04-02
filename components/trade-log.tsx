@@ -21,6 +21,7 @@ function isBrokerSyncedTrade(trade: Trade) {
 
 function isJournalEnrichedTrade(trade: Trade) {
   return Boolean(
+    trade.tags?.length ||
     trade.beforeTradeScreenshot ||
       trade.afterExitScreenshot ||
       trade.preNotes?.trim() ||
@@ -36,6 +37,7 @@ export default function TradeLog() {
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [editSetupName, setEditSetupName] = useState('');
+  const [editTags, setEditTags] = useState('');
   const [editTimeFrame, setEditTimeFrame] = useState('');
   const [editLimit, setEditLimit] = useState('');
   const [editExit, setEditExit] = useState('');
@@ -67,6 +69,7 @@ export default function TradeLog() {
   const openEditTrade = (trade: Trade) => {
     setEditingTrade(trade);
     setEditSetupName(trade.setupName || '');
+    setEditTags(trade.tags?.join(', ') || '');
     setEditTimeFrame(trade.timeFrame || '');
     setEditLimit(trade.limit || '');
     setEditExit(trade.exit || '');
@@ -80,6 +83,7 @@ export default function TradeLog() {
   const closeEditTrade = () => {
     setEditingTrade(null);
     setEditSetupName('');
+    setEditTags('');
     setEditTimeFrame('');
     setEditLimit('');
     setEditExit('');
@@ -134,6 +138,7 @@ export default function TradeLog() {
 
     const updatedTrade: Trade = {
       ...editingTrade,
+      tags: Array.from(new Set(editTags.split(',').map((tag) => tag.trim()).filter(Boolean))),
       setupName: editSetupName.trim() || editingTrade.setupName,
       timeFrame: editTimeFrame.trim() || undefined,
       limit: editLimit || undefined,
@@ -563,6 +568,19 @@ export default function TradeLog() {
               </div>
 
               {/* Notes */}
+              {selectedTrade.tags && selectedTrade.tags.length > 0 && (
+                <div>
+                  <p className="text-sm font-semibold text-foreground mb-2">Trade Tags</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTrade.tags.map((tag) => (
+                      <span key={tag} className="inline-flex rounded-full border border-border bg-secondary px-3 py-1 text-xs text-foreground">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {selectedTrade.preNotes && (
                 <div>
                   <p className="text-sm font-semibold text-foreground mb-2">Pre-Trade Notes</p>
@@ -719,6 +737,18 @@ export default function TradeLog() {
                     className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-foreground">Trade Tags</label>
+                <input
+                  type="text"
+                  value={editTags}
+                  onChange={(e) => setEditTags(e.target.value)}
+                  placeholder="e.g. A+, breakout, revenge, news"
+                  className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Separate tags with commas.</p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">

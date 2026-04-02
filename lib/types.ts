@@ -30,6 +30,7 @@ export type EmotionTag = 'Calm' | 'Confident' | 'Anxious' | 'Fearful' | 'Greedy'
 export interface Trade {
   id: string;
   isFavorite?: boolean;
+  tags?: string[];
   date: string;
   dayOfWeek: string;
   symbol: string;
@@ -109,6 +110,7 @@ export interface CapitalAdjustment {
 
 export interface TradeFormData {
   date: string;
+  tags: string;
   symbol: string;
   tradeType: 'Intraday' | 'Swing' | 'Scalping' | 'Positional';
   setupName: string;
