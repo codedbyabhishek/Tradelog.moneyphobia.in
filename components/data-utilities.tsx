@@ -359,16 +359,22 @@ export default function DataUtilities() {
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <p>
-            <strong>Storage Method:</strong> LocalStorage (Browser)
+            <strong>Primary Storage:</strong> MySQL database linked to your signed-in account
           </p>
           <p>
-            <strong>Persistence:</strong> Data persists across browser sessions until cleared
+            <strong>Storage Type:</strong> Server-side journal data with automatic reload on sign in
           </p>
           <p>
-            <strong>Privacy:</strong> All data is stored locally on your device. No information is sent to external servers.
+            <strong>Persistence:</strong> Trades, ideas, settings, and broker-related journal data stay saved in the database until you delete them
           </p>
           <p>
-            <strong>Backup:</strong> Regularly export your data as JSON to create backups you can store safely.
+            <strong>Browser Storage:</strong> Small UI preferences like theme or last-opened page may still use browser storage for convenience
+          </p>
+          <p>
+            <strong>Privacy:</strong> Your main journal records are not browser-only anymore; they are saved server-side for your account
+          </p>
+          <p>
+            <strong>Backup:</strong> Regularly export your data as JSON to keep an extra backup outside the app
           </p>
         </CardContent>
       </Card>
