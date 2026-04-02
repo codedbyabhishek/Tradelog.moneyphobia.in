@@ -21,6 +21,13 @@ DB_PASSWORD=your_db_password
 DB_NAME=your_db_name
 NODE_ENV=production
 NEXT_PUBLIC_ENABLE_PWA=false
+NEXT_PUBLIC_SITE_URL=https://traderlogify.online
+NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxx
+RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxx
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+RAZORPAY_WEBHOOK_SECRET=your_razorpay_webhook_secret
+RAZORPAY_PLAN_MONTHLY_ID=plan_xxxxxxxxxx
+RAZORPAY_PLAN_YEARLY_ID=plan_xxxxxxxxxx
 ```
 
 Base template: [.env.example](../.env.example)
@@ -124,6 +131,12 @@ After deployment verify:
 - Re-check saved `clientId`
 - Replace expired access token
 - Try a smaller date range first
+
+### Razorpay upgrade does not activate
+
+- Check webhook URL: `https://your-domain/api/billing/webhook`
+- Confirm `RAZORPAY_WEBHOOK_SECRET` matches the dashboard webhook secret
+- Confirm the monthly and yearly plan IDs are valid Razorpay subscription plans
 
 ### Build warnings
 

@@ -36,6 +36,15 @@ Template: [.env.example](.env.example)
 
 Use your production MySQL values here, not the temporary local database values.
 
+If you enable paid plans with Razorpay, also add:
+- `NEXT_PUBLIC_SITE_URL`
+- `NEXT_PUBLIC_RAZORPAY_KEY_ID`
+- `RAZORPAY_KEY_ID`
+- `RAZORPAY_KEY_SECRET`
+- `RAZORPAY_WEBHOOK_SECRET`
+- `RAZORPAY_PLAN_MONTHLY_ID`
+- `RAZORPAY_PLAN_YEARLY_ID`
+
 ## 3. Create The Node.js Web App In Hostinger
 In hPanel:
 
@@ -92,3 +101,9 @@ If login works locally but not in production:
 1. Make sure HTTPS is enabled on the domain
 2. Confirm `NODE_ENV=production`
 3. Re-login after the deploy so the browser gets a fresh secure cookie
+
+If Razorpay upgrades are not activating:
+1. Confirm the webhook URL is set in Razorpay Dashboard:
+   - `https://your-domain/api/billing/webhook`
+2. Confirm the webhook secret matches `RAZORPAY_WEBHOOK_SECRET`
+3. Confirm both Razorpay plan IDs are correct

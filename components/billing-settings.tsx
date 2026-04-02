@@ -9,6 +9,7 @@ import { useIdeas } from '@/lib/ideas-context';
 import { useSettings } from '@/lib/settings-context';
 import { useTrades } from '@/lib/trade-context';
 import { getPlanLabel, getUsageProgress, isProPlan, SUBSCRIPTION_LIMITS } from '@/lib/subscription';
+import RazorpayUpgradeButton from '@/components/razorpay-upgrade-button';
 
 export default function BillingSettings() {
   const { billingState } = useSettings();
@@ -74,9 +75,8 @@ export default function BillingSettings() {
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row">
-          <Button asChild>
-            <Link href="mailto:hello@traderlogify.online?subject=Traderlogify%20Pro%20Upgrade">Request Pro Upgrade</Link>
-          </Button>
+          {!pro ? <RazorpayUpgradeButton billingCycle="monthly" label="Upgrade Monthly" /> : null}
+          {!pro ? <RazorpayUpgradeButton billingCycle="yearly" label="Upgrade Yearly" /> : null}
           <Button asChild variant="outline">
             <Link href="/pricing">Open Pricing</Link>
           </Button>
