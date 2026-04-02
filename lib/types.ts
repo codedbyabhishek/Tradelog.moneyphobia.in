@@ -108,6 +108,18 @@ export interface CapitalAdjustment {
   note?: string;
 }
 
+export type SubscriptionPlan = 'free' | 'pro';
+export type SubscriptionStatus = 'inactive' | 'active' | 'trialing' | 'past_due';
+
+export interface BillingState {
+  plan: SubscriptionPlan;
+  status: SubscriptionStatus;
+  billingCycle?: 'monthly' | 'yearly';
+  startedAt?: string | null;
+  renewsAt?: string | null;
+  trialEndsAt?: string | null;
+}
+
 export interface TradeFormData {
   date: string;
   tags: string;

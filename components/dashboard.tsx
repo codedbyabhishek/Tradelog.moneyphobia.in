@@ -10,6 +10,8 @@ import GitHubSyncButton from './github-sync-button';
 import FavoritesBoard from './favorites-board';
 import DhanSyncCard from './dhan-sync-card';
 import { EmptyStateIllustration } from './brand-illustrations';
+import UpgradeBanner from './upgrade-banner';
+import { isProPlan } from '@/lib/subscription';
 
 interface StatCardProps {
   icon: React.ComponentType<{ className?: string }>;
@@ -38,7 +40,7 @@ function StatCard({ icon: Icon, title, value, subtitle, isPositive }: StatCardPr
 
 export default function Dashboard() {
   const { trades } = useTrades();
-  const { baseCurrency, startingBalance, capitalAdjustments } = useSettings();
+  const { baseCurrency, startingBalance, capitalAdjustments, billingState } = useSettings();
   const stats = getAccountStats(trades);
   const baseCurrencySymbol = CURRENCY_SYMBOLS[baseCurrency];
   const netCapitalAdjustments = getNetCapitalAdjustments(capitalAdjustments);
@@ -51,11 +53,18 @@ export default function Dashboard() {
     const baseCharges = t.currency ? convertToBaseCurrency(charges, t.currency, t.exchangeRate) : charges;
     return sum + baseCharges;
   }, 0);
+  const proPlan = isProPlan(billingState);
 
   return (
     <div className="w-full min-w-0 flex flex-col bg-background">
       {/* Main content with responsive padding and proper spacing */}
       <div className="flex flex-col gap-3 sm:gap-4 lg:gap-5 w-full p-2 sm:p-4 lg:p-5">
+        {!proPlan && (
+          <UpgradeBanner
+            title="Unlock Dhan sync, advanced analytics, and exports with Pro"
+            description="Start free, then upgrade when you want unlimited trades, deeper psychology review, and broker-connected journaling."
+          />
+        )}
         <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 lg:p-6 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent pointer-events-none" />
           <div className="relative z-10 flex items-start justify-between gap-4">

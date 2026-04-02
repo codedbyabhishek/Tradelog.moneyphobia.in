@@ -10,6 +10,8 @@ import { Progress } from '@/components/ui/progress';
 import { Activity, AlertTriangle, Brain, CalendarRange, Clock3, Gauge, Layers3, Shield, TrendingDown, TrendingUp } from 'lucide-react';
 import { Trade } from '@/lib/types';
 import { getTradeBasePnL, getTradeCharges, CURRENCY_SYMBOLS, BASE_CURRENCY, formatCurrency, convertToBaseCurrency } from '@/lib/trade-utils';
+import { isProPlan } from '@/lib/subscription';
+import UpgradeBanner from '@/components/upgrade-banner';
 import { calculateExpectancy } from '@/lib/analytics-engine';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -114,7 +116,9 @@ function InsightSection({
 
 export default function AdvancedAnalytics() {
   const { trades } = useTrades();
+  const { billingState } = useSettings();
   const { baseCurrency } = useSettings();
+  const proPlan = isProPlan(billingState);
   const baseCurrencySymbol = CURRENCY_SYMBOLS[baseCurrency];
 
   // Time range in days for "Your Stats" section (default: last 30 days)
@@ -532,6 +536,17 @@ export default function AdvancedAnalytics() {
       sessionPerformance,
     };
   }, [trades]);
+
+  if (!proPlan) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8">
+        <UpgradeBanner
+          title="Advanced Analytics is available on Traderlogify Pro"
+          description="Upgrade to unlock deeper session analysis, risk metrics, duration studies, and advanced performance breakdowns."
+        />
+      </div>
+    );
+  }
 
   if (!trades || trades.length === 0) {
     return (

@@ -4,6 +4,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { TradeIdea } from './types';
 import { useAuth } from '@/lib/auth-context';
 import { clearBootstrap, readBootstrap } from '@/lib/client-bootstrap';
+import { useSettings } from '@/lib/settings-context';
+import { isProPlan, SUBSCRIPTION_LIMITS } from '@/lib/subscription';
 
 interface IdeasContextType {
   ideas: TradeIdea[];
@@ -45,6 +47,7 @@ async function ideasRequest(url: string, init?: RequestInit) {
 
 export function IdeasProvider({ children }: { children: React.ReactNode }) {
   const { user, isLoading: isAuthLoading } = useAuth();
+  const { billingState } = useSettings();
   const [ideas, setIdeas] = useState<TradeIdea[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -86,6 +89,13 @@ export function IdeasProvider({ children }: { children: React.ReactNode }) {
   }, [user, isAuthLoading]);
 
   const addIdea = (idea: TradeIdea) => {
+    const pro = isProPlan(billingState);
+    const ideaLimit = SUBSCRIPTION_LIMITS[pro ? 'pro' : 'free'].ideas;
+    if (ideas.length >= ideaLimit) {
+      setError('Free plan limit reached. Upgrade to Pro to add more trade ideas.');
+      return;
+    }
+
     if (!idea.id || !idea.name) {
       setError('Invalid idea: missing required fields');
       return;

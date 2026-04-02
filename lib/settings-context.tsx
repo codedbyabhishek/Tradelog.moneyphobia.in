@@ -1,9 +1,10 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { CapitalAdjustment, Currency } from './types';
+import { BillingState, CapitalAdjustment, Currency } from './types';
 import { useAuth } from '@/lib/auth-context';
 import { clearBootstrap, readBootstrap } from '@/lib/client-bootstrap';
+import { DEFAULT_BILLING_STATE, normalizeBillingState } from '@/lib/subscription';
 
 interface SettingsContextType {
   baseCurrency: Currency;
@@ -12,6 +13,8 @@ interface SettingsContextType {
   setStartingBalance: (balance: number) => void;
   capitalAdjustments: CapitalAdjustment[];
   saveCapitalAdjustments: (adjustments: CapitalAdjustment[]) => void;
+  billingState: BillingState;
+  saveBillingState: (billing: BillingState) => void;
 }
 
 export const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -25,6 +28,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [baseCurrency, setBaseCurrencyState] = useState<Currency>(DEFAULT_BASE_CURRENCY);
   const [startingBalance, setStartingBalanceState] = useState<number>(DEFAULT_STARTING_BALANCE);
   const [capitalAdjustments, setCapitalAdjustmentsState] = useState<CapitalAdjustment[]>(DEFAULT_CAPITAL_ADJUSTMENTS);
+  const [billingState, setBillingState] = useState<BillingState>(DEFAULT_BILLING_STATE);
 
   useEffect(() => {
     const load = async () => {
@@ -33,6 +37,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setBaseCurrencyState(DEFAULT_BASE_CURRENCY);
         setStartingBalanceState(DEFAULT_STARTING_BALANCE);
         setCapitalAdjustmentsState(DEFAULT_CAPITAL_ADJUSTMENTS);
+        setBillingState(DEFAULT_BILLING_STATE);
         clearBootstrap();
         return;
       }
@@ -63,6 +68,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
               note: item.note ? String(item.note) : '',
             }))
         );
+        setBillingState(normalizeBillingState(bootstrap.settings?.billing));
         return;
       }
 
@@ -81,6 +87,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         if (Number.isFinite(storedStartingBalance)) {
           setStartingBalanceState(storedStartingBalance);
         }
+        setBillingState(normalizeBillingState(data?.settings?.billing));
         setCapitalAdjustmentsState(
           storedCapitalAdjustments
             .filter((item: any) => item && item.id && item.date && Number.isFinite(Number(item.amount)))
@@ -150,6 +157,22 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const saveBillingState = (billing: BillingState) => {
+    const normalized = normalizeBillingState(billing);
+    setBillingState(normalized);
+
+    if (!user) return;
+
+    void fetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ key: 'billing', value: normalized }),
+    }).catch((err) => {
+      console.error('[SettingsContext] Failed to save billing settings:', err);
+    });
+  };
+
   return (
     <SettingsContext.Provider
       value={{
@@ -159,6 +182,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setStartingBalance,
         capitalAdjustments,
         saveCapitalAdjustments,
+        billingState,
+        saveBillingState,
       }}
     >
       {children}

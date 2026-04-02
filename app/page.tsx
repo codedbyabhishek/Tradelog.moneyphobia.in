@@ -3,6 +3,7 @@ import { createPublicMetadata } from '@/lib/seo';
 import { Button } from '@/components/ui/button';
 import SiteFooter from '@/components/site-footer';
 import { HeroBoardIllustration } from '@/components/brand-illustrations';
+import PricingCards from '@/components/pricing-cards';
 
 export const metadata = createPublicMetadata({
   title: 'Trading Journal for Dhan Sync, Screenshots, and Trade Review',
@@ -195,6 +196,20 @@ export default function HomePage() {
               </Button>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 lg:px-8">
+        <div className="max-w-2xl">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Pricing</p>
+          <h2 className="mt-3 text-3xl font-bold sm:text-4xl">Start free, upgrade when your review workflow gets serious.</h2>
+          <p className="mt-4 text-muted-foreground">
+            Traderlogify starts with a generous free plan and scales into Pro for active traders who need sync,
+            exports, and deeper analytics.
+          </p>
+        </div>
+        <div className="mt-8">
+          <PricingCards compact />
         </div>
       </section>
 

@@ -4,6 +4,7 @@ const footerLinks = [
   { href: '/about', label: 'About Us' },
   { href: '/contact', label: 'Contact Us' },
   { href: '/faq', label: 'FAQ' },
+  { href: '/pricing', label: 'Pricing' },
   { href: '/privacy', label: 'Privacy Policy' },
   { href: '/terms', label: 'Terms & Conditions' },
   { href: '/cookies', label: 'Cookie Policy' },

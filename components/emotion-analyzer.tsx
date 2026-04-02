@@ -12,6 +12,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, Brain, Heart, Sparkles, TrendingDown, TrendingUp } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { Trade } from '@/lib/types';
+import { isProPlan } from '@/lib/subscription';
+import UpgradeBanner from '@/components/upgrade-banner';
 
 type EmotionMetric = 'entry' | 'exit' | 'overall';
 type TimeFilter = 'all' | 'month' | 'week';
@@ -74,11 +76,12 @@ function getDateCutoff(timeFilter: TimeFilter): Date | null {
 
 export default function EmotionAnalyzer() {
   const { trades } = useTrades();
-  const { baseCurrency } = useSettings();
+  const { baseCurrency, billingState } = useSettings();
   const [emotionMetric, setEmotionMetric] = useState<EmotionMetric>('entry');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
 
   const symbol = CURRENCY_SYMBOLS[baseCurrency];
+  const proPlan = isProPlan(billingState);
 
   const filteredTrades = useMemo(() => {
     const cutoff = getDateCutoff(timeFilter);
@@ -322,6 +325,17 @@ export default function EmotionAnalyzer() {
     const patternPenalty = psychologicalPatterns.filter((item) => item.impact === 'negative').length * 8;
     return Math.max(0, Math.min(100, 70 + coverageBonus - consistencyPenalty - patternPenalty));
   }, [emotionPerformance.length, psychologicalPatterns, summary.avgConsistency, summary.coverage]);
+
+  if (!proPlan) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8">
+        <UpgradeBanner
+          title="Emotion Psychology Analyzer is part of Traderlogify Pro"
+          description="Upgrade to unlock emotion-state performance patterns, transition analysis, and trading psychology insights."
+        />
+      </div>
+    );
+  }
 
   if (!trades.length) {
     return (

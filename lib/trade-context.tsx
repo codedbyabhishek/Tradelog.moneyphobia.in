@@ -5,6 +5,8 @@ import { Currency, Trade } from './types';
 import { convertToBaseCurrency, getExchangeRateToBase } from './trade-utils';
 import { useAuth } from '@/lib/auth-context';
 import { clearBootstrap, readBootstrap } from '@/lib/client-bootstrap';
+import { useSettings } from '@/lib/settings-context';
+import { isProPlan, SUBSCRIPTION_LIMITS } from '@/lib/subscription';
 
 interface TradeContextType {
   trades: Trade[];
@@ -72,6 +74,7 @@ async function apiRequest(url: string, init?: RequestInit) {
 
 export function TradeProvider({ children }: { children: React.ReactNode }) {
   const { user, isLoading: isAuthLoading } = useAuth();
+  const { billingState } = useSettings();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [storagePercentage] = useState(0);
@@ -113,6 +116,12 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
 
   const addTrade = (trade: Trade) => {
     try {
+      const pro = isProPlan(billingState);
+      const tradeLimit = SUBSCRIPTION_LIMITS[pro ? 'pro' : 'free'].trades;
+      if (trades.length >= tradeLimit) {
+        throw new Error('Free plan limit reached. Upgrade to Pro to add more trades.');
+      }
+
       if (!trade.id || !trade.date || !trade.symbol) {
         throw new Error('Invalid trade data: missing required fields');
       }

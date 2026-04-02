@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { Database, Loader2, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react';
 import { useTrades } from '@/lib/trade-context';
+import { useSettings } from '@/lib/settings-context';
+import { isProPlan } from '@/lib/subscription';
 import {
   Dialog,
   DialogContent,
@@ -54,6 +56,7 @@ function daysAgoString(daysAgo: number) {
 
 export default function DhanSyncCard() {
   const { refreshTrades } = useTrades();
+  const { billingState } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
   const [clientId, setClientId] = useState('');
   const [accessToken, setAccessToken] = useState('');
@@ -68,6 +71,7 @@ export default function DhanSyncCard() {
   const [status, setStatus] = useState<DhanStatusResponse['status'] | null>(null);
   const [lastSync, setLastSync] = useState<DhanSyncResponse | null>(null);
   const { toast } = useToast();
+  const proPlan = isProPlan(billingState);
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -88,6 +92,7 @@ export default function DhanSyncCard() {
   }, []);
 
   const loadStatus = async () => {
+    if (!proPlan) return;
     setIsLoadingStatus(true);
     try {
       const res = await fetch('/api/brokers/dhan/status', { credentials: 'include', cache: 'no-store' });
@@ -108,6 +113,14 @@ export default function DhanSyncCard() {
   };
 
   const handleSave = async () => {
+    if (!proPlan) {
+      toast({
+        title: 'Pro Feature',
+        description: 'Dhan broker sync is available on the Pro plan.',
+        variant: 'destructive',
+      });
+      return;
+    }
     if (!clientId.trim() || !accessToken.trim()) {
       toast({
         title: 'Missing Information',
@@ -154,6 +167,7 @@ export default function DhanSyncCard() {
   };
 
   const handleRemove = async () => {
+    if (!proPlan) return;
     setIsSaving(true);
     try {
       const res = await fetch('/api/brokers/dhan/config', {
@@ -187,6 +201,14 @@ export default function DhanSyncCard() {
   };
 
   const handleSync = async () => {
+    if (!proPlan) {
+      toast({
+        title: 'Pro Feature',
+        description: 'Upgrade to Pro to sync trades from Dhan.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsSyncing(true);
     try {
       const res = await fetch('/api/brokers/dhan/sync', {
@@ -243,6 +265,11 @@ export default function DhanSyncCard() {
                   Active
                 </span>
               )}
+              {!proPlan && (
+                <span className="inline-flex items-center rounded-md bg-amber-500/10 px-2 py-1 text-[11px] text-amber-500">
+                  Pro only
+                </span>
+              )}
               {lastSync && (
                 <span className="inline-flex items-center rounded-md bg-sky-500/10 px-2 py-1 text-[11px] text-sky-400">
                   +{lastSync.imported} imported
@@ -260,6 +287,14 @@ export default function DhanSyncCard() {
             Compact on the dashboard, full controls here. Existing manual journal entries stay untouched.
           </DialogDescription>
         </DialogHeader>
+        {!proPlan && (
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+            <p className="font-medium">Dhan Sync is part of Traderlogify Pro.</p>
+            <p className="mt-1 text-muted-foreground">
+              Upgrade to unlock broker import, sync refreshes, and connected review workflows.
+            </p>
+          </div>
+        )}
 
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">

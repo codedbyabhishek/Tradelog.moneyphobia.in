@@ -12,14 +12,19 @@ import CurrencySettings from '@/components/currency-settings';
 import CapitalAdjustmentsSettings from '@/components/capital-adjustments-settings';
 import StartingBalanceSettings from '@/components/starting-balance-settings';
 import { fetchTradesFromGithub, parseGithubRepoUrl } from '@/lib/github-service';
+import BillingSettings from '@/components/billing-settings';
+import { useSettings } from '@/lib/settings-context';
+import { isProPlan } from '@/lib/subscription';
 
 export default function DataUtilities() {
   const { trades, exportJSON, exportCSV, importJSON, clearTrades } = useTrades();
   const { ideas, exportJSON: exportIdeasJSON, exportCSV: exportIdeasCSV, importJSON: importIdeasJSON } = useIdeas();
+  const { billingState } = useSettings();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const ideaFileInputRef = useRef<HTMLInputElement>(null);
   const [githubRepoUrl, setGithubRepoUrl] = useState('');
   const [isGithubLoading, setIsGithubLoading] = useState(false);
+  const proPlan = isProPlan(billingState);
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -181,6 +186,8 @@ export default function DataUtilities() {
       {/* Deposits / Withdrawals */}
       <CapitalAdjustmentsSettings />
 
+      <BillingSettings />
+
       {/* Export Section */}
       <Card className="bg-card border-border">
         <CardHeader>
@@ -193,8 +200,12 @@ export default function DataUtilities() {
         <CardContent className="space-y-4">
           <div>
             <p className="text-sm font-medium text-foreground mb-3">Export as JSON (Full Backup)</p>
-            <p className="text-xs text-muted-foreground mb-4">Create a complete backup of all your trades including screenshots</p>
-            <Button onClick={handleExportJSON} className="bg-primary hover:bg-primary/90">
+            <p className="text-xs text-muted-foreground mb-4">
+              {proPlan
+                ? 'Create a complete backup of all your trades including screenshots'
+                : 'JSON exports are available on Pro for backup and portability.'}
+            </p>
+            <Button onClick={handleExportJSON} className="bg-primary hover:bg-primary/90" disabled={!proPlan}>
               <Download className="w-4 h-4 mr-2" />
               Export as JSON
             </Button>
@@ -202,8 +213,8 @@ export default function DataUtilities() {
 
           <div className="border-t border-border pt-4">
             <p className="text-sm font-medium text-foreground mb-3">Export as CSV (Spreadsheet)</p>
-            <p className="text-xs text-muted-foreground mb-4">Export data in CSV format for analysis in Excel or Google Sheets</p>
-            <Button onClick={handleExportCSV} className="bg-primary hover:bg-primary/90">
+            <p className="text-xs text-muted-foreground mb-4">CSV export is a Pro feature for deeper review outside the app.</p>
+            <Button onClick={handleExportCSV} className="bg-primary hover:bg-primary/90" disabled={!proPlan}>
               <Download className="w-4 h-4 mr-2" />
               Export as CSV
             </Button>
@@ -211,8 +222,8 @@ export default function DataUtilities() {
 
           <div className="border-t border-border pt-4">
             <p className="text-sm font-medium text-foreground mb-3">Export Trade Ideas as JSON</p>
-            <p className="text-xs text-muted-foreground mb-4">Backup all your trade ideas and setups</p>
-            <Button onClick={handleExportIdeasJSON} className="bg-blue-600 hover:bg-blue-700">
+            <p className="text-xs text-muted-foreground mb-4">Idea exports are included with Pro.</p>
+            <Button onClick={handleExportIdeasJSON} className="bg-blue-600 hover:bg-blue-700" disabled={!proPlan}>
               <Download className="w-4 h-4 mr-2" />
               Export Ideas (JSON)
             </Button>
@@ -220,8 +231,8 @@ export default function DataUtilities() {
 
           <div className="border-t border-border pt-4">
             <p className="text-sm font-medium text-foreground mb-3">Export Trade Ideas as CSV</p>
-            <p className="text-xs text-muted-foreground mb-4">Export ideas in spreadsheet format</p>
-            <Button onClick={handleExportIdeasCSV} className="bg-blue-600 hover:bg-blue-700">
+            <p className="text-xs text-muted-foreground mb-4">CSV idea exports are included with Pro.</p>
+            <Button onClick={handleExportIdeasCSV} className="bg-blue-600 hover:bg-blue-700" disabled={!proPlan}>
               <Download className="w-4 h-4 mr-2" />
               Export Ideas (CSV)
             </Button>
@@ -229,8 +240,8 @@ export default function DataUtilities() {
 
           <div className="border-t border-border pt-4">
             <p className="text-sm font-medium text-foreground mb-3">Export Everything (Complete Backup)</p>
-            <p className="text-xs text-muted-foreground mb-4">Export all trades and ideas together in one JSON file</p>
-            <Button onClick={handleExportAllJSON} className="bg-green-600 hover:bg-green-700">
+            <p className="text-xs text-muted-foreground mb-4">Complete account backup is available on Pro.</p>
+            <Button onClick={handleExportAllJSON} className="bg-green-600 hover:bg-green-700" disabled={!proPlan}>
               <Download className="w-4 h-4 mr-2" />
               Export All Data
             </Button>
