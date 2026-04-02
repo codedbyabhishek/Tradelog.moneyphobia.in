@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { TradeIdea } from './types';
 import { useAuth } from '@/lib/auth-context';
+import { clearBootstrap, readBootstrap } from '@/lib/client-bootstrap';
 
 interface IdeasContextType {
   ideas: TradeIdea[];
@@ -52,6 +53,17 @@ export function IdeasProvider({ children }: { children: React.ReactNode }) {
       if (isAuthLoading) return;
       if (!user) {
         setIdeas([]);
+        setError(null);
+        clearBootstrap();
+        return;
+      }
+
+      const bootstrap = readBootstrap(user.id);
+      if (bootstrap) {
+        setIdeas((bootstrap.ideas || []).map((idea) => ({
+          ...idea,
+          isFavorite: Boolean(idea.isFavorite),
+        })));
         setError(null);
         return;
       }

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { CapitalAdjustment, Currency } from './types';
 import { useAuth } from '@/lib/auth-context';
+import { clearBootstrap, readBootstrap } from '@/lib/client-bootstrap';
 
 interface SettingsContextType {
   baseCurrency: Currency;
@@ -32,6 +33,36 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setBaseCurrencyState(DEFAULT_BASE_CURRENCY);
         setStartingBalanceState(DEFAULT_STARTING_BALANCE);
         setCapitalAdjustmentsState(DEFAULT_CAPITAL_ADJUSTMENTS);
+        clearBootstrap();
+        return;
+      }
+
+      const bootstrap = readBootstrap(user.id);
+      if (bootstrap) {
+        const storedCurrency = bootstrap.settings?.baseCurrency;
+        const storedStartingBalance = Number(bootstrap.settings?.startingBalance);
+        const storedCapitalAdjustments = Array.isArray(bootstrap.settings?.capitalAdjustments)
+          ? bootstrap.settings.capitalAdjustments
+          : DEFAULT_CAPITAL_ADJUSTMENTS;
+
+        if (storedCurrency) {
+          setBaseCurrencyState(storedCurrency as Currency);
+        } else {
+          setBaseCurrencyState(DEFAULT_BASE_CURRENCY);
+        }
+
+        setStartingBalanceState(Number.isFinite(storedStartingBalance) ? storedStartingBalance : DEFAULT_STARTING_BALANCE);
+        setCapitalAdjustmentsState(
+          storedCapitalAdjustments
+            .filter((item: any) => item && item.id && item.date && Number.isFinite(Number(item.amount)))
+            .map((item: any) => ({
+              id: String(item.id),
+              date: String(item.date),
+              type: item.type === 'withdrawal' ? 'withdrawal' : 'deposit',
+              amount: Number(item.amount),
+              note: item.note ? String(item.note) : '',
+            }))
+        );
         return;
       }
 

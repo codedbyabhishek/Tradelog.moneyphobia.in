@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Trade, TradeFilter } from './types';
 import { useAuth } from '@/lib/auth-context';
+import { clearBootstrap, readBootstrap } from '@/lib/client-bootstrap';
 
 interface FiltersContextType {
   filters: TradeFilter[];
@@ -50,6 +51,14 @@ export function FiltersProvider({ children }: { children: React.ReactNode }) {
       if (isAuthLoading) return;
       if (!user) {
         setFilters([]);
+        setError(null);
+        clearBootstrap();
+        return;
+      }
+
+      const bootstrap = readBootstrap(user.id);
+      if (bootstrap) {
+        setFilters((bootstrap.filters || []) as TradeFilter[]);
         setError(null);
         return;
       }

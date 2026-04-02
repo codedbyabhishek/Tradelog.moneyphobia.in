@@ -5,6 +5,13 @@ import { dbExecute, dbQuery } from '@/lib/server/db';
 
 const SESSION_COOKIE = 'td_session';
 const SESSION_TTL_DAYS = 30;
+const DEFAULT_BCRYPT_ROUNDS = 10;
+
+function getBcryptRounds() {
+  const configured = Number(process.env.AUTH_BCRYPT_ROUNDS || DEFAULT_BCRYPT_ROUNDS);
+  if (!Number.isFinite(configured)) return DEFAULT_BCRYPT_ROUNDS;
+  return Math.min(14, Math.max(8, Math.floor(configured)));
+}
 
 export interface AuthUser {
   id: number;
@@ -31,8 +38,7 @@ export function normalizeAuthEmail(email: string): string {
 }
 
 export async function hashPassword(password: string): Promise<string> {
-  const saltRounds = 12;
-  return bcrypt.hash(password, saltRounds);
+  return bcrypt.hash(password, getBcryptRounds());
 }
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {

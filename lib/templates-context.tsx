@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
+import { clearBootstrap, readBootstrap } from '@/lib/client-bootstrap';
 
 export interface TradeTemplate {
   id: string;
@@ -69,6 +70,14 @@ export function TemplatesProvider({ children }: { children: React.ReactNode }) {
       if (isAuthLoading) return;
       if (!user) {
         setTemplates([]);
+        setError(null);
+        clearBootstrap();
+        return;
+      }
+
+      const bootstrap = readBootstrap(user.id);
+      if (bootstrap) {
+        setTemplates((bootstrap.templates || []) as TradeTemplate[]);
         setError(null);
         return;
       }

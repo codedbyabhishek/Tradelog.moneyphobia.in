@@ -4,6 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { Currency, Trade } from './types';
 import { convertToBaseCurrency, getExchangeRateToBase } from './trade-utils';
 import { useAuth } from '@/lib/auth-context';
+import { clearBootstrap, readBootstrap } from '@/lib/client-bootstrap';
 
 interface TradeContextType {
   trades: Trade[];
@@ -82,6 +83,14 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
 
     if (!user) {
       setTrades([]);
+      setError(null);
+      clearBootstrap();
+      return;
+    }
+
+    const bootstrap = readBootstrap(user.id);
+    if (bootstrap) {
+      setTrades(bootstrap.trades.map(normalizeTrade));
       setError(null);
       return;
     }

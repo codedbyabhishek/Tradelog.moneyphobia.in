@@ -142,7 +142,7 @@ export default function AuthScreen() {
               {error && <p className="text-sm text-red-500">{error}</p>}
 
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Please wait...' : mode === 'login' ? 'Login' : 'Create Account'}
+                {loading ? (mode === 'login' ? 'Signing in...' : 'Creating account...') : mode === 'login' ? 'Login' : 'Create Account'}
               </Button>
             </form>
           </CardContent>

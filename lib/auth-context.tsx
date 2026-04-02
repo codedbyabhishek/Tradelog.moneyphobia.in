@@ -1,11 +1,18 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { clearBootstrap, storeBootstrap } from '@/lib/client-bootstrap';
+import type { AppBootstrapData } from '@/lib/bootstrap';
 
 export interface AuthUser {
   id: number;
   email: string;
   name: string | null;
+}
+
+interface AuthPayload {
+  user: AuthUser | null;
+  bootstrap?: AppBootstrapData;
 }
 
 interface AuthContextType {
@@ -65,9 +72,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const data = await res.json();
       setUser(data.user || null);
+      storeBootstrap(data.user ? data.bootstrap || null : null);
       setError(null);
     } catch {
       setUser(null);
+      clearBootstrap();
     }
   };
 
@@ -97,8 +106,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(message);
     }
 
-    const data = await res.json();
+    const data = (await res.json()) as AuthPayload;
     setUser(data.user || null);
+    storeBootstrap(data.user ? data.bootstrap || null : null);
     setError(null);
   };
 
@@ -116,8 +126,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(message);
     }
 
-    const data = await res.json();
+    const data = (await res.json()) as AuthPayload;
     setUser(data.user || null);
+    storeBootstrap(data.user ? data.bootstrap || null : null);
     setError(null);
   };
 
@@ -134,6 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     setUser(null);
+    clearBootstrap();
     setError(null);
   };
 

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { TradingGoal } from './types';
 import { useAuth } from '@/lib/auth-context';
+import { clearBootstrap, readBootstrap } from '@/lib/client-bootstrap';
 
 interface GoalsContextType {
   goals: TradingGoal[];
@@ -52,6 +53,14 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
       if (isAuthLoading) return;
       if (!user) {
         setGoals([]);
+        setError(null);
+        clearBootstrap();
+        return;
+      }
+
+      const bootstrap = readBootstrap(user.id);
+      if (bootstrap) {
+        setGoals((bootstrap.goals || []) as TradingGoal[]);
         setError(null);
         return;
       }
