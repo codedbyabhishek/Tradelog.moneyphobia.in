@@ -4,7 +4,7 @@ import { createPublicMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = createPublicMetadata({
   title: 'About',
-  description: 'Learn how Moneyphobia Journal helps traders review performance, track setups, and build discipline.',
+  description: 'Learn how Traderlogify helps traders review performance, track setups, and build discipline.',
   path: '/about',
 });
 

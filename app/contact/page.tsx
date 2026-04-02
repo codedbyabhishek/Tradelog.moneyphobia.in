@@ -4,7 +4,7 @@ import { createPublicMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = createPublicMetadata({
   title: 'Contact',
-  description: 'Contact Moneyphobia Journal support for account, product, and troubleshooting help.',
+  description: 'Contact Traderlogify for account, product, and troubleshooting help.',
   path: '/contact',
 });
 
@@ -14,7 +14,8 @@ export default function ContactPage() {
       title="Contact Us"
       description="Need help or have a question? Reach us using the support details below."
     >
-      <p>Email: support@tradingjournal.app</p>
+      <p>Email: hello@traderlogify.online</p>
+      <p>Support: support@traderlogify.online</p>
       <p>Response time: usually within 24-48 business hours.</p>
       <p>Please include your account email and a short problem summary.</p>
     </PublicPageLayout>

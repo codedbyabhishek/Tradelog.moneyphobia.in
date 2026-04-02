@@ -4,7 +4,7 @@ import { createPublicMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = createPublicMetadata({
   title: 'Terms and Conditions',
-  description: 'Review the terms and usage conditions for Moneyphobia Journal.',
+  description: 'Review the terms and usage conditions for Traderlogify.',
   path: '/terms',
 });
 

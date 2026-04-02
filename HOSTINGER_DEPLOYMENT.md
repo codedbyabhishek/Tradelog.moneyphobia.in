@@ -44,7 +44,7 @@ In hPanel:
 3. Open `Node.js` or `Node.js Web App`
 4. Choose `Deploy from GitHub`
 5. Select this repository:
-   - `codedbyabhishek/MoneyphobiaJournal`
+   - `codedbyabhishek/Tradelog.moneyphobia.in`
 6. Choose branch:
    - `main`
 7. Use app root:

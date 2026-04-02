@@ -147,7 +147,7 @@ export async function sendNotification(
 
   if (Notification.permission === 'granted') {
     try {
-      new Notification('Trading Diary', {
+      new Notification('Traderlogify', {
         body: message,
         icon: '/icon-192.png',
         badge: '/icon-64.png',
@@ -161,7 +161,7 @@ export async function sendNotification(
     try {
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
-        new Notification('Trading Diary', {
+        new Notification('Traderlogify', {
           body: message,
           icon: '/icon-192.png',
           badge: '/icon-64.png',

@@ -22,7 +22,10 @@ export default function SiteFooter() {
     <footer className="mt-10 border-t border-border/70 bg-gradient-to-b from-background to-card/30">
       <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <p className="text-xs tracking-[0.12em] uppercase text-muted-foreground/80">Trading Journal</p>
+          <div>
+            <p className="text-xs tracking-[0.12em] uppercase text-muted-foreground/80">Traderlogify</p>
+            <p className="mt-1 text-xs text-muted-foreground/70">hello@traderlogify.online</p>
+          </div>
           <p className="text-xs text-muted-foreground/70">{year}</p>
         </div>
 

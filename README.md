@@ -1,6 +1,6 @@
-# Moneyphobia Journal
+# Traderlogify
 
-Moneyphobia Journal is a Next.js trading journal for logging manual trades, importing broker history, reviewing setups, and building a visual library of favorite trades and trade ideas.
+Traderlogify is a Next.js trading journal for logging manual trades, importing broker history, reviewing setups, and building a visual library of favorite trades and trade ideas.
 
 ## Highlights
 

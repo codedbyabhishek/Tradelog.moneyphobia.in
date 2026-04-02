@@ -4,7 +4,7 @@ import { createPublicMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = createPublicMetadata({
   title: 'Cookie Policy',
-  description: 'Understand how Moneyphobia Journal uses cookies for authentication and core app functionality.',
+  description: 'Understand how Traderlogify uses cookies for authentication and core app functionality.',
   path: '/cookies',
 });
 

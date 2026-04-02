@@ -6,7 +6,7 @@ import { HeroBoardIllustration } from '@/components/brand-illustrations';
 
 export const metadata = createPublicMetadata({
   title: 'Trading Journal for Dhan Sync, Screenshots, and Trade Review',
-  description: 'Moneyphobia Journal helps traders sync Dhan history, annotate screenshots, review setups, and build repeatable trading discipline with a structured journal.',
+  description: 'Traderlogify helps traders sync Dhan history, annotate screenshots, review setups, and build repeatable trading discipline with a structured journal.',
   path: '/',
 });
 
@@ -45,7 +45,7 @@ const workflow = [
 
 const faqSchema = [
   {
-    question: 'Does Moneyphobia Journal support Dhan broker sync?',
+    question: 'Does Traderlogify support Dhan broker sync?',
     answer: 'Yes. The app supports read-only Dhan trade sync so you can import history into the journal and then enrich each trade with notes, setup names, fib levels, and screenshots.',
   },
   {
@@ -63,12 +63,12 @@ const structuredData = {
   '@graph': [
     {
       '@type': 'Organization',
-      name: 'Moneyphobia Journal',
-      url: 'https://moneyphobiajournal.vercel.app',
+      name: 'Traderlogify',
+      url: 'https://traderlogify.online',
     },
     {
       '@type': 'SoftwareApplication',
-      name: 'Moneyphobia Journal',
+      name: 'Traderlogify',
       applicationCategory: 'FinanceApplication',
       operatingSystem: 'Web',
       description:
@@ -110,7 +110,7 @@ export default function HomePage() {
               Review trades with structure, screenshots, and Dhan sync.
             </h1>
             <p className="mt-5 max-w-2xl text-base text-muted-foreground sm:text-lg">
-              Moneyphobia Journal gives you one place to import broker history, document trade ideas,
+              Traderlogify gives you one place to import broker history, document trade ideas,
               track setups and fib levels, and study what actually improves your execution.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-const DEFAULT_SITE_URL = 'https://moneyphobiajournal.vercel.app';
+const DEFAULT_SITE_URL = 'https://traderlogify.online';
 
 export function getSiteUrl() {
   const value =
@@ -33,7 +33,7 @@ export function createPublicMetadata({
       title,
       description,
       url: canonical,
-      siteName: 'Moneyphobia Journal',
+      siteName: 'Traderlogify',
       type: 'website',
       images: [
         {

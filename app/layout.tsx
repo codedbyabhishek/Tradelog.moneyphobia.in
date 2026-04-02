@@ -17,12 +17,12 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
   title: {
-    default: 'Moneyphobia Journal',
-    template: '%s | Moneyphobia Journal',
+    default: 'Traderlogify',
+    template: '%s | Traderlogify',
   },
   description: 'Trading journal for manual trade review, Dhan broker sync, setup tracking, screenshots, and performance analysis.',
   generator: 'v0.app',
-  applicationName: 'Moneyphobia Journal',
+  applicationName: 'Traderlogify',
   keywords: [
     'trading journal',
     'trade tracker',
@@ -37,10 +37,10 @@ export const metadata: Metadata = {
     canonical: '/',
   },
   openGraph: {
-    title: 'Moneyphobia Journal',
+    title: 'Traderlogify',
     description: 'Track trades, sync Dhan history, review setups, and build a disciplined trading journal.',
     url: '/',
-    siteName: 'Moneyphobia Journal',
+    siteName: 'Traderlogify',
     type: 'website',
     images: [
       {
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Moneyphobia Journal',
+    title: 'Traderlogify',
     description: 'Track trades, sync Dhan history, review setups, and build a disciplined trading journal.',
     images: ['/icon.svg'],
   },
@@ -86,7 +86,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Trading Diary',
+    title: 'Traderlogify',
   },
   formatDetection: {
     telephone: false,

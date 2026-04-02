@@ -4,7 +4,7 @@ import { createPublicMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = createPublicMetadata({
   title: 'Disclaimer',
-  description: 'Important educational-use and risk disclaimer for Moneyphobia Journal.',
+  description: 'Important educational-use and risk disclaimer for Traderlogify.',
   path: '/disclaimer',
 });
 

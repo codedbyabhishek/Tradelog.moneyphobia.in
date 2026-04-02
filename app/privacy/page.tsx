@@ -4,7 +4,7 @@ import { createPublicMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = createPublicMetadata({
   title: 'Privacy Policy',
-  description: 'Read how Moneyphobia Journal handles account data, journal records, and deletion requests.',
+  description: 'Read how Traderlogify handles account data, journal records, and deletion requests.',
   path: '/privacy',
 });
 

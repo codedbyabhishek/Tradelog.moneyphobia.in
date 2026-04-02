@@ -1,7 +1,7 @@
 {
-  "name": "Trading Diary - Advanced Journal & Analytics",
-  "short_name": "Trading Diary",
-  "description": "Professional trading journal with analytics, portfolio tracking, and performance insights",
+  "name": "Traderlogify - Advanced Journal & Analytics",
+  "short_name": "Traderlogify",
+  "description": "Professional trading journal with analytics, broker sync, screenshot review, and performance insights",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

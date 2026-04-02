@@ -1,5 +1,5 @@
 /**
- * Service Worker for Trading Diary PWA
+ * Service Worker for Traderlogify PWA
  * Handles offline functionality, caching, and background sync
  */
 
@@ -142,15 +142,15 @@ async function syncOfflineTrades() {
 self.addEventListener('push', (event) => {
   const data = event.data?.json() || {};
   const options = {
-    body: data.body || 'Trading Diary notification',
+    body: data.body || 'Traderlogify notification',
     icon: '/icon-192.png',
     badge: '/icon-64.png',
-    tag: data.tag || 'trading-diary',
+    tag: data.tag || 'traderlogify',
     requireInteraction: data.requireInteraction || false,
     actions: data.actions || []
   };
 
-  event.waitUntil(self.registration.showNotification(data.title || 'Trading Diary', options));
+  event.waitUntil(self.registration.showNotification(data.title || 'Traderlogify', options));
 });
 
 self.addEventListener('notificationclick', (event) => {

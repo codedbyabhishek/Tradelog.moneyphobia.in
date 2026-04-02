@@ -4,7 +4,7 @@ import { createPublicMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = createPublicMetadata({
   title: 'Account Settings',
-  description: 'Learn how to manage account preferences and account-related requests in Moneyphobia Journal.',
+  description: 'Learn how to manage account preferences and account-related requests in Traderlogify.',
   path: '/account',
 });
 
