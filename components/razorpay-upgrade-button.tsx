@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useSettings } from '@/lib/settings-context';
-import type { BillingState } from '@/lib/types';
 
 declare global {
   interface Window {
@@ -39,7 +37,6 @@ export default function RazorpayUpgradeButton({
   label,
   className,
 }: RazorpayUpgradeButtonProps) {
-  const { saveBillingState } = useSettings();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -71,15 +68,6 @@ export default function RazorpayUpgradeButton({
         name: 'Traderlogify',
         description: billingCycle === 'yearly' ? 'Traderlogify Pro Yearly' : 'Traderlogify Pro Monthly',
         handler: () => {
-          const optimistic: BillingState = {
-            plan: 'pro',
-            status: 'trialing',
-            billingCycle,
-            startedAt: new Date().toISOString(),
-            renewsAt: null,
-            trialEndsAt: null,
-          };
-          saveBillingState(optimistic);
           setMessage('Payment authorised. Your Pro plan will fully activate after Razorpay webhook confirmation.');
         },
         theme: {
