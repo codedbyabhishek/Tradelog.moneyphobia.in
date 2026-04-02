@@ -48,14 +48,22 @@ export default function TradeLog() {
   const [editAfterScreenshot, setEditAfterScreenshot] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'date' | 'pnl'>('date');
   const [filterSetup, setFilterSetup] = useState('All');
+  const [filterTag, setFilterTag] = useState('All');
   const { toast } = useToast();
 
   const setupNames = useMemo(() => {
     return ['All', ...new Set(trades.map(t => t.setupName))];
   }, [trades]);
 
+  const tagNames = useMemo(() => {
+    return ['All', ...new Set(trades.flatMap((trade) => trade.tags || []))];
+  }, [trades]);
+
   const filteredAndSortedTrades = useMemo(() => {
     let filtered = filterSetup === 'All' ? trades : trades.filter(t => t.setupName === filterSetup);
+    if (filterTag !== 'All') {
+      filtered = filtered.filter((trade) => (trade.tags || []).includes(filterTag));
+    }
 
     return filtered.sort((a, b) => {
       if (sortBy === 'date') {
@@ -64,7 +72,7 @@ export default function TradeLog() {
         return b.pnl - a.pnl;
       }
     });
-  }, [trades, sortBy, filterSetup]);
+  }, [trades, sortBy, filterSetup, filterTag]);
 
   const openEditTrade = (trade: Trade) => {
     setEditingTrade(trade);
@@ -183,6 +191,21 @@ export default function TradeLog() {
         </div>
 
         <div className="flex items-center gap-2 min-w-0">
+          <span className="text-sm text-muted-foreground flex-shrink-0">Tag:</span>
+          <select
+            value={filterTag}
+            onChange={e => setFilterTag(e.target.value)}
+            className="flex-1 px-3 py-2 bg-secondary border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            {tagNames.map(tag => (
+              <option key={tag} value={tag}>
+                {tag}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2 min-w-0">
           <span className="text-sm text-muted-foreground flex-shrink-0">Sort:</span>
           <select
             value={sortBy}
@@ -221,13 +244,14 @@ export default function TradeLog() {
           <div className="hidden lg:block w-full min-w-0">
             <Card className="bg-card border-border overflow-hidden">
               <div className="w-full overflow-x-auto">
-              <table className="w-full min-w-[1100px] border-collapse">
+              <table className="w-full min-w-[1240px] border-collapse">
                 <thead>
                   <tr className="border-b border-border bg-secondary">
                     <th className="text-left px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">Date</th>
                     <th className="text-left px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">Day</th>
                     <th className="text-left px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">Symbol</th>
                     <th className="text-left px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">Setup</th>
+                    <th className="text-left px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">Tags</th>
                     <th className="text-left px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">Pos</th>
                     <th className="text-right px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">Entry</th>
                     <th className="text-right px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">Exit</th>
@@ -259,6 +283,24 @@ export default function TradeLog() {
                             </span>
                           )}
                         </div>
+                      </td>
+                      <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm text-foreground max-w-[220px]">
+                        {trade.tags && trade.tags.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {trade.tags.slice(0, 3).map((tag) => (
+                              <span key={tag} className="inline-flex rounded-full border border-border bg-secondary px-2 py-0.5 text-[10px] text-foreground">
+                                {tag}
+                              </span>
+                            ))}
+                            {trade.tags.length > 3 ? (
+                              <span className="inline-flex rounded-full border border-border bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+                                +{trade.tags.length - 3}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </td>
                       <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm">
                         <span className={`px-2 py-1 rounded text-xs font-semibold ${trade.position === 'Buy' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
@@ -369,6 +411,16 @@ export default function TradeLog() {
                       <p className="font-semibold text-foreground">{trade.confidence}/10</p>
                     </div>
                   </div>
+
+                  {trade.tags && trade.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {trade.tags.map((tag) => (
+                        <span key={tag} className="inline-flex rounded-full border border-border bg-secondary px-2.5 py-1 text-[11px] text-foreground">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-border min-w-0">
                     <div className="min-w-0">

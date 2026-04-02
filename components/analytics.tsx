@@ -259,6 +259,31 @@ export default function Analytics() {
       }));
   }, [filteredTrades]);
 
+  const tagPerformanceData = useMemo(() => {
+    const tagMap = new Map<string, { pnl: number; trades: number; wins: number }>();
+
+    filteredTrades.forEach((trade) => {
+      (trade.tags || []).forEach((tag) => {
+        const pnl = getTradeBasePnL(trade);
+        const existing = tagMap.get(tag) || { pnl: 0, trades: 0, wins: 0 };
+        tagMap.set(tag, {
+          pnl: existing.pnl + pnl,
+          trades: existing.trades + 1,
+          wins: existing.wins + (pnl > 0 ? 1 : 0),
+        });
+      });
+    });
+
+    return Array.from(tagMap.entries())
+      .map(([tag, data]) => ({
+        tag,
+        pnl: parseFloat(data.pnl.toFixed(2)),
+        trades: data.trades,
+        winRate: data.trades > 0 ? parseFloat(((data.wins / data.trades) * 100).toFixed(1)) : 0,
+      }))
+      .sort((a, b) => b.pnl - a.pnl);
+  }, [filteredTrades]);
+
   const dayPerformanceData = useMemo(() => {
     const dayMap = new Map<string, number>();
     const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -447,6 +472,25 @@ export default function Analytics() {
               </Select>
             </div>
           </div>
+
+          {tagOptions.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {tagOptions.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => setTagFilter((current) => (current === tag ? 'all' : tag))}
+                  className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                    tagFilter === tag
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  #{tag}
+                </button>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -709,6 +753,46 @@ export default function Analytics() {
               </CardContent>
             </Card>
           </div>
+
+          {tagPerformanceData.length > 0 && (
+            <Card className="bg-card border-border">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-base sm:text-lg">Tag Performance</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  Review which tags perform best inside the current filtered view
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-6 pt-0">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {tagPerformanceData.slice(0, 6).map((item) => (
+                    <div key={item.tag} className="rounded-xl border border-border bg-background/60 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Tag</p>
+                          <p className="mt-1 text-base font-semibold text-foreground break-words">#{item.tag}</p>
+                        </div>
+                        <span className={`rounded-full px-2 py-1 text-[11px] font-medium ${item.pnl >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                          {item.winRate.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Trades</p>
+                          <p className="mt-1 font-semibold text-foreground">{item.trades}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Net P&L</p>
+                          <p className={`mt-1 font-semibold ${item.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {formatCurrency(item.pnl, baseCurrency)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="bg-card border-border">
             <CardHeader className="p-4 sm:p-6">
