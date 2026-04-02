@@ -87,6 +87,7 @@ Use Hostinger when:
    - Install: `npm install`
    - Build: `npm run build`
    - Start: `npm run start`
+   - Node.js version: `22.x`
 7. Enable HTTPS.
 
 See also: [HOSTINGER_DEPLOYMENT.md](../HOSTINGER_DEPLOYMENT.md)
