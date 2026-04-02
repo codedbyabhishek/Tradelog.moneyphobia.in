@@ -22,6 +22,7 @@ DB_NAME=your_db_name
 NODE_ENV=production
 NEXT_PUBLIC_ENABLE_PWA=false
 NEXT_PUBLIC_SITE_URL=https://traderlogify.online
+ADMIN_EMAILS=you@example.com,team@example.com
 NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxx
 RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxx
 RAZORPAY_KEY_SECRET=your_razorpay_key_secret
@@ -112,6 +113,7 @@ After deployment verify:
 7. Mobile navigation works
 8. Dhan status check works
 9. Dhan sync works with a small date range
+10. `/admin` opens only for allowlisted admin emails
 
 ## Troubleshooting
 

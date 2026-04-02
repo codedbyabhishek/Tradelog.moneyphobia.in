@@ -31,6 +31,7 @@ Add these variables in your hosting app environment:
 - `DB_NAME`
 - `NODE_ENV=production`
 - `NEXT_PUBLIC_ENABLE_PWA=false`
+- `ADMIN_EMAILS`
 
 Template: [.env.example](.env.example)
 
@@ -101,6 +102,11 @@ If login works locally but not in production:
 1. Make sure HTTPS is enabled on the domain
 2. Confirm `NODE_ENV=production`
 3. Re-login after the deploy so the browser gets a fresh secure cookie
+
+If `/admin` says access is restricted:
+1. Add your admin email to `ADMIN_EMAILS`
+2. Use comma-separated emails for multiple admins
+3. Sign out and sign back in after updating the env var
 
 If Razorpay upgrades are not activating:
 1. Confirm the webhook URL is set in Razorpay Dashboard:
