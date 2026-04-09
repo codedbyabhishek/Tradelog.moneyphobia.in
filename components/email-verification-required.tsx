@@ -43,6 +43,9 @@ export default function EmailVerificationRequired() {
           We sent a verification link to <span className="font-medium text-foreground">{user?.email}</span>.
           Please verify your email before using the app.
         </p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          If you used a school, work, or filtered inbox, also check spam, promotions, or updates folders.
+        </p>
         <div className="mt-5 space-y-3">
           <Button className="w-full" onClick={() => void handleResend()} disabled={loading}>
             {loading ? 'Sending...' : 'Resend verification email'}

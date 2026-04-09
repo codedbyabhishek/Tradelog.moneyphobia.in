@@ -19,6 +19,12 @@ export default function AuthScreen() {
   const [password, setPassword] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
 
+  const switchMode = (nextMode: 'login' | 'signup' | 'forgot-password') => {
+    clearError();
+    setNotice(null);
+    setMode(nextMode);
+  };
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     clearError();
@@ -27,11 +33,15 @@ export default function AuthScreen() {
 
     try {
       if (mode === 'forgot-password') {
-        await fetch('/api/auth/forgot-password', {
+        const res = await fetch('/api/auth/forgot-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),
         });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data?.error || 'Failed to send reset link.');
+        }
         setNotice('If that account exists, a password reset link has been sent.');
       } else if (mode === 'signup') {
         await signup(name, email, password);
@@ -111,10 +121,7 @@ export default function AuthScreen() {
                 type="button"
                 variant={mode === 'login' ? 'default' : 'outline'}
                 className="flex-1"
-                onClick={() => {
-                  clearError();
-                  setMode('login');
-                }}
+                onClick={() => switchMode('login')}
               >
                 Login
               </Button>
@@ -122,15 +129,18 @@ export default function AuthScreen() {
                 type="button"
                 variant={mode === 'signup' ? 'default' : 'outline'}
                 className="flex-1"
-                onClick={() => {
-                  clearError();
-                  setNotice(null);
-                  setMode('signup');
-                }}
+                onClick={() => switchMode('signup')}
               >
                 Sign Up
               </Button>
             </div>
+
+            {mode === 'forgot-password' ? (
+              <div className="mb-4 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                Password reset is only for accounts created with email and password. Google sign-in
+                accounts should continue with Google.
+              </div>
+            ) : null}
 
             {googleClientId && mode !== 'forgot-password' ? (
               <div className="mb-4 space-y-3">
@@ -214,11 +224,7 @@ export default function AuthScreen() {
                 <button
                   type="button"
                   className="w-full text-sm text-primary underline underline-offset-4"
-                  onClick={() => {
-                    clearError();
-                    setNotice(null);
-                    setMode('forgot-password');
-                  }}
+                  onClick={() => switchMode('forgot-password')}
                 >
                   Forgot password?
                 </button>
@@ -228,11 +234,7 @@ export default function AuthScreen() {
                 <button
                   type="button"
                   className="w-full text-sm text-primary underline underline-offset-4"
-                  onClick={() => {
-                    clearError();
-                    setNotice(null);
-                    setMode('login');
-                  }}
+                  onClick={() => switchMode('login')}
                 >
                   Back to login
                 </button>
