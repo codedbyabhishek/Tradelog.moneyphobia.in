@@ -26,6 +26,10 @@ export async function POST(request: NextRequest) {
       keyId: getRazorpayPublicKey(),
       subscriptionId: subscription.id,
       billingCycle,
+      customer: {
+        name: user.name,
+        email: user.email,
+      },
     });
   } catch (error) {
     console.error('[billing/subscribe] error', error);

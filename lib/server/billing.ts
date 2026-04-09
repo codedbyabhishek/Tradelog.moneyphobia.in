@@ -5,6 +5,18 @@ import type { BillingState } from '@/lib/types';
 
 type BillingCycle = 'monthly' | 'yearly';
 
+interface RazorpaySubscriptionEntity {
+  id: string;
+  status?: string;
+  customer_id?: string | null;
+  current_start?: number | null;
+  current_end?: number | null;
+  charge_at?: number | null;
+  start_at?: number | null;
+  ended_at?: number | null;
+  short_url?: string | null;
+}
+
 interface BillingSubscriptionRow {
   user_id: number;
   subscription_id: string;
@@ -62,6 +74,11 @@ async function razorpayRequest<T>(path: string, init: RequestInit): Promise<T> {
   return data as T;
 }
 
+function toIsoDate(timestamp?: number | null) {
+  if (!Number.isFinite(timestamp) || !timestamp) return null;
+  return new Date(Number(timestamp) * 1000).toISOString();
+}
+
 export async function ensureBillingTables() {
   await dbExecute(
     `CREATE TABLE IF NOT EXISTS billing_subscriptions (
@@ -108,12 +125,7 @@ export async function createRazorpaySubscription({
   const planId = getPlanIdForCycle(billingCycle);
   const totalCount = billingCycle === 'yearly' ? 10 : 120;
 
-  const subscription = await razorpayRequest<{
-    id: string;
-    status: string;
-    customer_id?: string;
-    short_url?: string;
-  }>('/subscriptions', {
+  const subscription = await razorpayRequest<RazorpaySubscriptionEntity>('/subscriptions', {
     method: 'POST',
     body: JSON.stringify({
       plan_id: planId,
@@ -209,6 +221,12 @@ export async function getSubscriptionRecord(subscriptionId: string) {
   return rows[0] || null;
 }
 
+export async function fetchRazorpaySubscription(subscriptionId: string) {
+  return razorpayRequest<RazorpaySubscriptionEntity>(`/subscriptions/${subscriptionId}`, {
+    method: 'GET',
+  });
+}
+
 export async function saveBillingState(userId: number, billing: BillingState) {
   await dbExecute(
     `INSERT INTO user_settings (user_id, key_name, value_json, updated_at)
@@ -249,6 +267,26 @@ export function verifyRazorpayWebhookSignature(rawBody: string, signature: strin
   return timingSafeEqual(expectedBuffer, receivedBuffer);
 }
 
+export function verifyRazorpayPaymentSignature({
+  paymentId,
+  subscriptionId,
+  signature,
+}: {
+  paymentId: string;
+  subscriptionId: string;
+  signature: string;
+}) {
+  const keySecret = requiredEnv('RAZORPAY_KEY_SECRET');
+  const expected = createHmac('sha256', keySecret)
+    .update(`${paymentId}|${subscriptionId}`)
+    .digest('hex');
+  const expectedBuffer = Buffer.from(expected);
+  const receivedBuffer = Buffer.from(signature || '');
+
+  if (expectedBuffer.length !== receivedBuffer.length) return false;
+  return timingSafeEqual(expectedBuffer, receivedBuffer);
+}
+
 export async function markWebhookProcessed(eventId: string) {
   await ensureBillingTables();
   await dbExecute(
@@ -270,17 +308,24 @@ export async function hasProcessedWebhook(eventId: string) {
   return rows.length > 0;
 }
 
-export function mapSubscriptionStatusToBilling(status: string, billingCycle: BillingCycle): BillingState {
+export function mapSubscriptionStatusToBilling(
+  status: string,
+  billingCycle: BillingCycle,
+  subscription?: Partial<RazorpaySubscriptionEntity> | null,
+): BillingState {
   const normalized = status.toLowerCase();
+  const startedAt = toIsoDate(subscription?.current_start ?? subscription?.start_at) || null;
+  const renewsAt = toIsoDate(subscription?.current_end ?? subscription?.charge_at) || null;
+  const trialEndsAt = normalized === 'authenticated' ? toIsoDate(subscription?.charge_at) : null;
 
   if (normalized === 'active' || normalized === 'authenticated') {
     return {
       plan: 'pro',
       status: normalized === 'authenticated' ? 'trialing' : 'active',
       billingCycle,
-      startedAt: new Date().toISOString(),
-      renewsAt: null,
-      trialEndsAt: null,
+      startedAt,
+      renewsAt,
+      trialEndsAt,
     };
   }
 
@@ -300,8 +345,8 @@ export function mapSubscriptionStatusToBilling(status: string, billingCycle: Bil
       plan: 'free',
       status: 'past_due',
       billingCycle,
-      startedAt: null,
-      renewsAt: null,
+      startedAt,
+      renewsAt,
       trialEndsAt: null,
     };
   }

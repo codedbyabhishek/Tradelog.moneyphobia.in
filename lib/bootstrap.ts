@@ -12,5 +12,6 @@ export interface AppBootstrapData {
     baseCurrency?: string;
     startingBalance?: number;
     capitalAdjustments?: CapitalAdjustment[];
+    billing?: import('@/lib/types').BillingState;
   };
 }

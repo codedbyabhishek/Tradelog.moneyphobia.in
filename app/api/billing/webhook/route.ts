@@ -60,7 +60,11 @@ export async function POST(request: NextRequest) {
 
     await saveBillingState(
       existing.user_id,
-      mapSubscriptionStatusToBilling(String(subscription.status || existing.status || 'created'), existing.billing_cycle),
+      mapSubscriptionStatusToBilling(
+        String(subscription.status || existing.status || 'created'),
+        existing.billing_cycle,
+        subscription,
+      ),
     );
 
     await markWebhookProcessed(processedKey);

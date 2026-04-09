@@ -1,12 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SettingsContext } from '@/lib/settings-context';
 
 declare global {
   interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
+    Razorpay?: new (options: Record<string, unknown>) => {
+      open: () => void;
+      on: (eventName: string, callback: (response: any) => void) => void;
+    };
   }
 }
 
@@ -37,6 +41,7 @@ export default function RazorpayUpgradeButton({
   label,
   className,
 }: RazorpayUpgradeButtonProps) {
+  const settings = useContext(SettingsContext);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -67,12 +72,50 @@ export default function RazorpayUpgradeButton({
         subscription_id: data.subscriptionId,
         name: 'Traderlogify',
         description: billingCycle === 'yearly' ? 'Traderlogify Pro Yearly' : 'Traderlogify Pro Monthly',
-        handler: () => {
-          setMessage('Payment authorised. Your Pro plan will fully activate after Razorpay webhook confirmation.');
+        prefill: {
+          name: data.customer?.name || '',
+          email: data.customer?.email || '',
+        },
+        handler: async (response: {
+          razorpay_payment_id?: string;
+          razorpay_signature?: string;
+          razorpay_subscription_id?: string;
+        }) => {
+          try {
+            const confirmRes = await fetch('/api/billing/confirm', {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(response),
+            });
+
+            const confirmData = await confirmRes.json().catch(() => ({}));
+            if (!confirmRes.ok) {
+              throw new Error(confirmData?.error || 'Payment was authorised but confirmation failed.');
+            }
+
+            if (confirmData?.billing) {
+              settings?.saveBillingState(confirmData.billing);
+            }
+
+            setMessage('Payment authorised and your Pro plan is now active.');
+          } catch (error) {
+            setMessage(error instanceof Error ? error.message : 'Payment was authorised but confirmation failed.');
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setMessage((current) => current || 'Checkout closed before completing payment.');
+          },
         },
         theme: {
           color: '#0f172a',
         },
+      });
+
+      razorpay.on('payment.failed', (response: any) => {
+        const errorDescription = response?.error?.description || response?.error?.reason;
+        setMessage(errorDescription || 'Payment failed. Please try again.');
       });
 
       razorpay.open();
