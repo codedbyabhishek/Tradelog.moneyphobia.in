@@ -1,5 +1,5 @@
 import { dbExecute, dbQuery } from '@/lib/server/db';
-import { getDayOfWeek } from '@/lib/trade-utils';
+import { getDayOfWeek, getTradeResultLabel } from '@/lib/trade-utils';
 import { Trade } from '@/lib/types';
 
 const DHAN_BASE_URL = 'https://api.dhan.co/v2';
@@ -304,6 +304,7 @@ function mapDhanTradesToJournalTrades(items: DhanTradeHistoryItem[]): Trade[] {
           currency: 'INR',
           pnlBase: pnl,
           exchangeRate: 1,
+          tradeResult: getTradeResultLabel(pnl),
           rFactor: 0,
           isWin: pnl > 0,
           confidence: 5,

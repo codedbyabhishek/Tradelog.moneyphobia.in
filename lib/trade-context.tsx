@@ -2,7 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Currency, Trade } from './types';
-import { convertToBaseCurrency, getExchangeRateToBase } from './trade-utils';
+import { convertToBaseCurrency, getExchangeRateToBase, getTradeResultLabel } from './trade-utils';
 import { useAuth } from '@/lib/auth-context';
 import { clearBootstrap, readBootstrap } from '@/lib/client-bootstrap';
 import { useSettings } from '@/lib/settings-context';
@@ -31,6 +31,7 @@ function normalizeTrade(trade: any): Trade {
       ...trade,
       isFavorite: Boolean(trade.isFavorite),
       isWin: trade.pnl > 0,
+      tradeResult: trade.tradeResult || getTradeResultLabel(trade.pnl),
     };
   }
 
@@ -45,6 +46,7 @@ function normalizeTrade(trade: any): Trade {
     pnlBase,
     exchangeRate,
     isWin: trade.pnl > 0,
+    tradeResult: trade.tradeResult || getTradeResultLabel(trade.pnl),
   };
 }
 
@@ -252,12 +254,17 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
         'Outcome',
         'Confidence',
         'Time Frame',
+        'Market Trend',
+        'Setup Type',
+        'Volume',
+        'EMA Touch',
+        'Risk Reward Ratio',
         'Limit',
         'Exit Level',
       ];
 
       const rows = trades.map((t) => {
-        const outcome = t.pnl > 0 ? 'Win' : t.pnl < 0 ? 'Loss' : 'Break-Even';
+        const outcome = t.tradeResult || getTradeResultLabel(t.pnl);
         return [
           t.date,
           t.dayOfWeek,
@@ -277,6 +284,11 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
           outcome,
           String(t.confidence),
           t.timeFrame || '',
+          t.marketTrend || '',
+          t.setupType || '',
+          t.volumeProfile || '',
+          t.emaTouch === undefined ? '' : t.emaTouch ? 'Yes' : 'No',
+          t.riskRewardRatio ?? '',
           t.limit || '',
           t.exit || '',
         ];

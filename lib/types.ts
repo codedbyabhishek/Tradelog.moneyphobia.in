@@ -1,5 +1,10 @@
 // Supported currencies
 export type Currency = 'INR' | 'USD' | 'EUR' | 'GBP' | 'JPY' | 'AUD' | 'CAD';
+export type TradeResult = 'Win' | 'Loss' | 'Break-Even';
+export type MarketTrend = 'Bullish' | 'Bearish' | 'Sideways';
+export type SetupType = 'Breakout' | 'Pullback' | 'Reversal';
+export type VolumeProfile = 'High' | 'Low';
+export type ChecklistTimeframe = '5m' | '15m' | '1H' | 'Daily';
 
 // Trade outcome derived from P&L
 export type TradeOutcome = 'W' | 'L' | 'BE'; // Win, Loss, Break-Even
@@ -54,6 +59,7 @@ export interface Trade {
   pnlBase: number;
   // Exchange rate used for conversion (at exit time)
   exchangeRate: number;
+  tradeResult: TradeResult;
   rFactor: number;
   exitRFactor?: number;
   // DEPRECATED: Use getTradeOutcome(pnl) instead - kept for backwards compatibility
@@ -65,6 +71,11 @@ export interface Trade {
   afterExitScreenshot?: string;
   mistakeTag?: 'Overtrading' | 'Early exit' | 'Late entry' | 'SL hunt fear' | 'Greed' | 'No mistake (good loss)';
   timeFrame?: string;
+  marketTrend?: MarketTrend;
+  setupType?: SetupType;
+  volumeProfile?: VolumeProfile;
+  emaTouch?: boolean;
+  riskRewardRatio?: number;
   limit?: string;
   exit?: string;
   
@@ -138,6 +149,11 @@ export interface TradeFormData {
   manualProfit?: string;
   // Currency for this trade
   currency: Currency;
+  marketTrend: MarketTrend | '';
+  setupType: SetupType | '';
+  volumeProfile: VolumeProfile | '';
+  emaTouch: '' | 'Yes' | 'No';
+  riskRewardRatio: string;
   confidence: string;
   preNotes: string;
   postNotes: string;

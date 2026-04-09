@@ -112,6 +112,31 @@ export function validateTradeForm(formData: TradeFormData): Record<string, strin
     errors.timeFrame = 'Time frame is required';
   }
 
+  if (!formData.marketTrend) {
+    errors.marketTrend = 'Market trend is required';
+  }
+
+  if (!formData.setupType) {
+    errors.setupType = 'Setup type is required';
+  }
+
+  if (!formData.volumeProfile) {
+    errors.volumeProfile = 'Volume is required';
+  }
+
+  if (!formData.emaTouch) {
+    errors.emaTouch = 'EMA touch is required';
+  }
+
+  if (!formData.riskRewardRatio) {
+    errors.riskRewardRatio = 'Risk-reward ratio is required';
+  } else {
+    const ratio = validatePositiveNumber(formData.riskRewardRatio);
+    if (ratio === null) {
+      errors.riskRewardRatio = 'Risk-reward ratio must be a positive number';
+    }
+  }
+
   // Limit (Fibonacci) validation
   const validFibLevels = ['L-0.07', 'L-0.05', 'L-0.01', 'L0', 'L0.283', 'L0.382', 'L0.5', 'L0.702', 'L0.786', 'L1', 'L1.27', 'L1.4', 'L2', 'L2.7', 'L3'];
   if (!formData.limit) {

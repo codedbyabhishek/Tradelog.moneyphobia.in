@@ -1,17 +1,19 @@
 'use client';
 
 import React from "react"
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTrades } from '@/lib/trade-context';
 import { convertFormToTrade } from '@/lib/trade-utils';
 import { validateTradeForm, sanitizeString, validateImageFile } from '@/lib/validation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, Plus, Loader2, Upload, X } from 'lucide-react';
+import { Upload, X } from 'lucide-react';
 import { TradeFormData, Currency } from '@/lib/types';
 import { calculatePnL, calculateRFactor, CURRENCY_SYMBOLS, getTradeOutcome } from '@/lib/trade-utils';
 import { ScreenshotViewer } from './screenshot-viewer';
 import { useToast } from '@/hooks/use-toast';
+import { getSimilarTradeInsights, getSimilarTradeMatches, type PreTradeChecklistInput } from '@/lib/pre-trade-matcher';
+import { useSettings } from '@/lib/settings-context';
 
 interface TradeFormProps {
   onSuccess?: () => void;
@@ -65,9 +67,12 @@ export const FIB_LEVEL_OPTIONS = [
   'L3',
 ] as const;
 
+const CHECKLIST_TIMEFRAMES = ['5m', '15m', '1H', 'Daily'] as const;
+
 export default function TradeForm({ onSuccess }: TradeFormProps) {
-  const { addTrade } = useTrades();
+  const { addTrade, trades } = useTrades();
   const { toast } = useToast();
+  const { baseCurrency } = useSettings();
   // Form data state
   const [formData, setFormData] = useState<TradeFormData>({
     date: new Date().toISOString().split('T')[0],
@@ -86,10 +91,15 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     taxes: '0',
     manualProfit: '',
     currency: 'INR', // Default currency
+    marketTrend: '',
+    setupType: '',
+    volumeProfile: '',
+    emaTouch: '',
+    riskRewardRatio: '',
     confidence: '5',
     preNotes: '',
     postNotes: '',
-    mistakeTag: '',
+    mistakeTag: undefined,
     exitRFactor: '',
     timeFrame: '',
     // isWin is now auto-derived from P&L, no longer manually set
@@ -101,8 +111,6 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
   // Screenshot state
   const [beforeScreenshot, setBeforeScreenshot] = useState<string | null>(null);
   const [afterScreenshot, setAfterScreenshot] = useState<string | null>(null);
-  const [screenshot, setScreenshot] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Validation state for enhanced error handling
   const [errors, setErrors] = useState<Partial<Record<keyof TradeFormData, string>>>({});
@@ -115,7 +123,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     // Sanitize text inputs to prevent XSS
     // Pass trim=false during live typing so spaces between words are preserved
     let sanitizedValue = value;
-    const textFields = ['symbol', 'setupName', 'preNotes', 'postNotes', 'timeFrame', 'tags'];
+    const textFields = ['symbol', 'setupName', 'preNotes', 'postNotes', 'timeFrame', 'tags', 'riskRewardRatio'];
     if (textFields.includes(name)) {
       sanitizedValue = sanitizeString(value, false);
     }
@@ -223,24 +231,6 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     setAfterScreenshot(null);
   };
 
-  const handleScreenshot = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result as string;
-        setScreenshot(result);
-        setPreviewUrl(result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const clearScreenshot = () => {
-    setScreenshot(null);
-    setPreviewUrl(null);
-  };
-
   /**
    * Validate form data before submission using centralized validation
    */
@@ -286,10 +276,15 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
         taxes: '0',
         manualProfit: '',
         currency: prev.currency, // Keep the user's preferred currency
+        marketTrend: '',
+        setupType: '',
+        volumeProfile: '',
+        emaTouch: '',
+        riskRewardRatio: '',
         confidence: '5',
         preNotes: '',
         postNotes: '',
-        mistakeTag: '',
+        mistakeTag: undefined,
         exitRFactor: '',
         timeFrame: '',
         limit: '',
@@ -298,7 +293,6 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
       }));
       clearBeforeScreenshot();
       clearAfterScreenshot();
-      clearScreenshot();
       setErrors({});
       setSubmitStatus('success');
       setIsCustomSetup(false);
@@ -314,6 +308,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
 
   // Get current currency symbol
   const currentCurrencySymbol = CURRENCY_SYMBOLS[formData.currency] || '₹';
+  const baseCurrencySymbol = CURRENCY_SYMBOLS[baseCurrency] || '₹';
 
   // Calculate live P&L and R-Factor for preview (only if prices are provided)
   // Also show auto-derived W/L based on P&L
@@ -354,6 +349,27 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     return null;
   })();
 
+  const checklistInput = useMemo<PreTradeChecklistInput>(() => ({
+    marketTrend: formData.marketTrend,
+    setupType: formData.setupType,
+    volumeProfile: formData.volumeProfile,
+    emaTouch: formData.emaTouch,
+    timeFrame: CHECKLIST_TIMEFRAMES.includes(formData.timeFrame as (typeof CHECKLIST_TIMEFRAMES)[number])
+      ? (formData.timeFrame as PreTradeChecklistInput['timeFrame'])
+      : '',
+    riskRewardRatio: formData.riskRewardRatio,
+  }), [formData.marketTrend, formData.setupType, formData.volumeProfile, formData.emaTouch, formData.timeFrame, formData.riskRewardRatio]);
+
+  const similarTradeMatches = useMemo(
+    () => getSimilarTradeMatches(trades, checklistInput, 10),
+    [trades, checklistInput],
+  );
+
+  const similarTradeInsights = useMemo(
+    () => getSimilarTradeInsights(similarTradeMatches),
+    [similarTradeMatches],
+  );
+
   // Show validation error for checkbox
   const getCheckboxError = (fieldName: string): boolean => {
     return fieldName in errors;
@@ -368,6 +384,162 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
         </CardHeader>
         <CardContent className="p-3 sm:p-6">
           <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6 lg:space-y-8">
+            <Card className="border-primary/20 bg-primary/5 shadow-none hover:border-primary/30 hover:shadow-none focus-within:border-primary/40 focus-within:shadow-none">
+              <CardHeader className="p-4 sm:p-5">
+                <CardTitle className="text-lg sm:text-xl">Pre-Trade Smart Checklist</CardTitle>
+                <CardDescription>
+                  Match this setup against historical trades before you place it. These insights use only past stored trades.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 p-4 pt-0 sm:p-5 sm:pt-0">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Market Trend*</label>
+                    <select
+                      name="marketTrend"
+                      value={formData.marketTrend}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.marketTrend ? 'border-red-500' : 'border-border'}`}
+                    >
+                      <option value="">Select trend</option>
+                      <option value="Bullish">Bullish</option>
+                      <option value="Bearish">Bearish</option>
+                      <option value="Sideways">Sideways</option>
+                    </select>
+                    {errors.marketTrend && <p className="text-xs text-red-500 mt-1">{errors.marketTrend}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Setup Type*</label>
+                    <select
+                      name="setupType"
+                      value={formData.setupType}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.setupType ? 'border-red-500' : 'border-border'}`}
+                    >
+                      <option value="">Select setup type</option>
+                      <option value="Breakout">Breakout</option>
+                      <option value="Pullback">Pullback</option>
+                      <option value="Reversal">Reversal</option>
+                    </select>
+                    {errors.setupType && <p className="text-xs text-red-500 mt-1">{errors.setupType}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Volume*</label>
+                    <select
+                      name="volumeProfile"
+                      value={formData.volumeProfile}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.volumeProfile ? 'border-red-500' : 'border-border'}`}
+                    >
+                      <option value="">Select volume</option>
+                      <option value="High">High</option>
+                      <option value="Low">Low</option>
+                    </select>
+                    {errors.volumeProfile && <p className="text-xs text-red-500 mt-1">{errors.volumeProfile}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">EMA Touch*</label>
+                    <select
+                      name="emaTouch"
+                      value={formData.emaTouch}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.emaTouch ? 'border-red-500' : 'border-border'}`}
+                    >
+                      <option value="">Select option</option>
+                      <option value="Yes">Yes</option>
+                      <option value="No">No</option>
+                    </select>
+                    {errors.emaTouch && <p className="text-xs text-red-500 mt-1">{errors.emaTouch}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Timeframe*</label>
+                    <select
+                      name="timeFrame"
+                      value={formData.timeFrame}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.timeFrame ? 'border-red-500' : 'border-border'}`}
+                    >
+                      <option value="">Select timeframe</option>
+                      {CHECKLIST_TIMEFRAMES.map((timeframe) => (
+                        <option key={timeframe} value={timeframe}>{timeframe}</option>
+                      ))}
+                    </select>
+                    {errors.timeFrame && <p className="text-xs text-red-500 mt-1">{errors.timeFrame}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Risk-Reward Ratio*</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      name="riskRewardRatio"
+                      value={formData.riskRewardRatio}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 2.00"
+                      className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.riskRewardRatio ? 'border-red-500' : 'border-border'}`}
+                    />
+                    {errors.riskRewardRatio && <p className="text-xs text-red-500 mt-1">{errors.riskRewardRatio}</p>}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <div className="rounded-xl border border-border bg-card/70 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Similar Trades</p>
+                    <p className="mt-2 text-xl font-bold text-foreground">{similarTradeInsights.totalSimilarTrades}</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card/70 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Win Rate</p>
+                    <p className="mt-2 text-xl font-bold text-foreground">{similarTradeInsights.winRate}%</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card/70 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Avg Profit</p>
+                    <p className="mt-2 text-xl font-bold text-green-400">{baseCurrencySymbol}{similarTradeInsights.averageProfit.toFixed(2)}</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card/70 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Avg Loss</p>
+                    <p className="mt-2 text-xl font-bold text-red-400">{baseCurrencySymbol}{similarTradeInsights.averageLoss.toFixed(2)}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border bg-card/60 p-3 sm:p-4">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-foreground">Top Historical Matches</h3>
+                    <p className="text-xs text-muted-foreground">Each exact checklist match adds +1 score</p>
+                  </div>
+                  {similarTradeMatches.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No similar historical trades yet. Log more trades with this checklist and the guidance will improve automatically.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {similarTradeMatches.map(({ trade, score, matchedFields }) => (
+                        <div key={trade.id} className="rounded-lg border border-border bg-background/80 p-3">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-foreground">{trade.symbol} • {trade.setupName}</p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {trade.date} • {trade.tradeResult} • matched: {matchedFields.join(', ')}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs text-muted-foreground">Score</p>
+                              <p className="text-lg font-bold text-primary">{score}/6</p>
+                            </div>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
+                            <span>PnL: <span className={trade.pnlBase >= 0 ? 'text-green-400' : 'text-red-400'}>{baseCurrencySymbol}{trade.pnlBase.toFixed(2)}</span></span>
+                            <span>Trend: {trade.marketTrend || '—'}</span>
+                            <span>Type: {trade.setupType || '—'}</span>
+                            <span>TF: {trade.timeFrame || '—'}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Date and Trade Type */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -446,7 +618,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
               </div>
             </div>
 
-            {/* Position and Time Frame */}
+            {/* Position and Checklist Timeframe */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Position*</label>
@@ -461,16 +633,11 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Time Frame (When Entered)*</label>
-                <input
-                  type="text"
-                  name="timeFrame"
-                  value={formData.timeFrame}
-                  onChange={handleInputChange}
-                  placeholder="e.g., 5m, 15m, 1h, Daily"
-                  className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.timeFrame ? 'border-red-500' : 'border-border'}`}
-                />
-                {errors.timeFrame && <p className="text-xs text-red-500 mt-1">{errors.timeFrame}</p>}
+                <label className="block text-sm font-medium text-foreground mb-2">Checklist Timeframe</label>
+                <div className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm text-foreground">
+                  {formData.timeFrame || 'Choose a timeframe in the smart checklist above'}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">This value drives the historical trade matching and is stored with the trade.</p>
               </div>
             </div>
 

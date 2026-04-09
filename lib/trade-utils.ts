@@ -1,4 +1,4 @@
-import { CapitalAdjustment, Trade, TradeFormData, Currency, TradeOutcome } from './types';
+import { CapitalAdjustment, Trade, TradeFormData, Currency, TradeOutcome, TradeResult } from './types';
 
 // Currency symbols for display
 export const CURRENCY_SYMBOLS: Record<Currency, string> = {
@@ -35,6 +35,12 @@ export function getTradeOutcome(pnl: number): TradeOutcome {
   if (pnl > 0) return 'W';
   if (pnl < 0) return 'L';
   return 'BE';
+}
+
+export function getTradeResultLabel(pnl: number): TradeResult {
+  if (pnl > 0) return 'Win';
+  if (pnl < 0) return 'Loss';
+  return 'Break-Even';
 }
 
 /**
@@ -215,6 +221,7 @@ export function convertFormToTrade(formData: TradeFormData): Trade {
 
   // Auto-derive isWin from P&L (for backwards compatibility with existing code)
   const isWin = pnl > 0;
+  const tradeResult = getTradeResultLabel(pnl);
 
   const parsedTags = formData.tags
     ? Array.from(
@@ -248,6 +255,7 @@ export function convertFormToTrade(formData: TradeFormData): Trade {
     currency,
     pnlBase,
     exchangeRate,
+    tradeResult,
     rFactor,
     exitRFactor: formData.exitRFactor ? parseFloat(formData.exitRFactor) : undefined,
     isWin, // Auto-derived from P&L
@@ -258,6 +266,11 @@ export function convertFormToTrade(formData: TradeFormData): Trade {
     afterExitScreenshot: formData.afterExitScreenshot,
     mistakeTag: formData.mistakeTag,
     timeFrame: formData.timeFrame,
+    marketTrend: formData.marketTrend || undefined,
+    setupType: formData.setupType || undefined,
+    volumeProfile: formData.volumeProfile || undefined,
+    emaTouch: formData.emaTouch === '' ? undefined : formData.emaTouch === 'Yes',
+    riskRewardRatio: formData.riskRewardRatio ? parseFloat(formData.riskRewardRatio) : undefined,
     limit: formData.limit,
     exit: formData.exit,
     ruleFollowed: formData.ruleFollowed ?? true,
