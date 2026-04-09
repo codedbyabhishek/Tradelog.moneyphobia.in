@@ -10,21 +10,30 @@ import GoogleSignInButton from '@/components/google-signin-button';
 
 export default function AuthScreen() {
   const { login, signup, loginWithGoogle, error, clearError } = useAuth();
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot-password'>('login');
   const [loading, setLoading] = useState(false);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [notice, setNotice] = useState<string | null>(null);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     clearError();
+    setNotice(null);
     setLoading(true);
 
     try {
-      if (mode === 'signup') {
+      if (mode === 'forgot-password') {
+        await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        setNotice('If that account exists, a password reset link has been sent.');
+      } else if (mode === 'signup') {
         await signup(name, email, password);
       } else {
         await login(email, password);
@@ -36,6 +45,7 @@ export default function AuthScreen() {
 
   const onGoogleCredential = async (credential: string) => {
     clearError();
+    setNotice(null);
     setLoading(true);
 
     try {
@@ -80,9 +90,17 @@ export default function AuthScreen() {
 
         <Card className="w-full border-border bg-card self-center">
           <CardHeader>
-            <CardTitle>{mode === 'login' ? 'Welcome Back' : 'Create Your Account'}</CardTitle>
-            <CardDescription>
+            <CardTitle>
               {mode === 'login'
+                ? 'Welcome Back'
+                : mode === 'signup'
+                  ? 'Create Your Account'
+                  : 'Reset Your Password'}
+            </CardTitle>
+            <CardDescription>
+              {mode === 'forgot-password'
+                ? 'Enter your email address and we will send a password reset link if the account exists.'
+                : mode === 'login'
                 ? 'Login to continue your trading review workflow.'
                 : 'Signup to store your journal securely on your hosted database.'}
             </CardDescription>
@@ -106,6 +124,7 @@ export default function AuthScreen() {
                 className="flex-1"
                 onClick={() => {
                   clearError();
+                  setNotice(null);
                   setMode('signup');
                 }}
               >
@@ -113,7 +132,7 @@ export default function AuthScreen() {
               </Button>
             </div>
 
-            {googleClientId ? (
+            {googleClientId && mode !== 'forgot-password' ? (
               <div className="mb-4 space-y-3">
                 <div className="flex justify-center">
                   <GoogleSignInButton
@@ -159,7 +178,8 @@ export default function AuthScreen() {
                 />
               </div>
 
-              <div>
+              {mode !== 'forgot-password' ? (
+                <div>
                 <label className="block text-sm font-medium mb-1">Password</label>
                 <input
                   type="password"
@@ -170,13 +190,53 @@ export default function AuthScreen() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 8 characters"
                 />
-              </div>
+                </div>
+              ) : null}
 
               {error && <p className="text-sm text-red-500">{error}</p>}
+              {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
 
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? (mode === 'login' ? 'Signing in...' : 'Creating account...') : mode === 'login' ? 'Login' : 'Create Account'}
+                {loading
+                  ? mode === 'login'
+                    ? 'Signing in...'
+                    : mode === 'signup'
+                      ? 'Creating account...'
+                      : 'Sending reset link...'
+                  : mode === 'login'
+                    ? 'Login'
+                    : mode === 'signup'
+                      ? 'Create Account'
+                      : 'Send Reset Link'}
               </Button>
+
+              {mode === 'login' ? (
+                <button
+                  type="button"
+                  className="w-full text-sm text-primary underline underline-offset-4"
+                  onClick={() => {
+                    clearError();
+                    setNotice(null);
+                    setMode('forgot-password');
+                  }}
+                >
+                  Forgot password?
+                </button>
+              ) : null}
+
+              {mode === 'forgot-password' ? (
+                <button
+                  type="button"
+                  className="w-full text-sm text-primary underline underline-offset-4"
+                  onClick={() => {
+                    clearError();
+                    setNotice(null);
+                    setMode('login');
+                  }}
+                >
+                  Back to login
+                </button>
+              ) : null}
             </form>
           </CardContent>
         </Card>
