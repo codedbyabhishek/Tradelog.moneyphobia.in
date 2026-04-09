@@ -111,12 +111,11 @@ export async function ensureEmailVerificationSchema() {
 export async function createSession(userId: number): Promise<string> {
   const rawToken = randomBytes(32).toString('hex');
   const tokenHash = hashSessionToken(rawToken);
-  const expiresAt = newExpiryDate();
 
   await dbExecute(
     `INSERT INTO user_sessions (user_id, token_hash, expires_at, created_at)
-     VALUES (?, ?, ?, NOW())`,
-    [userId, tokenHash, expiresAt]
+     VALUES (?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? DAY), UTC_TIMESTAMP())`,
+    [userId, tokenHash, SESSION_TTL_DAYS]
   );
 
   return rawToken;
@@ -170,7 +169,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     `SELECT u.id AS user_id, u.email, u.name, u.email_verified_at
      FROM user_sessions s
      INNER JOIN users u ON u.id = s.user_id
-     WHERE s.token_hash = ? AND s.expires_at > NOW()
+     WHERE s.token_hash = ? AND s.expires_at > UTC_TIMESTAMP()
      LIMIT 1`,
     [tokenHash]
   );
@@ -196,7 +195,7 @@ export async function requireUser(): Promise<AuthUser> {
 }
 
 export async function cleanupExpiredSessions() {
-  await dbExecute('DELETE FROM user_sessions WHERE expires_at <= NOW()');
+  await dbExecute('DELETE FROM user_sessions WHERE expires_at <= UTC_TIMESTAMP()');
 }
 
 export function validateSignupInput(payload: {

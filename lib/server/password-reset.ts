@@ -37,17 +37,16 @@ export async function createPasswordResetToken(userId: number) {
   await ensurePasswordResetTable();
   const token = randomBytes(32).toString('hex');
   const tokenHash = hashResetToken(token);
-  const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MINUTES * 60 * 1000);
 
   await dbExecute(
-    'DELETE FROM password_reset_tokens WHERE user_id = ? OR expires_at <= NOW()',
+    'DELETE FROM password_reset_tokens WHERE user_id = ? OR expires_at <= UTC_TIMESTAMP()',
     [userId],
   );
 
   await dbExecute(
     `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, used_at, created_at)
-     VALUES (?, ?, ?, NULL, NOW())`,
-    [userId, tokenHash, expiresAt],
+     VALUES (?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? MINUTE), NULL, UTC_TIMESTAMP())`,
+    [userId, tokenHash, RESET_TOKEN_TTL_MINUTES],
   );
 
   return token;
@@ -60,7 +59,7 @@ export async function validatePasswordResetToken(token: string) {
   const rows = await dbQuery<ResetTokenRow[]>(
     `SELECT id, user_id, expires_at, used_at
      FROM password_reset_tokens
-     WHERE token_hash = ? AND used_at IS NULL AND expires_at > NOW()
+     WHERE token_hash = ? AND used_at IS NULL AND expires_at > UTC_TIMESTAMP()
      LIMIT 1`,
     [tokenHash],
   );
@@ -74,11 +73,11 @@ export async function consumePasswordResetToken(token: string, newPassword: stri
 
   const passwordHash = await hashPassword(newPassword);
 
-  await dbExecute('UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?', [
+  await dbExecute('UPDATE users SET password_hash = ?, updated_at = UTC_TIMESTAMP() WHERE id = ?', [
     passwordHash,
     row.user_id,
   ]);
-  await dbExecute('UPDATE password_reset_tokens SET used_at = NOW() WHERE id = ?', [row.id]);
+  await dbExecute('UPDATE password_reset_tokens SET used_at = UTC_TIMESTAMP() WHERE id = ?', [row.id]);
   await dbExecute('DELETE FROM user_sessions WHERE user_id = ?', [row.user_id]);
 
   return row.user_id;
