@@ -1,4 +1,5 @@
 import type { AuthUser } from '@/lib/server/auth';
+import type { BillingState } from '@/lib/types';
 
 function parseAdminEmails() {
   const raw = process.env.ADMIN_EMAILS || '';
@@ -22,4 +23,17 @@ export function isAdminEmail(email: string | null | undefined) {
 
 export function canAccessAdmin(user: AuthUser | null) {
   return Boolean(user && isAdminEmail(user.email));
+}
+
+export function getAdminBillingOverride(email: string | null | undefined): BillingState | null {
+  if (!isAdminEmail(email)) return null;
+
+  return {
+    plan: 'pro',
+    status: 'active',
+    billingCycle: 'yearly',
+    startedAt: null,
+    renewsAt: null,
+    trialEndsAt: null,
+  };
 }

@@ -1,5 +1,6 @@
 import { dbQuery } from '@/lib/server/db';
 import type { AppBootstrapData } from '@/lib/bootstrap';
+import { getAdminBillingOverride } from '@/lib/server/admin';
 
 interface JsonRow {
   payload_json: string;
@@ -22,7 +23,7 @@ function parseJsonRows<T>(rows: JsonRow[]): T[] {
     .filter(Boolean) as T[];
 }
 
-export async function loadBootstrapData(userId: number): Promise<AppBootstrapData> {
+export async function loadBootstrapData(userId: number, email?: string | null): Promise<AppBootstrapData> {
   const [tradesRows, ideasRows, goalsRows, filtersRows, templatesRows, settingsRows] = await Promise.all([
     dbQuery<JsonRow[]>(
       `SELECT trade_json AS payload_json
@@ -74,6 +75,11 @@ export async function loadBootstrapData(userId: number): Promise<AppBootstrapDat
     } catch {
       settings[row.key_name as keyof AppBootstrapData['settings']] = undefined;
     }
+  }
+
+  const adminBillingOverride = getAdminBillingOverride(email);
+  if (adminBillingOverride) {
+    settings.billing = adminBillingOverride;
   }
 
   return {

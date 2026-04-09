@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbExecute, dbQuery } from '@/lib/server/db';
 import { getCurrentUser } from '@/lib/server/auth';
+import { getAdminBillingOverride } from '@/lib/server/admin';
 import { jsonError } from '@/lib/server/http';
 
 export const runtime = 'nodejs';
@@ -27,6 +28,11 @@ export async function GET() {
       } catch {
         settings[row.key_name] = null;
       }
+    }
+
+    const adminBillingOverride = getAdminBillingOverride(user.email);
+    if (adminBillingOverride) {
+      settings.billing = adminBillingOverride;
     }
 
     return NextResponse.json({ settings });

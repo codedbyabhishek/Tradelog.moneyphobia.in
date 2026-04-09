@@ -4,6 +4,7 @@ import { dbExecute, dbQuery } from '@/lib/server/db';
 import {
   cleanupExpiredSessions,
   createSession,
+  ensureGoogleAuthSchema,
   hashPassword,
   setSessionCookie,
   validateSignupInput,
@@ -59,6 +60,8 @@ export async function POST(request: NextRequest) {
       return jsonError(validated.error, 400);
     }
 
+    await ensureGoogleAuthSchema();
+
     void cleanupExpiredSessions().catch((error) => {
       console.error('[auth/signup] cleanup error', error);
     });
@@ -83,7 +86,7 @@ export async function POST(request: NextRequest) {
     const userId = Number(result.insertId);
     const sessionToken = await createSession(userId);
     await setSessionCookie(sessionToken);
-    const bootstrap = await loadBootstrapData(userId);
+    const bootstrap = await loadBootstrapData(userId, validated.data.email);
 
     return NextResponse.json(
       {

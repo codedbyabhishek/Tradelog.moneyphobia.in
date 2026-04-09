@@ -3,6 +3,7 @@ import { dbQuery } from '@/lib/server/db';
 import {
   cleanupExpiredSessions,
   createSession,
+  ensureGoogleAuthSchema,
   setSessionCookie,
   validateLoginInput,
   verifyPassword,
@@ -17,7 +18,7 @@ interface UserRow {
   id: number;
   email: string;
   name: string | null;
-  password_hash: string;
+  password_hash: string | null;
 }
 
 export async function POST(request: NextRequest) {
@@ -65,6 +66,8 @@ export async function POST(request: NextRequest) {
       return jsonError(validated.error, 400);
     }
 
+    await ensureGoogleAuthSchema();
+
     void cleanupExpiredSessions().catch((error) => {
       console.error('[auth/login] cleanup error', error);
     });
@@ -79,6 +82,10 @@ export async function POST(request: NextRequest) {
     }
 
     const user = rows[0];
+    if (!user.password_hash) {
+      return jsonError('This account uses Google sign-in. Continue with Google instead.', 401);
+    }
+
     const passwordOk = await verifyPassword(validated.data.password, user.password_hash);
 
     if (!passwordOk) {
@@ -87,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     const sessionToken = await createSession(user.id);
     await setSessionCookie(sessionToken);
-    const bootstrap = await loadBootstrapData(user.id);
+    const bootstrap = await loadBootstrapData(user.id, user.email);
 
     return NextResponse.json({
       user: {
