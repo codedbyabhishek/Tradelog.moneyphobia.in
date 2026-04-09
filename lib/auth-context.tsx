@@ -29,7 +29,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const AUTH_API_TIMEOUT_MS = 12000;
+const AUTH_API_TIMEOUT_MS = 30000;
 
 async function parseApiError(res: Response, fallback: string): Promise<string> {
   try {
@@ -38,6 +38,18 @@ async function parseApiError(res: Response, fallback: string): Promise<string> {
   } catch {
     return fallback;
   }
+}
+
+function normalizeClientError(error: unknown, fallback: string) {
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return 'The request took too long. Please try again.';
+  }
+
+  if (error instanceof Error) {
+    return error.message || fallback;
+  }
+
+  return fallback;
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = AUTH_API_TIMEOUT_MS) {
@@ -95,63 +107,81 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const res = await fetchWithTimeout('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const res = await fetchWithTimeout('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (!res.ok) {
-      const message = await parseApiError(res, 'Failed to login.');
+      if (!res.ok) {
+        const message = await parseApiError(res, 'Failed to login.');
+        setError(message);
+        throw new Error(message);
+      }
+
+      const data = (await res.json()) as AuthPayload;
+      setUser(data.user || null);
+      storeBootstrap(data.user ? data.bootstrap || null : null);
+      setError(null);
+    } catch (error) {
+      const message = normalizeClientError(error, 'Failed to login.');
       setError(message);
       throw new Error(message);
     }
-
-    const data = (await res.json()) as AuthPayload;
-    setUser(data.user || null);
-    storeBootstrap(data.user ? data.bootstrap || null : null);
-    setError(null);
   };
 
   const signup = async (name: string, email: string, password: string) => {
-    const res = await fetchWithTimeout('/api/auth/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ name, email, password }),
-    });
+    try {
+      const res = await fetchWithTimeout('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name, email, password }),
+      });
 
-    if (!res.ok) {
-      const message = await parseApiError(res, 'Failed to create account.');
+      if (!res.ok) {
+        const message = await parseApiError(res, 'Failed to create account.');
+        setError(message);
+        throw new Error(message);
+      }
+
+      const data = (await res.json()) as AuthPayload;
+      setUser(data.user || null);
+      storeBootstrap(data.user ? data.bootstrap || null : null);
+      setError(null);
+    } catch (error) {
+      const message = normalizeClientError(error, 'Failed to create account.');
       setError(message);
       throw new Error(message);
     }
-
-    const data = (await res.json()) as AuthPayload;
-    setUser(data.user || null);
-    storeBootstrap(data.user ? data.bootstrap || null : null);
-    setError(null);
   };
 
   const loginWithGoogle = async (credential: string) => {
-    const res = await fetchWithTimeout('/api/auth/google', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ credential }),
-    });
+    try {
+      const res = await fetchWithTimeout('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ credential }),
+      });
 
-    if (!res.ok) {
-      const message = await parseApiError(res, 'Failed to sign in with Google.');
+      if (!res.ok) {
+        const message = await parseApiError(res, 'Failed to sign in with Google.');
+        setError(message);
+        throw new Error(message);
+      }
+
+      const data = (await res.json()) as AuthPayload;
+      setUser(data.user || null);
+      storeBootstrap(data.user ? data.bootstrap || null : null);
+      setError(null);
+    } catch (error) {
+      const message = normalizeClientError(error, 'Failed to sign in with Google.');
       setError(message);
       throw new Error(message);
     }
-
-    const data = (await res.json()) as AuthPayload;
-    setUser(data.user || null);
-    storeBootstrap(data.user ? data.bootstrap || null : null);
-    setError(null);
   };
 
   const logout = async () => {

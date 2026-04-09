@@ -8,10 +8,12 @@ export default function EmailVerificationRequired() {
   const { user, refreshSession, logout } = useAuth();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [debugVerificationUrl, setDebugVerificationUrl] = useState<string | null>(null);
 
   const handleResend = async () => {
     setLoading(true);
     setMessage(null);
+    setDebugVerificationUrl(null);
 
     try {
       const res = await fetch('/api/auth/resend-verification', {
@@ -23,6 +25,9 @@ export default function EmailVerificationRequired() {
         throw new Error(data?.error || 'Failed to resend verification email.');
       }
       setMessage(data?.message || 'Verification email sent.');
+      if (data?.debugVerificationUrl) {
+        setDebugVerificationUrl(String(data.debugVerificationUrl));
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Failed to resend verification email.');
     } finally {
@@ -54,6 +59,11 @@ export default function EmailVerificationRequired() {
           </Button>
         </div>
         {message ? <p className="mt-4 text-sm text-muted-foreground">{message}</p> : null}
+        {debugVerificationUrl ? (
+          <p className="mt-2 break-all text-xs text-muted-foreground">
+            Debug link: <a className="text-primary underline underline-offset-4" href={debugVerificationUrl}>{debugVerificationUrl}</a>
+          </p>
+        ) : null}
       </div>
     </div>
   );

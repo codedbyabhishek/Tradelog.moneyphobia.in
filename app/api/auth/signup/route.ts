@@ -89,9 +89,11 @@ export async function POST(request: NextRequest) {
 
     const userId = Number(result.insertId);
     const verificationToken = await createEmailVerificationToken(userId);
-    await sendEmailVerificationEmail({
+    void sendEmailVerificationEmail({
       to: validated.data.email,
       verificationToken,
+    }).catch((error) => {
+      console.error('[auth/signup] verification email error', error);
     });
 
     const sessionToken = await createSession(userId);

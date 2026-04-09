@@ -20,12 +20,25 @@ export async function POST() {
     }
 
     const token = await createEmailVerificationToken(user.id);
-    await sendEmailVerificationEmail({
+    const sendResultPromise = sendEmailVerificationEmail({
       to: user.email,
       verificationToken: token,
     });
 
-    return NextResponse.json({ ok: true, message: 'Verification email sent.' });
+    const includeDebugLink = process.env.NODE_ENV !== 'production';
+    const sendResult = includeDebugLink ? await sendResultPromise.catch(() => null) : null;
+
+    if (!includeDebugLink) {
+      void sendResultPromise.catch((error) => {
+        console.error('[auth/resend-verification] email error', error);
+      });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      message: 'Verification email sent.',
+      debugVerificationUrl: sendResult?.verificationUrl || null,
+    });
   } catch (error) {
     console.error('[auth/resend-verification] error', error);
     return jsonError('Failed to resend verification email.', 500);
