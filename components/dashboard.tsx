@@ -23,16 +23,16 @@ interface StatCardProps {
 
 function StatCard({ icon: Icon, title, value, subtitle, isPositive }: StatCardProps) {
   return (
-    <Card className="bg-card border-border h-full rounded-xl">
-      <CardHeader className="p-3 pb-1.5 sm:p-3.5 sm:pb-1.5 lg:p-4 lg:pb-2">
+    <Card className="bg-card border-border h-full rounded-lg">
+      <CardHeader className="p-2.5 pb-1 sm:p-3 sm:pb-1 lg:p-3.5 lg:pb-1.5">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-[11px] sm:text-xs font-medium text-muted-foreground truncate">{title}</CardTitle>
-          <Icon className={`h-4 w-4 flex-shrink-0 ${isPositive !== undefined ? (isPositive ? 'text-green-400' : 'text-red-400') : 'text-primary'}`} />
+          <CardTitle className="text-[10px] sm:text-[11px] font-medium text-muted-foreground truncate">{title}</CardTitle>
+          <Icon className={`h-3.5 w-3.5 flex-shrink-0 ${isPositive !== undefined ? (isPositive ? 'text-green-400' : 'text-red-400') : 'text-primary'}`} />
         </div>
       </CardHeader>
-      <CardContent className="p-3 pt-0 sm:p-3.5 sm:pt-0 lg:p-4 lg:pt-0">
-        <div className="text-base sm:text-lg lg:text-xl font-bold text-foreground break-words leading-tight">{value}</div>
-        {subtitle && <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground leading-snug">{subtitle}</p>}
+      <CardContent className="p-2.5 pt-0 sm:p-3 sm:pt-0 lg:p-3.5 lg:pt-0">
+        <div className="text-sm sm:text-base lg:text-lg font-bold text-foreground break-words leading-tight">{value}</div>
+        {subtitle && <p className="mt-1 text-[10px] sm:text-[11px] text-muted-foreground leading-snug">{subtitle}</p>}
       </CardContent>
     </Card>
   );
@@ -87,7 +87,7 @@ export default function Dashboard() {
         </div>
 
         {/* Stats & setup cards grid - All P&L values in base currency */}
-        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 sm:gap-3.5">
+        <div className="grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4 sm:gap-3">
           <StatCard icon={Zap} title="Total Trades" value={stats.totalTrades} subtitle={`${stats.winRate}% win rate`} />
           <StatCard
             icon={DollarSign}
@@ -117,29 +117,29 @@ export default function Dashboard() {
               subtitle="Total charges deducted"
             />
           )}
-          <Card className="bg-card border-border rounded-xl">
-            <CardHeader className="p-3 sm:p-3.5 lg:p-4 pb-1.5">
-              <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
-                <TrendingUp className="h-4 w-4 text-green-400 flex-shrink-0" />
+          <Card className="bg-card border-border rounded-lg">
+            <CardHeader className="p-2.5 pb-1 sm:p-3 sm:pb-1 lg:p-3.5 lg:pb-1.5">
+              <CardTitle className="flex items-center gap-2 text-xs sm:text-sm">
+                <TrendingUp className="h-3.5 w-3.5 text-green-400 flex-shrink-0" />
                 <span>Best Setup</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-3 sm:p-3.5 lg:p-4 pt-0">
-              <div className="text-base sm:text-lg font-bold text-foreground break-words leading-tight">{stats.bestSetup}</div>
-              <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground">Most profitable setup</p>
+            <CardContent className="p-2.5 pt-0 sm:p-3 sm:pt-0 lg:p-3.5 lg:pt-0">
+              <div className="text-sm sm:text-base font-bold text-foreground break-words leading-tight">{stats.bestSetup}</div>
+              <p className="mt-1 text-[10px] sm:text-[11px] text-muted-foreground">Most profitable setup</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-border rounded-xl">
-            <CardHeader className="p-3 sm:p-3.5 lg:p-4 pb-1.5">
-              <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
-                <TrendingDown className="h-4 w-4 text-red-400 flex-shrink-0" />
+          <Card className="bg-card border-border rounded-lg">
+            <CardHeader className="p-2.5 pb-1 sm:p-3 sm:pb-1 lg:p-3.5 lg:pb-1.5">
+              <CardTitle className="flex items-center gap-2 text-xs sm:text-sm">
+                <TrendingDown className="h-3.5 w-3.5 text-red-400 flex-shrink-0" />
                 <span>Worst Setup</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-3 sm:p-3.5 lg:p-4 pt-0">
-              <div className="text-base sm:text-lg font-bold text-foreground break-words leading-tight">{stats.worstSetup}</div>
-              <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground">Least profitable setup</p>
+            <CardContent className="p-2.5 pt-0 sm:p-3 sm:pt-0 lg:p-3.5 lg:pt-0">
+              <div className="text-sm sm:text-base font-bold text-foreground break-words leading-tight">{stats.worstSetup}</div>
+              <p className="mt-1 text-[10px] sm:text-[11px] text-muted-foreground">Least profitable setup</p>
             </CardContent>
           </Card>
         </div>
