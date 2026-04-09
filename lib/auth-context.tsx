@@ -21,6 +21,7 @@ interface AuthContextType {
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
+  loginWithGoogle: (credential: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
   clearError: () => void;
@@ -132,6 +133,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
   };
 
+  const loginWithGoogle = async (credential: string) => {
+    const res = await fetchWithTimeout('/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ credential }),
+    });
+
+    if (!res.ok) {
+      const message = await parseApiError(res, 'Failed to sign in with Google.');
+      setError(message);
+      throw new Error(message);
+    }
+
+    const data = (await res.json()) as AuthPayload;
+    setUser(data.user || null);
+    storeBootstrap(data.user ? data.bootstrap || null : null);
+    setError(null);
+  };
+
   const logout = async () => {
     const res = await fetchWithTimeout('/api/auth/logout', {
       method: 'POST',
@@ -152,7 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clearError = () => setError(null);
 
   const value = useMemo(
-    () => ({ user, isLoading, error, login, signup, logout, refreshSession, clearError }),
+    () => ({ user, isLoading, error, login, signup, loginWithGoogle, logout, refreshSession, clearError }),
     [user, isLoading, error]
   );
 

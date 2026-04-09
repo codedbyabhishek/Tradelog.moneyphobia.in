@@ -6,11 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import SiteFooter from '@/components/site-footer';
 import { AuthSceneIllustration } from '@/components/brand-illustrations';
+import GoogleSignInButton from '@/components/google-signin-button';
 
 export default function AuthScreen() {
-  const { login, signup, error, clearError } = useAuth();
+  const { login, signup, loginWithGoogle, error, clearError } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [loading, setLoading] = useState(false);
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -27,6 +29,17 @@ export default function AuthScreen() {
       } else {
         await login(email, password);
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onGoogleCredential = async (credential: string) => {
+    clearError();
+    setLoading(true);
+
+    try {
+      await loginWithGoogle(credential);
     } finally {
       setLoading(false);
     }
@@ -99,6 +112,26 @@ export default function AuthScreen() {
                 Sign Up
               </Button>
             </div>
+
+            {googleClientId ? (
+              <div className="mb-4 space-y-3">
+                <div className="flex justify-center">
+                  <GoogleSignInButton
+                    clientId={googleClientId}
+                    disabled={loading}
+                    onCredential={onGoogleCredential}
+                  />
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">Or continue with email</span>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <form className="space-y-4" onSubmit={onSubmit}>
               {mode === 'signup' && (

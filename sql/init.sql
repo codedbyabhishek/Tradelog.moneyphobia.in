@@ -4,12 +4,14 @@
 CREATE TABLE IF NOT EXISTS users (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   email VARCHAR(255) NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
+  password_hash VARCHAR(255) NULL,
+  google_sub VARCHAR(255) NULL,
   name VARCHAR(80) NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
   PRIMARY KEY (id),
-  UNIQUE KEY uniq_users_email (email)
+  UNIQUE KEY uniq_users_email (email),
+  UNIQUE KEY uniq_users_google_sub (google_sub)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS user_sessions (
