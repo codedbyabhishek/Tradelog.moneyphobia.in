@@ -14,7 +14,7 @@ import { TradeFormData, Currency } from '@/lib/types';
 import { calculatePnL, calculateRFactor, CURRENCY_SYMBOLS, getTradeOutcome } from '@/lib/trade-utils';
 import { ScreenshotViewer } from './screenshot-viewer';
 import { useToast } from '@/hooks/use-toast';
-import { getSimilarTradeInsights, getSimilarTradeMatches, type PreTradeChecklistInput } from '@/lib/pre-trade-matcher';
+import { getPersonalizedChecklistRecommendations, getSimilarTradeInsights, getSimilarTradeMatches, type PreTradeChecklistInput } from '@/lib/pre-trade-matcher';
 import { useSettings } from '@/lib/settings-context';
 
 interface TradeFormProps {
@@ -372,10 +372,24 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     () => getSimilarTradeInsights(similarTradeMatches),
     [similarTradeMatches],
   );
+  const checklistRecommendations = useMemo(
+    () => getPersonalizedChecklistRecommendations(trades),
+    [trades],
+  );
   const selectedMatchedTrade = useMemo(
     () => similarTradeMatches.find((match) => match.trade.id === selectedMatchedTradeId) || null,
     [similarTradeMatches, selectedMatchedTradeId],
   );
+
+  const applyChecklistRecommendation = (
+    field: 'marketTrend' | 'setupType' | 'volumeProfile' | 'emaTouch' | 'timeFrame' | 'riskRewardRatio',
+    value: string,
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
 
   // Show validation error for checkbox
   const getCheckboxError = (fieldName: string): boolean => {
@@ -542,6 +556,50 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
 
                 <div className="rounded-xl border border-border bg-card/60 p-3 sm:p-4">
                   <div className="mb-3 flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-foreground">What Historically Works For You</h3>
+                    <p className="text-xs text-muted-foreground">Built only from your own past entries with at least 2 samples per value</p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {[
+                      ['Market Trend', checklistRecommendations.marketTrend, 'marketTrend'],
+                      ['Setup Type', checklistRecommendations.setupType, 'setupType'],
+                      ['Volume', checklistRecommendations.volumeProfile, 'volumeProfile'],
+                      ['EMA Touch', checklistRecommendations.emaTouch, 'emaTouch'],
+                      ['Timeframe', checklistRecommendations.timeFrame, 'timeFrame'],
+                      ['Risk-Reward', checklistRecommendations.riskRewardRatio, 'riskRewardRatio'],
+                    ].map(([label, recommendation, field]) => (
+                      <div key={label} className="rounded-lg border border-border bg-background/80 p-3">
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+                        <p className="mt-2 text-base font-semibold text-foreground">
+                          {recommendation ? recommendation.value : 'Not enough data yet'}
+                        </p>
+                        {recommendation ? (
+                          <>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {recommendation.trades} trades • {recommendation.winRate}% win rate • {baseCurrencySymbol}{recommendation.netPnl.toFixed(2)} net
+                            </p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="mt-3"
+                              onClick={() => applyChecklistRecommendation(field as 'marketTrend' | 'setupType' | 'volumeProfile' | 'emaTouch' | 'timeFrame' | 'riskRewardRatio', recommendation.value)}
+                            >
+                              Apply
+                            </Button>
+                          </>
+                        ) : (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Keep logging checklist-based trades and this will start recommending your strongest repeating conditions.
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border bg-card/60 p-3 sm:p-4">
+                  <div className="mb-3 flex items-center justify-between gap-2">
                     <h3 className="text-sm font-semibold text-foreground">Top Historical Matches</h3>
                     <p className="text-xs text-muted-foreground">
                       Weighted scoring. High-quality matches: {similarTradeInsights.highQualityMatches}
@@ -648,6 +706,32 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                         ))}
                       </div>
                     </div>
+                    {selectedMatchedTrade.trade.beforeTradeScreenshot || selectedMatchedTrade.trade.afterExitScreenshot ? (
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        {selectedMatchedTrade.trade.beforeTradeScreenshot ? (
+                          <div>
+                            <p className="text-xs text-muted-foreground">Before Trade Screenshot</p>
+                            <div className="mt-2">
+                              <ScreenshotViewer
+                                imageUrl={selectedMatchedTrade.trade.beforeTradeScreenshot}
+                                title={`${selectedMatchedTrade.trade.symbol} before trade`}
+                              />
+                            </div>
+                          </div>
+                        ) : null}
+                        {selectedMatchedTrade.trade.afterExitScreenshot ? (
+                          <div>
+                            <p className="text-xs text-muted-foreground">After Exit Screenshot</p>
+                            <div className="mt-2">
+                              <ScreenshotViewer
+                                imageUrl={selectedMatchedTrade.trade.afterExitScreenshot}
+                                title={`${selectedMatchedTrade.trade.symbol} after exit`}
+                              />
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                     {(selectedMatchedTrade.trade.preNotes || selectedMatchedTrade.trade.postNotes) ? (
                       <div className="space-y-3">
                         {selectedMatchedTrade.trade.preNotes ? (

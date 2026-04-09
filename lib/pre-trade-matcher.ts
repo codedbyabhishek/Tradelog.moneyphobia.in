@@ -30,6 +30,24 @@ export interface SimilarTradeInsights {
   highQualityMatches: number;
 }
 
+export interface ChecklistRecommendation {
+  label: string;
+  value: string;
+  trades: number;
+  winRate: number;
+  netPnl: number;
+  averageR: number;
+}
+
+export interface PersonalizedChecklistRecommendations {
+  marketTrend: ChecklistRecommendation | null;
+  setupType: ChecklistRecommendation | null;
+  volumeProfile: ChecklistRecommendation | null;
+  emaTouch: ChecklistRecommendation | null;
+  timeFrame: ChecklistRecommendation | null;
+  riskRewardRatio: ChecklistRecommendation | null;
+}
+
 const FIELD_WEIGHTS = {
   marketTrend: 2,
   setupType: 3,
@@ -50,6 +68,66 @@ function normalizeRiskReward(value?: number | string | null) {
 function riskRewardMatches(input: number | null, tradeValue: number | null) {
   if (input === null || tradeValue === null) return false;
   return Math.abs(input - tradeValue) <= 0.25;
+}
+
+function buildRecommendation<T extends string>(
+  trades: Trade[],
+  getValue: (trade: Trade) => T | null,
+  formatValue: (value: T) => string = (value) => value,
+): ChecklistRecommendation | null {
+  const stats = new Map<T, { trades: number; wins: number; netPnl: number; totalR: number }>();
+
+  for (const trade of trades) {
+    const value = getValue(trade);
+    if (!value) continue;
+
+    const current = stats.get(value) || { trades: 0, wins: 0, netPnl: 0, totalR: 0 };
+    current.trades += 1;
+    if (trade.pnl > 0) current.wins += 1;
+    current.netPnl += getTradeBasePnL(trade);
+    current.totalR += trade.rFactor;
+    stats.set(value, current);
+  }
+
+  const ranked = [...stats.entries()]
+    .map(([value, data]) => ({
+      label: formatValue(value),
+      value: formatValue(value),
+      trades: data.trades,
+      winRate: Number(((data.wins / data.trades) * 100).toFixed(2)),
+      netPnl: Number(data.netPnl.toFixed(2)),
+      averageR: Number((data.totalR / data.trades).toFixed(2)),
+    }))
+    .filter((item) => item.trades >= 2)
+    .sort((a, b) => {
+      if (b.netPnl !== a.netPnl) return b.netPnl - a.netPnl;
+      if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+      if (b.averageR !== a.averageR) return b.averageR - a.averageR;
+      return b.trades - a.trades;
+    });
+
+  return ranked[0] || null;
+}
+
+export function getPersonalizedChecklistRecommendations(trades: Trade[]): PersonalizedChecklistRecommendations {
+  return {
+    marketTrend: buildRecommendation(trades, (trade) => trade.marketTrend || null),
+    setupType: buildRecommendation(trades, (trade) => trade.setupType || null),
+    volumeProfile: buildRecommendation(trades, (trade) => trade.volumeProfile || null),
+    emaTouch: buildRecommendation(trades, (trade) => {
+      if (trade.emaTouch === undefined) return null;
+      return trade.emaTouch ? 'Yes' : 'No';
+    }),
+    timeFrame: buildRecommendation(trades, (trade) => (trade.timeFrame as ChecklistTimeframe) || null),
+    riskRewardRatio: buildRecommendation(
+      trades,
+      (trade) => {
+        const normalized = normalizeRiskReward(trade.riskRewardRatio);
+        return normalized === null ? null : normalized.toFixed(2);
+      },
+      (value) => value,
+    ),
+  };
 }
 
 export function getSimilarTradeMatches(
