@@ -7,7 +7,9 @@ import { convertFormToTrade } from '@/lib/trade-utils';
 import { validateTradeForm, sanitizeString, validateImageFile } from '@/lib/validation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { Eye, Upload, X } from 'lucide-react';
 import { TradeFormData, Currency } from '@/lib/types';
 import { calculatePnL, calculateRFactor, CURRENCY_SYMBOLS, getTradeOutcome } from '@/lib/trade-utils';
 import { ScreenshotViewer } from './screenshot-viewer';
@@ -116,6 +118,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
   const [errors, setErrors] = useState<Partial<Record<keyof TradeFormData, string>>>({});
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [isCustomSetup, setIsCustomSetup] = useState(false);
+  const [selectedMatchedTradeId, setSelectedMatchedTradeId] = useState<string | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -369,6 +372,10 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     () => getSimilarTradeInsights(similarTradeMatches),
     [similarTradeMatches],
   );
+  const selectedMatchedTrade = useMemo(
+    () => similarTradeMatches.find((match) => match.trade.id === selectedMatchedTradeId) || null,
+    [similarTradeMatches, selectedMatchedTradeId],
+  );
 
   // Show validation error for checkbox
   const getCheckboxError = (fieldName: string): boolean => {
@@ -488,8 +495,28 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                     <p className="mt-2 text-xl font-bold text-foreground">{similarTradeInsights.totalSimilarTrades}</p>
                   </div>
                   <div className="rounded-xl border border-border bg-card/70 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Signal</p>
+                    <p className={`mt-2 text-xl font-bold ${
+                      similarTradeInsights.confidenceLabel === 'Strong'
+                        ? 'text-green-400'
+                        : similarTradeInsights.confidenceLabel === 'Weak'
+                        ? 'text-red-400'
+                        : similarTradeInsights.confidenceLabel === 'Neutral'
+                        ? 'text-yellow-400'
+                        : 'text-muted-foreground'
+                    }`}>
+                      {similarTradeInsights.confidenceLabel}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card/70 p-3">
                     <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Win Rate</p>
                     <p className="mt-2 text-xl font-bold text-foreground">{similarTradeInsights.winRate}%</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card/70 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Net P&amp;L</p>
+                    <p className={`mt-2 text-xl font-bold ${similarTradeInsights.netPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {baseCurrencySymbol}{similarTradeInsights.netPnl.toFixed(2)}
+                    </p>
                   </div>
                   <div className="rounded-xl border border-border bg-card/70 p-3">
                     <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Avg Profit</p>
@@ -499,12 +526,26 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                     <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Avg Loss</p>
                     <p className="mt-2 text-xl font-bold text-red-400">{baseCurrencySymbol}{similarTradeInsights.averageLoss.toFixed(2)}</p>
                   </div>
+                  <div className="rounded-xl border border-border bg-card/70 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Profit Factor</p>
+                    <p className="mt-2 text-xl font-bold text-foreground">
+                      {Number.isFinite(similarTradeInsights.profitFactor) ? similarTradeInsights.profitFactor.toFixed(2) : '∞'}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card/70 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Average R</p>
+                    <p className={`mt-2 text-xl font-bold ${similarTradeInsights.averageR >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {similarTradeInsights.averageR.toFixed(2)}R
+                    </p>
+                  </div>
                 </div>
 
                 <div className="rounded-xl border border-border bg-card/60 p-3 sm:p-4">
                   <div className="mb-3 flex items-center justify-between gap-2">
                     <h3 className="text-sm font-semibold text-foreground">Top Historical Matches</h3>
-                    <p className="text-xs text-muted-foreground">Each exact checklist match adds +1 score</p>
+                    <p className="text-xs text-muted-foreground">
+                      Weighted scoring. High-quality matches: {similarTradeInsights.highQualityMatches}
+                    </p>
                   </div>
                   {similarTradeMatches.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
@@ -512,18 +553,40 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                     </p>
                   ) : (
                     <div className="space-y-2">
-                      {similarTradeMatches.map(({ trade, score, matchedFields }) => (
+                      {similarTradeMatches.map(({ trade, score, maxScore, matchedFields, matchStrength }) => (
                         <div key={trade.id} className="rounded-lg border border-border bg-background/80 p-3">
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-foreground">{trade.symbol} • {trade.setupName}</p>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-semibold text-foreground">{trade.symbol} • {trade.setupName}</p>
+                                <Badge variant="outline" className={
+                                  matchStrength === 'High'
+                                    ? 'border-green-500/40 text-green-400'
+                                    : matchStrength === 'Medium'
+                                    ? 'border-yellow-500/40 text-yellow-400'
+                                    : 'border-muted text-muted-foreground'
+                                }>
+                                  {matchStrength}
+                                </Badge>
+                              </div>
                               <p className="mt-1 text-xs text-muted-foreground">
                                 {trade.date} • {trade.tradeResult} • matched: {matchedFields.join(', ')}
                               </p>
                             </div>
-                            <div className="text-right">
-                              <p className="text-xs text-muted-foreground">Score</p>
-                              <p className="text-lg font-bold text-primary">{score}/6</p>
+                            <div className="flex items-center gap-3">
+                              <div className="text-right">
+                                <p className="text-xs text-muted-foreground">Score</p>
+                                <p className="text-lg font-bold text-primary">{score}/{maxScore}</p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedMatchedTradeId(trade.id)}
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                View
+                              </Button>
                             </div>
                           </div>
                           <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
@@ -539,6 +602,72 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                 </div>
               </CardContent>
             </Card>
+
+            <Dialog open={Boolean(selectedMatchedTrade)} onOpenChange={(open) => !open && setSelectedMatchedTradeId(null)}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>
+                    {selectedMatchedTrade ? `${selectedMatchedTrade.trade.symbol} • ${selectedMatchedTrade.trade.setupName}` : 'Matched Trade'}
+                  </DialogTitle>
+                </DialogHeader>
+                {selectedMatchedTrade ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                      <div className="rounded-lg border border-border bg-secondary/40 p-3">
+                        <p className="text-xs text-muted-foreground">Date</p>
+                        <p className="mt-1 font-semibold">{selectedMatchedTrade.trade.date}</p>
+                      </div>
+                      <div className="rounded-lg border border-border bg-secondary/40 p-3">
+                        <p className="text-xs text-muted-foreground">Result</p>
+                        <p className="mt-1 font-semibold">{selectedMatchedTrade.trade.tradeResult}</p>
+                      </div>
+                      <div className="rounded-lg border border-border bg-secondary/40 p-3">
+                        <p className="text-xs text-muted-foreground">Weighted Score</p>
+                        <p className="mt-1 font-semibold text-primary">{selectedMatchedTrade.score}/{selectedMatchedTrade.maxScore}</p>
+                      </div>
+                      <div className="rounded-lg border border-border bg-secondary/40 p-3">
+                        <p className="text-xs text-muted-foreground">P&amp;L</p>
+                        <p className={`mt-1 font-semibold ${selectedMatchedTrade.trade.pnlBase >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {baseCurrencySymbol}{selectedMatchedTrade.trade.pnlBase.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                      <div><p className="text-xs text-muted-foreground">Market Trend</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.marketTrend || '—'}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Setup Type</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.setupType || '—'}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Volume</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.volumeProfile || '—'}</p></div>
+                      <div><p className="text-xs text-muted-foreground">EMA Touch</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.emaTouch === undefined ? '—' : selectedMatchedTrade.trade.emaTouch ? 'Yes' : 'No'}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Timeframe</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.timeFrame || '—'}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Risk-Reward</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.riskRewardRatio?.toFixed(2) || '—'}</p></div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Matched Fields</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {selectedMatchedTrade.matchedFields.map((field) => (
+                          <Badge key={field} variant="outline">{field}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                    {(selectedMatchedTrade.trade.preNotes || selectedMatchedTrade.trade.postNotes) ? (
+                      <div className="space-y-3">
+                        {selectedMatchedTrade.trade.preNotes ? (
+                          <div>
+                            <p className="text-xs text-muted-foreground">Pre-Trade Notes</p>
+                            <p className="mt-1 text-sm text-foreground">{selectedMatchedTrade.trade.preNotes}</p>
+                          </div>
+                        ) : null}
+                        {selectedMatchedTrade.trade.postNotes ? (
+                          <div>
+                            <p className="text-xs text-muted-foreground">Post-Trade Notes</p>
+                            <p className="mt-1 text-sm text-foreground">{selectedMatchedTrade.trade.postNotes}</p>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </DialogContent>
+            </Dialog>
 
             {/* Date and Trade Type */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
