@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useState } from 'react';
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -32,7 +33,7 @@ export function ScreenshotViewer({ imageUrl, title = 'Screenshot', children }: S
   };
 
   const handleZoomIn = () => {
-    setZoom(prev => Math.min(prev + 10, 200));
+    setZoom(prev => Math.min(prev + 10, 300));
   };
 
   const handleZoomOut = () => {
@@ -63,12 +64,14 @@ export function ScreenshotViewer({ imageUrl, title = 'Screenshot', children }: S
         {children || staticImage}
       </DialogTrigger>
 
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="px-6 py-4 border-b border-border">
-          <div className="flex items-center justify-between w-full">
-            <DialogTitle>{title}</DialogTitle>
-            {/* Zoom Controls */}
-            <div className="flex items-center gap-2">
+      <DialogContent
+        showCloseButton={false}
+        className="flex h-[min(92vh,980px)] w-[min(96vw,1500px)] max-w-[min(96vw,1500px)] flex-col gap-0 overflow-hidden p-0"
+      >
+        <DialogHeader className="border-b border-border px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <DialogTitle className="pr-4 text-base sm:text-lg">{title}</DialogTitle>
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="ghost"
                 size="sm"
@@ -83,7 +86,7 @@ export function ScreenshotViewer({ imageUrl, title = 'Screenshot', children }: S
                 variant="ghost"
                 size="sm"
                 onClick={handleZoomIn}
-                disabled={zoom >= 200}
+                disabled={zoom >= 300}
                 title="Zoom in"
               >
                 <ZoomIn className="w-4 h-4" />
@@ -105,12 +108,18 @@ export function ScreenshotViewer({ imageUrl, title = 'Screenshot', children }: S
               >
                 <Download className="w-4 h-4" />
               </Button>
+              <DialogClose asChild>
+                <Button variant="ghost" size="sm" title="Close viewer">
+                  <X className="w-4 h-4" />
+                </Button>
+              </DialogClose>
             </div>
           </div>
         </DialogHeader>
 
         {/* Image Container */}
-        <div className="flex-1 overflow-auto flex items-center justify-center bg-muted/50 p-4">
+        <div className="flex-1 overflow-auto bg-muted/50 p-3 sm:p-5 lg:p-6">
+          <div className="flex min-h-full min-w-full items-center justify-center">
           <Image
             src={imageUrl}
             alt={title}
@@ -118,13 +127,14 @@ export function ScreenshotViewer({ imageUrl, title = 'Screenshot', children }: S
             height={1200}
             unoptimized
             style={{ width: `${zoom}%` }}
-            className="max-w-full max-h-full object-contain rounded-lg border border-border"
+            className="h-auto max-w-none rounded-lg border border-border bg-background shadow-2xl"
           />
+          </div>
         </div>
 
         {/* Info Footer */}
-        <div className="px-6 py-3 border-t border-border bg-muted/30 text-xs text-muted-foreground">
-          Click on the image or use your mouse scroll wheel to zoom. Download button available in the header.
+        <div className="border-t border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground sm:px-6">
+          Use the zoom controls or your mouse scroll wheel to inspect details. Download and close actions are available in the header.
         </div>
       </DialogContent>
     </Dialog>
