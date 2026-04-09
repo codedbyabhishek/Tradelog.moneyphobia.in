@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { clearBootstrap, storeBootstrap } from '@/lib/client-bootstrap';
+import { clearAuthUser, clearBootstrap, readAuthUser, storeAuthUser, storeBootstrap } from '@/lib/client-bootstrap';
 import type { AppBootstrapData } from '@/lib/bootstrap';
 
 export interface AuthUser {
@@ -67,7 +67,7 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs =
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(() => readAuthUser());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,17 +80,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!res.ok) {
-        setUser(null);
+        if (res.status === 401) {
+          setUser(null);
+          clearAuthUser();
+          clearBootstrap();
+        } else {
+          setError(await parseApiError(res, 'Failed to restore your session.'));
+        }
         return;
       }
 
       const data = await res.json();
       setUser(data.user || null);
+      storeAuthUser(data.user || null);
       storeBootstrap(data.user ? data.bootstrap || null : null);
       setError(null);
-    } catch {
-      setUser(null);
-      clearBootstrap();
+    } catch (error) {
+      setError(normalizeClientError(error, 'Failed to restore your session.'));
     }
   };
 
@@ -123,6 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const data = (await res.json()) as AuthPayload;
       setUser(data.user || null);
+      storeAuthUser(data.user || null);
       storeBootstrap(data.user ? data.bootstrap || null : null);
       setError(null);
     } catch (error) {
@@ -149,6 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const data = (await res.json()) as AuthPayload;
       setUser(data.user || null);
+      storeAuthUser(data.user || null);
       storeBootstrap(data.user ? data.bootstrap || null : null);
       setError(null);
     } catch (error) {
@@ -175,6 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const data = (await res.json()) as AuthPayload;
       setUser(data.user || null);
+      storeAuthUser(data.user || null);
       storeBootstrap(data.user ? data.bootstrap || null : null);
       setError(null);
     } catch (error) {
@@ -197,6 +206,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     setUser(null);
+    clearAuthUser();
     clearBootstrap();
     setError(null);
   };
