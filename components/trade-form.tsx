@@ -16,6 +16,7 @@ import { ScreenshotViewer } from './screenshot-viewer';
 import { useToast } from '@/hooks/use-toast';
 import { getPersonalizedChecklistRecommendations, getSimilarTradeInsights, getSimilarTradeMatches, type PreTradeChecklistInput } from '@/lib/pre-trade-matcher';
 import { useSettings } from '@/lib/settings-context';
+import { clearPreTradeDraft, readPreTradeDraft } from '@/lib/pre-trade-draft';
 
 interface TradeFormProps {
   onSuccess?: () => void;
@@ -75,6 +76,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
   const { addTrade, trades } = useTrades();
   const { toast } = useToast();
   const { baseCurrency } = useSettings();
+  const draft = readPreTradeDraft();
   // Form data state
   const [formData, setFormData] = useState<TradeFormData>({
     date: new Date().toISOString().split('T')[0],
@@ -93,17 +95,17 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     taxes: '0',
     manualProfit: '',
     currency: 'INR', // Default currency
-    marketTrend: '',
-    setupType: '',
-    volumeProfile: '',
-    emaTouch: '',
-    riskRewardRatio: '',
+    marketTrend: draft?.marketTrend || '',
+    setupType: draft?.setupType || '',
+    volumeProfile: draft?.volumeProfile || '',
+    emaTouch: draft?.emaTouch || '',
+    riskRewardRatio: draft?.riskRewardRatio || '',
     confidence: '5',
     preNotes: '',
     postNotes: '',
     mistakeTag: undefined,
     exitRFactor: '',
-    timeFrame: '',
+    timeFrame: draft?.timeFrame || '',
     // isWin is now auto-derived from P&L, no longer manually set
     limit: '',
     exit: '',
@@ -296,6 +298,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
       }));
       clearBeforeScreenshot();
       clearAfterScreenshot();
+      clearPreTradeDraft();
       setErrors({});
       setSubmitStatus('success');
       setIsCustomSetup(false);

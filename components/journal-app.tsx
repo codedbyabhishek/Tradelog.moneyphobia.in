@@ -27,11 +27,13 @@ import TradeSearch from '@/components/trade-search';
 import ReportsGenerator from '@/components/reports-generator';
 import EmotionAnalyzer from '@/components/emotion-analyzer';
 import EmailVerificationRequired from '@/components/email-verification-required';
+import PreTradeChecklistWorkspace from '@/components/pre-trade-checklist-workspace';
 
-type Page = 'dashboard' | 'add-trade' | 'log' | 'analytics' | 'profit-loss' | 'weekly-review' | 'data-utilities' | 'ideas' | 'add-idea' | 'advanced-analytics' | 'goals' | 'search' | 'reports' | 'emotion-analyzer';
+type Page = 'dashboard' | 'pre-trade' | 'add-trade' | 'log' | 'analytics' | 'profit-loss' | 'weekly-review' | 'data-utilities' | 'ideas' | 'add-idea' | 'advanced-analytics' | 'goals' | 'search' | 'reports' | 'emotion-analyzer';
 
 const ALLOWED_PAGES: Page[] = [
   'dashboard',
+  'pre-trade',
   'add-trade',
   'log',
   'analytics',
@@ -83,6 +85,8 @@ function JournalAppContent() {
     switch (currentPage) {
       case 'dashboard':
         return <Dashboard />;
+      case 'pre-trade':
+        return <PreTradeChecklistWorkspace onStartTrade={() => setCurrentPage('add-trade')} />;
       case 'add-trade':
         return <TradeForm onSuccess={() => setCurrentPage('log')} />;
       case 'log':
