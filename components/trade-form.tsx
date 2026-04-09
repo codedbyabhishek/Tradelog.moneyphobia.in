@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Upload, X } from 'lucide-react';
+import { ChevronDown, Eye, Upload, X } from 'lucide-react';
 import { TradeFormData, Currency } from '@/lib/types';
 import { calculatePnL, calculateRFactor, CURRENCY_SYMBOLS, getTradeOutcome } from '@/lib/trade-utils';
 import { ScreenshotViewer } from './screenshot-viewer';
@@ -121,6 +121,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [isCustomSetup, setIsCustomSetup] = useState(false);
   const [selectedMatchedTradeId, setSelectedMatchedTradeId] = useState<string | null>(null);
+  const [showEmbeddedChecklist, setShowEmbeddedChecklist] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -410,11 +411,24 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
           <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6 lg:space-y-8">
             <Card className="border-primary/20 bg-primary/5 shadow-none hover:border-primary/30 hover:shadow-none focus-within:border-primary/40 focus-within:shadow-none">
               <CardHeader className="p-4 sm:p-5">
-                <CardTitle className="text-lg sm:text-xl">Pre-Trade Smart Checklist</CardTitle>
-                <CardDescription>
-                  Match this setup against historical trades before you place it. These insights use only past stored trades.
-                </CardDescription>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle className="text-lg sm:text-xl">Pre-Trade Smart Checklist</CardTitle>
+                    <CardDescription>
+                      Hidden by default here. Open it only when you want to review historical matches while logging the trade.
+                    </CardDescription>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowEmbeddedChecklist((prev) => !prev)}
+                  >
+                    {showEmbeddedChecklist ? 'Hide Checklist' : 'Show Checklist'}
+                    <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${showEmbeddedChecklist ? 'rotate-180' : ''}`} />
+                  </Button>
+                </div>
               </CardHeader>
+              {showEmbeddedChecklist ? (
               <CardContent className="space-y-4 p-4 pt-0 sm:p-5 sm:pt-0">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <div>
@@ -662,6 +676,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                   )}
                 </div>
               </CardContent>
+              ) : null}
             </Card>
 
             <Dialog open={Boolean(selectedMatchedTrade)} onOpenChange={(open) => !open && setSelectedMatchedTradeId(null)}>
