@@ -3,6 +3,7 @@ import { dbQuery } from '@/lib/server/db';
 import {
   cleanupExpiredSessions,
   createSession,
+  ensureEmailVerificationSchema,
   ensureGoogleAuthSchema,
   setSessionCookie,
   validateLoginInput,
@@ -19,6 +20,7 @@ interface UserRow {
   email: string;
   name: string | null;
   password_hash: string | null;
+  email_verified_at: string | null;
 }
 
 export async function POST(request: NextRequest) {
@@ -67,13 +69,14 @@ export async function POST(request: NextRequest) {
     }
 
     await ensureGoogleAuthSchema();
+    await ensureEmailVerificationSchema();
 
     void cleanupExpiredSessions().catch((error) => {
       console.error('[auth/login] cleanup error', error);
     });
 
     const rows = await dbQuery<UserRow[]>(
-      'SELECT id, email, name, password_hash FROM users WHERE email = ? LIMIT 1',
+      'SELECT id, email, name, password_hash, email_verified_at FROM users WHERE email = ? LIMIT 1',
       [validated.data.email]
     );
 
@@ -101,6 +104,7 @@ export async function POST(request: NextRequest) {
         id: user.id,
         email: user.email,
         name: user.name,
+        emailVerified: Boolean(user.email_verified_at),
       },
       bootstrap,
     });

@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(255) NOT NULL,
   password_hash VARCHAR(255) NULL,
   google_sub VARCHAR(255) NULL,
+  email_verified_at DATETIME NULL,
   name VARCHAR(80) NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
@@ -39,6 +40,20 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   KEY idx_password_reset_user (user_id),
   KEY idx_password_reset_expires_at (expires_at),
   CONSTRAINT fk_password_reset_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  token_hash CHAR(64) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  used_at DATETIME NULL,
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uniq_email_verification_token_hash (token_hash),
+  KEY idx_email_verification_user (user_id),
+  KEY idx_email_verification_expires_at (expires_at),
+  CONSTRAINT fk_email_verification_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS trades (

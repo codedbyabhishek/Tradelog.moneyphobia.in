@@ -8,6 +8,7 @@ export interface AuthUser {
   id: number;
   email: string;
   name: string | null;
+  emailVerified: boolean;
 }
 
 interface AuthPayload {

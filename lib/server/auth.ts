@@ -17,9 +17,11 @@ export interface AuthUser {
   id: number;
   email: string;
   name: string | null;
+  emailVerified: boolean;
 }
 
 let googleAuthSchemaEnsured = false;
+let emailVerificationSchemaEnsured = false;
 
 function hashSessionToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -73,6 +75,39 @@ export async function ensureGoogleAuthSchema() {
   googleAuthSchemaEnsured = true;
 }
 
+export async function ensureEmailVerificationSchema() {
+  if (emailVerificationSchemaEnsured) return;
+
+  try {
+    await dbExecute('ALTER TABLE users ADD COLUMN email_verified_at DATETIME NULL AFTER google_sub');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.toLowerCase().includes('duplicate column')) {
+      throw error;
+    }
+  }
+
+  await dbExecute('UPDATE users SET email_verified_at = COALESCE(email_verified_at, NOW())');
+
+  await dbExecute(
+    `CREATE TABLE IF NOT EXISTS email_verification_tokens (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      user_id BIGINT UNSIGNED NOT NULL,
+      token_hash CHAR(64) NOT NULL,
+      expires_at DATETIME NOT NULL,
+      used_at DATETIME NULL,
+      created_at DATETIME NOT NULL,
+      PRIMARY KEY (id),
+      UNIQUE KEY uniq_email_verification_token_hash (token_hash),
+      KEY idx_email_verification_user (user_id),
+      KEY idx_email_verification_expires_at (expires_at),
+      CONSTRAINT fk_email_verification_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  );
+
+  emailVerificationSchemaEnsured = true;
+}
+
 export async function createSession(userId: number): Promise<string> {
   const rawToken = randomBytes(32).toString('hex');
   const tokenHash = hashSessionToken(rawToken);
@@ -115,6 +150,7 @@ export async function deleteSessionByToken(token: string) {
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
+  await ensureEmailVerificationSchema();
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(SESSION_COOKIE)?.value;
   if (!sessionToken) {
@@ -128,9 +164,10 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       user_id: number;
       email: string;
       name: string | null;
+      email_verified_at: string | null;
     }[]
   >(
-    `SELECT u.id AS user_id, u.email, u.name
+    `SELECT u.id AS user_id, u.email, u.name, u.email_verified_at
      FROM user_sessions s
      INNER JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = ? AND s.expires_at > NOW()
@@ -146,6 +183,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     id: rows[0].user_id,
     email: rows[0].email,
     name: rows[0].name,
+    emailVerified: Boolean(rows[0].email_verified_at),
   };
 }
 

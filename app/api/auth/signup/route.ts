@@ -5,6 +5,7 @@ import {
   cleanupExpiredSessions,
   createSession,
   ensureGoogleAuthSchema,
+  ensureEmailVerificationSchema,
   hashPassword,
   setSessionCookie,
   validateSignupInput,
@@ -12,6 +13,8 @@ import {
 import { jsonError } from '@/lib/server/http';
 import { consumeRateLimit, getClientIp } from '@/lib/server/rate-limit';
 import { loadBootstrapData } from '@/lib/server/bootstrap';
+import { createEmailVerificationToken } from '@/lib/server/email-verification';
+import { sendEmailVerificationEmail } from '@/lib/server/email';
 
 export const runtime = 'nodejs';
 
@@ -61,6 +64,7 @@ export async function POST(request: NextRequest) {
     }
 
     await ensureGoogleAuthSchema();
+    await ensureEmailVerificationSchema();
 
     void cleanupExpiredSessions().catch((error) => {
       console.error('[auth/signup] cleanup error', error);
@@ -78,12 +82,18 @@ export async function POST(request: NextRequest) {
     const passwordHash = await hashPassword(validated.data.password);
 
     const result = (await dbExecute(
-      `INSERT INTO users (email, password_hash, name, created_at, updated_at)
-       VALUES (?, ?, ?, NOW(), NOW())`,
+      `INSERT INTO users (email, password_hash, google_sub, email_verified_at, name, created_at, updated_at)
+       VALUES (?, ?, NULL, NULL, ?, NOW(), NOW())`,
       [validated.data.email, passwordHash, validated.data.name]
     )) as ResultSetHeader;
 
     const userId = Number(result.insertId);
+    const verificationToken = await createEmailVerificationToken(userId);
+    await sendEmailVerificationEmail({
+      to: validated.data.email,
+      verificationToken,
+    });
+
     const sessionToken = await createSession(userId);
     await setSessionCookie(sessionToken);
     const bootstrap = await loadBootstrapData(userId, validated.data.email);
@@ -94,6 +104,7 @@ export async function POST(request: NextRequest) {
           id: userId,
           email: validated.data.email,
           name: validated.data.name,
+          emailVerified: false,
         },
         bootstrap,
       },

@@ -5,6 +5,7 @@ import { dbExecute, dbQuery } from '@/lib/server/db';
 import {
   cleanupExpiredSessions,
   createSession,
+  ensureEmailVerificationSchema,
   ensureGoogleAuthSchema,
   normalizeAuthEmail,
   setSessionCookie,
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     await ensureGoogleAuthSchema();
+    await ensureEmailVerificationSchema();
 
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
@@ -97,7 +99,7 @@ export async function POST(request: NextRequest) {
         user = existingByEmail[0];
         await dbExecute(
           `UPDATE users
-           SET google_sub = ?, name = COALESCE(NULLIF(?, ''), name), updated_at = NOW()
+           SET google_sub = ?, email_verified_at = COALESCE(email_verified_at, NOW()), name = COALESCE(NULLIF(?, ''), name), updated_at = NOW()
            WHERE id = ?`,
           [googleSub, name || '', user.id],
         );
@@ -108,8 +110,8 @@ export async function POST(request: NextRequest) {
         };
       } else {
         const result = (await dbExecute(
-          `INSERT INTO users (email, password_hash, google_sub, name, created_at, updated_at)
-           VALUES (?, NULL, ?, ?, NOW(), NOW())`,
+          `INSERT INTO users (email, password_hash, google_sub, email_verified_at, name, created_at, updated_at)
+           VALUES (?, NULL, ?, NOW(), ?, NOW(), NOW())`,
           [email, googleSub, name],
         )) as ResultSetHeader;
 
@@ -131,6 +133,7 @@ export async function POST(request: NextRequest) {
         id: user.id,
         email: user.email,
         name: user.name,
+        emailVerified: true,
       },
       bootstrap,
     });

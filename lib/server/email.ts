@@ -65,3 +65,46 @@ export async function sendPasswordResetEmail({
 
   return { delivered: true as const, resetUrl };
 }
+
+export async function sendEmailVerificationEmail({
+  to,
+  verificationToken,
+}: {
+  to: string;
+  verificationToken: string;
+}) {
+  const verificationUrl = `${getSiteUrl().replace(/\/$/, '')}/verify-email?token=${encodeURIComponent(verificationToken)}`;
+  const smtp = getSmtpConfig();
+
+  if (!smtp) {
+    console.info('[email-verification] SMTP not configured. Verification link:', { to, verificationUrl });
+    return { delivered: false as const, verificationUrl };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.secure,
+    auth: smtp.auth,
+  });
+
+  await transporter.sendMail({
+    from: smtp.from,
+    to,
+    subject: 'Verify your Traderlogify email address',
+    text: [
+      'Welcome to Traderlogify.',
+      '',
+      `Verify your email address: ${verificationUrl}`,
+      '',
+      'If you did not create this account, you can ignore this email.',
+    ].join('\n'),
+    html: `
+      <p>Welcome to Traderlogify.</p>
+      <p><a href="${verificationUrl}">Verify your email address</a></p>
+      <p>If you did not create this account, you can ignore this email.</p>
+    `,
+  });
+
+  return { delivered: true as const, verificationUrl };
+}

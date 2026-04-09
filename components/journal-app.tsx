@@ -26,6 +26,7 @@ import GoalsTracker from '@/components/goals-tracker';
 import TradeSearch from '@/components/trade-search';
 import ReportsGenerator from '@/components/reports-generator';
 import EmotionAnalyzer from '@/components/emotion-analyzer';
+import EmailVerificationRequired from '@/components/email-verification-required';
 
 type Page = 'dashboard' | 'add-trade' | 'log' | 'analytics' | 'profit-loss' | 'weekly-review' | 'data-utilities' | 'ideas' | 'add-idea' | 'advanced-analytics' | 'goals' | 'search' | 'reports' | 'emotion-analyzer';
 
@@ -123,6 +124,10 @@ function JournalAppContent() {
 
   if (!user) {
     return <AuthScreen />;
+  }
+
+  if (!user.emailVerified) {
+    return <EmailVerificationRequired />;
   }
 
   return (
