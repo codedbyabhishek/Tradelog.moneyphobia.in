@@ -87,7 +87,7 @@ export default function Dashboard() {
         </div>
 
         {/* Stats & setup cards grid - All P&L values in base currency */}
-        <div className="grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4 sm:gap-3">
+        <div className="grid w-full grid-cols-2 gap-2.5 lg:grid-cols-4 sm:gap-3">
           <StatCard icon={Zap} title="Total Trades" value={stats.totalTrades} subtitle={`${stats.winRate}% win rate`} />
           <StatCard
             icon={DollarSign}
