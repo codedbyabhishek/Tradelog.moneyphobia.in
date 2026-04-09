@@ -70,8 +70,6 @@ export const FIB_LEVEL_OPTIONS = [
   'L3',
 ] as const;
 
-const CHECKLIST_TIMEFRAMES = ['5m', '15m', '1H', 'Daily'] as const;
-
 export default function TradeForm({ onSuccess }: TradeFormProps) {
   const { addTrade, trades } = useTrades();
   const { toast } = useToast();
@@ -100,6 +98,8 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     volumeProfile: draft?.volumeProfile || '',
     emaTouch: draft?.emaTouch || '',
     riskRewardRatio: draft?.riskRewardRatio || '',
+    marketOpenType: draft?.marketOpenType || '',
+    firstFiveMinuteCandleType: draft?.firstFiveMinuteCandleType || '',
     confidence: '5',
     preNotes: '',
     postNotes: '',
@@ -287,6 +287,8 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
         volumeProfile: '',
         emaTouch: '',
         riskRewardRatio: '',
+        marketOpenType: '',
+        firstFiveMinuteCandleType: '',
         confidence: '5',
         preNotes: '',
         postNotes: '',
@@ -361,11 +363,11 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     setupType: formData.setupType,
     volumeProfile: formData.volumeProfile,
     emaTouch: formData.emaTouch,
-    timeFrame: CHECKLIST_TIMEFRAMES.includes(formData.timeFrame as (typeof CHECKLIST_TIMEFRAMES)[number])
-      ? (formData.timeFrame as PreTradeChecklistInput['timeFrame'])
-      : '',
+    timeFrame: formData.timeFrame as PreTradeChecklistInput['timeFrame'],
     riskRewardRatio: formData.riskRewardRatio,
-  }), [formData.marketTrend, formData.setupType, formData.volumeProfile, formData.emaTouch, formData.timeFrame, formData.riskRewardRatio]);
+    marketOpenType: formData.marketOpenType,
+    firstFiveMinuteCandleType: formData.firstFiveMinuteCandleType,
+  }), [formData.marketTrend, formData.setupType, formData.volumeProfile, formData.emaTouch, formData.timeFrame, formData.riskRewardRatio, formData.marketOpenType, formData.firstFiveMinuteCandleType]);
 
   const similarTradeMatches = useMemo(
     () => getSimilarTradeMatches(trades, checklistInput, 10),
@@ -386,7 +388,15 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
   );
 
   const applyChecklistRecommendation = (
-    field: 'marketTrend' | 'setupType' | 'volumeProfile' | 'emaTouch' | 'timeFrame' | 'riskRewardRatio',
+    field:
+      | 'marketTrend'
+      | 'setupType'
+      | 'volumeProfile'
+      | 'emaTouch'
+      | 'timeFrame'
+      | 'riskRewardRatio'
+      | 'marketOpenType'
+      | 'firstFiveMinuteCandleType',
     value: string,
   ) => {
     setFormData((prev) => ({
@@ -491,17 +501,14 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">Timeframe*</label>
-                    <select
+                    <input
+                      type="text"
                       name="timeFrame"
                       value={formData.timeFrame}
                       onChange={handleInputChange}
+                      placeholder="e.g., 5m, 15m, 1H, Daily"
                       className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.timeFrame ? 'border-red-500' : 'border-border'}`}
-                    >
-                      <option value="">Select timeframe</option>
-                      {CHECKLIST_TIMEFRAMES.map((timeframe) => (
-                        <option key={timeframe} value={timeframe}>{timeframe}</option>
-                      ))}
-                    </select>
+                    />
                     {errors.timeFrame && <p className="text-xs text-red-500 mt-1">{errors.timeFrame}</p>}
                   </div>
                   <div>
@@ -517,6 +524,37 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                       className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.riskRewardRatio ? 'border-red-500' : 'border-border'}`}
                     />
                     {errors.riskRewardRatio && <p className="text-xs text-red-500 mt-1">{errors.riskRewardRatio}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Market Open Type*</label>
+                    <select
+                      name="marketOpenType"
+                      value={formData.marketOpenType}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.marketOpenType ? 'border-red-500' : 'border-border'}`}
+                    >
+                      <option value="">Select market open</option>
+                      <option value="Gap Up">Gap Up</option>
+                      <option value="Gap Down">Gap Down</option>
+                      <option value="Sideways">Sideways</option>
+                    </select>
+                    {errors.marketOpenType && <p className="text-xs text-red-500 mt-1">{errors.marketOpenType}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">First 5-Min Candle*</label>
+                    <select
+                      name="firstFiveMinuteCandleType"
+                      value={formData.firstFiveMinuteCandleType}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.firstFiveMinuteCandleType ? 'border-red-500' : 'border-border'}`}
+                    >
+                      <option value="">Select candle type</option>
+                      <option value="Bullish">Bullish</option>
+                      <option value="Bearish">Bearish</option>
+                      <option value="Doji">Doji</option>
+                      <option value="Pinbar">Pinbar</option>
+                    </select>
+                    {errors.firstFiveMinuteCandleType && <p className="text-xs text-red-500 mt-1">{errors.firstFiveMinuteCandleType}</p>}
                   </div>
                 </div>
 
@@ -584,6 +622,8 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                       ['EMA Touch', checklistRecommendations.emaTouch, 'emaTouch'],
                       ['Timeframe', checklistRecommendations.timeFrame, 'timeFrame'],
                       ['Risk-Reward', checklistRecommendations.riskRewardRatio, 'riskRewardRatio'],
+                      ['Market Open', checklistRecommendations.marketOpenType, 'marketOpenType'],
+                      ['First 5-Min Candle', checklistRecommendations.firstFiveMinuteCandleType, 'firstFiveMinuteCandleType'],
                     ].map(([label, recommendation, field]) => (
                       <div key={label} className="rounded-lg border border-border bg-background/80 p-3">
                         <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
@@ -600,7 +640,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                               variant="outline"
                               size="sm"
                               className="mt-3"
-                              onClick={() => applyChecklistRecommendation(field as 'marketTrend' | 'setupType' | 'volumeProfile' | 'emaTouch' | 'timeFrame' | 'riskRewardRatio', recommendation.value)}
+                              onClick={() => applyChecklistRecommendation(field as 'marketTrend' | 'setupType' | 'volumeProfile' | 'emaTouch' | 'timeFrame' | 'riskRewardRatio' | 'marketOpenType' | 'firstFiveMinuteCandleType', recommendation.value)}
                             >
                               Apply
                             </Button>
@@ -669,6 +709,8 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                             <span>Trend: {trade.marketTrend || '—'}</span>
                             <span>Type: {trade.setupType || '—'}</span>
                             <span>TF: {trade.timeFrame || '—'}</span>
+                            <span>Open: {trade.marketOpenType || '—'}</span>
+                            <span>1st Candle: {trade.firstFiveMinuteCandleType || '—'}</span>
                           </div>
                         </div>
                       ))}
@@ -715,6 +757,8 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                       <div><p className="text-xs text-muted-foreground">EMA Touch</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.emaTouch === undefined ? '—' : selectedMatchedTrade.trade.emaTouch ? 'Yes' : 'No'}</p></div>
                       <div><p className="text-xs text-muted-foreground">Timeframe</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.timeFrame || '—'}</p></div>
                       <div><p className="text-xs text-muted-foreground">Risk-Reward</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.riskRewardRatio?.toFixed(2) || '—'}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Market Open</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.marketOpenType || '—'}</p></div>
+                      <div><p className="text-xs text-muted-foreground">First 5-Min Candle</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.firstFiveMinuteCandleType || '—'}</p></div>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Matched Fields</p>

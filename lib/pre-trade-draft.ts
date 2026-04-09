@@ -6,7 +6,14 @@ const PRE_TRADE_DRAFT_KEY = 'td-pre-trade-draft';
 
 export type PreTradeDraft = Pick<
   TradeFormData,
-  'marketTrend' | 'setupType' | 'volumeProfile' | 'emaTouch' | 'timeFrame' | 'riskRewardRatio'
+  | 'marketTrend'
+  | 'setupType'
+  | 'volumeProfile'
+  | 'emaTouch'
+  | 'timeFrame'
+  | 'riskRewardRatio'
+  | 'marketOpenType'
+  | 'firstFiveMinuteCandleType'
 >;
 
 function isBrowser() {

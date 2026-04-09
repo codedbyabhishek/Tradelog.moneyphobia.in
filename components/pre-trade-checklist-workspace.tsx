@@ -18,8 +18,6 @@ import { CURRENCY_SYMBOLS } from '@/lib/trade-utils';
 import { ScreenshotViewer } from '@/components/screenshot-viewer';
 import { Eye, Sparkles } from 'lucide-react';
 
-const CHECKLIST_TIMEFRAMES = ['5m', '15m', '1H', 'Daily'] as const;
-
 interface PreTradeChecklistWorkspaceProps {
   onStartTrade?: () => void;
 }
@@ -36,6 +34,8 @@ export default function PreTradeChecklistWorkspace({ onStartTrade }: PreTradeChe
     emaTouch: '',
     timeFrame: '',
     riskRewardRatio: '',
+    marketOpenType: '',
+    firstFiveMinuteCandleType: '',
   });
   const [selectedMatchedTradeId, setSelectedMatchedTradeId] = useState<string | null>(null);
 
@@ -71,6 +71,8 @@ export default function PreTradeChecklistWorkspace({ onStartTrade }: PreTradeChe
       emaTouch: checklist.emaTouch,
       timeFrame: checklist.timeFrame,
       riskRewardRatio: checklist.riskRewardRatio,
+      marketOpenType: checklist.marketOpenType,
+      firstFiveMinuteCandleType: checklist.firstFiveMinuteCandleType,
     });
     onStartTrade?.();
   };
@@ -86,6 +88,8 @@ export default function PreTradeChecklistWorkspace({ onStartTrade }: PreTradeChe
     { label: 'EMA Touch', field: 'emaTouch', recommendation: checklistRecommendations.emaTouch },
     { label: 'Timeframe', field: 'timeFrame', recommendation: checklistRecommendations.timeFrame },
     { label: 'Risk-Reward', field: 'riskRewardRatio', recommendation: checklistRecommendations.riskRewardRatio },
+    { label: 'Market Open', field: 'marketOpenType', recommendation: checklistRecommendations.marketOpenType },
+    { label: 'First 5-Min Candle', field: 'firstFiveMinuteCandleType', recommendation: checklistRecommendations.firstFiveMinuteCandleType },
   ];
 
   return (
@@ -168,16 +172,13 @@ export default function PreTradeChecklistWorkspace({ onStartTrade }: PreTradeChe
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">Timeframe</label>
-              <select
+              <input
+                type="text"
                 value={checklist.timeFrame}
                 onChange={(e) => updateChecklist('timeFrame', e.target.value)}
+                placeholder="e.g. 5m, 15m, 1H, Daily"
                 className="w-full rounded-lg border border-border bg-input px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="">Select timeframe</option>
-                {CHECKLIST_TIMEFRAMES.map((timeframe) => (
-                  <option key={timeframe} value={timeframe}>{timeframe}</option>
-                ))}
-              </select>
+              />
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">Risk-Reward Ratio</label>
@@ -190,6 +191,33 @@ export default function PreTradeChecklistWorkspace({ onStartTrade }: PreTradeChe
                 placeholder="e.g. 2.00"
                 className="w-full rounded-lg border border-border bg-input px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-foreground">Market Open Type</label>
+              <select
+                value={checklist.marketOpenType}
+                onChange={(e) => updateChecklist('marketOpenType', e.target.value)}
+                className="w-full rounded-lg border border-border bg-input px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Select market open</option>
+                <option value="Gap Up">Gap Up</option>
+                <option value="Gap Down">Gap Down</option>
+                <option value="Sideways">Sideways</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-foreground">First 5-Min Candle</label>
+              <select
+                value={checklist.firstFiveMinuteCandleType}
+                onChange={(e) => updateChecklist('firstFiveMinuteCandleType', e.target.value)}
+                className="w-full rounded-lg border border-border bg-input px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Select candle type</option>
+                <option value="Bullish">Bullish</option>
+                <option value="Bearish">Bearish</option>
+                <option value="Doji">Doji</option>
+                <option value="Pinbar">Pinbar</option>
+              </select>
             </div>
           </CardContent>
         </Card>
@@ -342,6 +370,8 @@ export default function PreTradeChecklistWorkspace({ onStartTrade }: PreTradeChe
                     <span>Trend: {trade.marketTrend || '—'}</span>
                     <span>Type: {trade.setupType || '—'}</span>
                     <span>TF: {trade.timeFrame || '—'}</span>
+                    <span>Open: {trade.marketOpenType || '—'}</span>
+                    <span>1st Candle: {trade.firstFiveMinuteCandleType || '—'}</span>
                   </div>
                 </div>
               ))
@@ -385,6 +415,8 @@ export default function PreTradeChecklistWorkspace({ onStartTrade }: PreTradeChe
                   <div><p className="text-xs text-muted-foreground">EMA Touch</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.emaTouch === undefined ? '—' : selectedMatchedTrade.trade.emaTouch ? 'Yes' : 'No'}</p></div>
                   <div><p className="text-xs text-muted-foreground">Timeframe</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.timeFrame || '—'}</p></div>
                   <div><p className="text-xs text-muted-foreground">Risk-Reward</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.riskRewardRatio?.toFixed(2) || '—'}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Market Open</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.marketOpenType || '—'}</p></div>
+                  <div><p className="text-xs text-muted-foreground">First 5-Min Candle</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.firstFiveMinuteCandleType || '—'}</p></div>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Matched Fields</p>

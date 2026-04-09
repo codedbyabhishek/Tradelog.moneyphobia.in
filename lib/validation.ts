@@ -137,6 +137,14 @@ export function validateTradeForm(formData: TradeFormData): Record<string, strin
     }
   }
 
+  if (!formData.marketOpenType) {
+    errors.marketOpenType = 'Market open type is required';
+  }
+
+  if (!formData.firstFiveMinuteCandleType) {
+    errors.firstFiveMinuteCandleType = 'First 5-minute candle type is required';
+  }
+
   // Limit (Fibonacci) validation
   const validFibLevels = ['L-0.07', 'L-0.05', 'L-0.01', 'L0', 'L0.283', 'L0.382', 'L0.5', 'L0.702', 'L0.786', 'L1', 'L1.27', 'L1.4', 'L2', 'L2.7', 'L3'];
   if (!formData.limit) {

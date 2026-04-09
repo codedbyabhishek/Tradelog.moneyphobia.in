@@ -271,6 +271,8 @@ export function convertFormToTrade(formData: TradeFormData): Trade {
     volumeProfile: formData.volumeProfile || undefined,
     emaTouch: formData.emaTouch === '' ? undefined : formData.emaTouch === 'Yes',
     riskRewardRatio: formData.riskRewardRatio ? parseFloat(formData.riskRewardRatio) : undefined,
+    marketOpenType: formData.marketOpenType || undefined,
+    firstFiveMinuteCandleType: formData.firstFiveMinuteCandleType || undefined,
     limit: formData.limit,
     exit: formData.exit,
     ruleFollowed: formData.ruleFollowed ?? true,

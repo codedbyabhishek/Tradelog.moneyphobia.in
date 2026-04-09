@@ -5,6 +5,8 @@ export type MarketTrend = 'Bullish' | 'Bearish' | 'Sideways';
 export type SetupType = 'Breakout' | 'Pullback' | 'Reversal';
 export type VolumeProfile = 'High' | 'Low';
 export type ChecklistTimeframe = '5m' | '15m' | '1H' | 'Daily';
+export type MarketOpenType = 'Gap Up' | 'Gap Down' | 'Sideways';
+export type FirstFiveMinuteCandleType = 'Bullish' | 'Bearish' | 'Doji' | 'Pinbar';
 
 // Trade outcome derived from P&L
 export type TradeOutcome = 'W' | 'L' | 'BE'; // Win, Loss, Break-Even
@@ -76,6 +78,8 @@ export interface Trade {
   volumeProfile?: VolumeProfile;
   emaTouch?: boolean;
   riskRewardRatio?: number;
+  marketOpenType?: MarketOpenType;
+  firstFiveMinuteCandleType?: FirstFiveMinuteCandleType;
   limit?: string;
   exit?: string;
   
@@ -154,6 +158,8 @@ export interface TradeFormData {
   volumeProfile: VolumeProfile | '';
   emaTouch: '' | 'Yes' | 'No';
   riskRewardRatio: string;
+  marketOpenType: MarketOpenType | '';
+  firstFiveMinuteCandleType: FirstFiveMinuteCandleType | '';
   confidence: string;
   preNotes: string;
   postNotes: string;

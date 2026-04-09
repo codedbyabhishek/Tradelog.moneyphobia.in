@@ -1,4 +1,11 @@
-import type { Trade, ChecklistTimeframe, MarketTrend, SetupType, VolumeProfile } from '@/lib/types';
+import type {
+  Trade,
+  MarketTrend,
+  SetupType,
+  VolumeProfile,
+  MarketOpenType,
+  FirstFiveMinuteCandleType,
+} from '@/lib/types';
 import { getTradeBasePnL } from '@/lib/trade-utils';
 
 export interface PreTradeChecklistInput {
@@ -6,8 +13,10 @@ export interface PreTradeChecklistInput {
   setupType: SetupType | '';
   volumeProfile: VolumeProfile | '';
   emaTouch: '' | 'Yes' | 'No';
-  timeFrame: ChecklistTimeframe | '';
+  timeFrame: string;
   riskRewardRatio: string;
+  marketOpenType: MarketOpenType | '';
+  firstFiveMinuteCandleType: FirstFiveMinuteCandleType | '';
 }
 
 export interface SimilarTradeMatch {
@@ -46,6 +55,8 @@ export interface PersonalizedChecklistRecommendations {
   emaTouch: ChecklistRecommendation | null;
   timeFrame: ChecklistRecommendation | null;
   riskRewardRatio: ChecklistRecommendation | null;
+  marketOpenType: ChecklistRecommendation | null;
+  firstFiveMinuteCandleType: ChecklistRecommendation | null;
 }
 
 const FIELD_WEIGHTS = {
@@ -55,6 +66,8 @@ const FIELD_WEIGHTS = {
   emaTouch: 1,
   timeFrame: 3,
   riskRewardRatio: 2,
+  marketOpenType: 2,
+  firstFiveMinuteCandleType: 2,
 } as const;
 
 const MAX_SCORE = Object.values(FIELD_WEIGHTS).reduce((sum, weight) => sum + weight, 0);
@@ -118,7 +131,7 @@ export function getPersonalizedChecklistRecommendations(trades: Trade[]): Person
       if (trade.emaTouch === undefined) return null;
       return trade.emaTouch ? 'Yes' : 'No';
     }),
-    timeFrame: buildRecommendation(trades, (trade) => (trade.timeFrame as ChecklistTimeframe) || null),
+    timeFrame: buildRecommendation(trades, (trade) => trade.timeFrame || null),
     riskRewardRatio: buildRecommendation(
       trades,
       (trade) => {
@@ -127,6 +140,8 @@ export function getPersonalizedChecklistRecommendations(trades: Trade[]): Person
       },
       (value) => value,
     ),
+    marketOpenType: buildRecommendation(trades, (trade) => trade.marketOpenType || null),
+    firstFiveMinuteCandleType: buildRecommendation(trades, (trade) => trade.firstFiveMinuteCandleType || null),
   };
 }
 
@@ -162,12 +177,23 @@ export function getSimilarTradeMatches(
         matchedFields.push('Timeframe');
         score += FIELD_WEIGHTS.timeFrame;
       }
+      if (checklist.marketOpenType && trade.marketOpenType === checklist.marketOpenType) {
+        matchedFields.push('Market Open');
+        score += FIELD_WEIGHTS.marketOpenType;
+      }
+      if (
+        checklist.firstFiveMinuteCandleType &&
+        trade.firstFiveMinuteCandleType === checklist.firstFiveMinuteCandleType
+      ) {
+        matchedFields.push('First 5m Candle');
+        score += FIELD_WEIGHTS.firstFiveMinuteCandleType;
+      }
       if (riskRewardMatches(inputRiskReward, normalizeRiskReward(trade.riskRewardRatio))) {
         matchedFields.push('Risk-Reward');
         score += FIELD_WEIGHTS.riskRewardRatio;
       }
 
-      const matchStrength = score >= 8 ? 'High' : score >= 5 ? 'Medium' : 'Low';
+      const matchStrength = score >= 10 ? 'High' : score >= 6 ? 'Medium' : 'Low';
 
       return {
         trade,
