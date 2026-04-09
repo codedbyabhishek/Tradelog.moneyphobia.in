@@ -329,6 +329,10 @@ export function getAccountStats(trades: Trade[]) {
       maxDrawdown: 0,
       bestSetup: 'N/A',
       worstSetup: 'N/A',
+      bestTimeFrame: 'N/A',
+      worstTimeFrame: 'N/A',
+      goodDay: 'N/A',
+      badDay: 'N/A',
     };
   }
 
@@ -382,6 +386,45 @@ export function getAccountStats(trades: Trade[]) {
     }
   }
 
+  const timeframeStats = new Map<string, number>();
+  const dayStats = new Map<string, number>();
+
+  for (const trade of trades) {
+    const tradePnL = getTradeBasePnL(trade);
+    const timeframe = trade.timeFrame?.trim() || 'Unspecified';
+    const day = trade.dayOfWeek?.trim() || 'Unspecified';
+
+    timeframeStats.set(timeframe, (timeframeStats.get(timeframe) || 0) + tradePnL);
+    dayStats.set(day, (dayStats.get(day) || 0) + tradePnL);
+  }
+
+  const getBestAndWorstLabel = (entries: Map<string, number>) => {
+    if (entries.size === 0) {
+      return { best: 'N/A', worst: 'N/A' };
+    }
+
+    let best = 'N/A';
+    let worst = 'N/A';
+    let bestValue = -Infinity;
+    let worstValue = Infinity;
+
+    for (const [label, value] of entries) {
+      if (value > bestValue) {
+        bestValue = value;
+        best = label;
+      }
+      if (value < worstValue) {
+        worstValue = value;
+        worst = label;
+      }
+    }
+
+    return { best, worst };
+  };
+
+  const timeframeLeaders = getBestAndWorstLabel(timeframeStats);
+  const dayLeaders = getBestAndWorstLabel(dayStats);
+
   return {
     totalTrades: trades.length,
     winRate: parseFloat(winRate.toFixed(2)),
@@ -390,6 +433,10 @@ export function getAccountStats(trades: Trade[]) {
     maxDrawdown: parseFloat(maxDrawdown.toFixed(2)),
     bestSetup,
     worstSetup,
+    bestTimeFrame: timeframeLeaders.best,
+    worstTimeFrame: timeframeLeaders.worst,
+    goodDay: dayLeaders.best,
+    badDay: dayLeaders.worst,
   };
 }
 

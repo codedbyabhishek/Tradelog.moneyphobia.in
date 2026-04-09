@@ -4,7 +4,7 @@ import { useTrades } from '@/lib/trade-context';
 import { useSettings } from '@/lib/settings-context';
 import { getAccountStats, getTradeCharges, convertToBaseCurrency, CURRENCY_SYMBOLS, getNetCapitalAdjustments } from '@/lib/trade-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, TrendingDown, DollarSign, Target, AlertCircle, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Target, AlertCircle, Zap, Clock3, CalendarDays } from 'lucide-react';
 import CalendarView from './calendar-view';
 import GitHubSyncButton from './github-sync-button';
 import FavoritesBoard from './favorites-board';
@@ -87,7 +87,7 @@ export default function Dashboard() {
         </div>
 
         {/* Stats & setup cards grid - All P&L values in base currency */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 sm:gap-3.5 w-full">
+        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 sm:gap-3.5">
           <StatCard icon={Zap} title="Total Trades" value={stats.totalTrades} subtitle={`${stats.winRate}% win rate`} />
           <StatCard
             icon={DollarSign}
@@ -105,6 +105,10 @@ export default function Dashboard() {
           />
           <StatCard icon={Target} title={`Max Drawdown (${baseCurrency})`} value={`${baseCurrencySymbol}${stats.maxDrawdown.toFixed(2)}`} subtitle="Peak to trough" />
           <DhanSyncCard />
+          <StatCard icon={Clock3} title="Best Timeframe" value={stats.bestTimeFrame} subtitle="Highest total P&L timeframe" isPositive />
+          <StatCard icon={Clock3} title="Worst Timeframe" value={stats.worstTimeFrame} subtitle="Lowest total P&L timeframe" isPositive={false} />
+          <StatCard icon={CalendarDays} title="Good Day" value={stats.goodDay} subtitle="Best weekday by total P&L" isPositive />
+          <StatCard icon={CalendarDays} title="Bad Day" value={stats.badDay} subtitle="Weakest weekday by total P&L" isPositive={false} />
           {totalBrokerage > 0 && (
             <StatCard
               icon={DollarSign}
@@ -113,7 +117,7 @@ export default function Dashboard() {
               subtitle="Total charges deducted"
             />
           )}
-          <Card className="bg-card border-border rounded-xl sm:col-span-1 lg:col-span-2 xl:col-span-1">
+          <Card className="bg-card border-border rounded-xl">
             <CardHeader className="p-3 sm:p-3.5 lg:p-4 pb-1.5">
               <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
                 <TrendingUp className="h-4 w-4 text-green-400 flex-shrink-0" />
@@ -126,7 +130,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-border rounded-xl sm:col-span-1 lg:col-span-2 xl:col-span-1">
+          <Card className="bg-card border-border rounded-xl">
             <CardHeader className="p-3 sm:p-3.5 lg:p-4 pb-1.5">
               <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
                 <TrendingDown className="h-4 w-4 text-red-400 flex-shrink-0" />
