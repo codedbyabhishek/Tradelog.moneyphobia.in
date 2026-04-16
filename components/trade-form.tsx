@@ -1,21 +1,17 @@
 'use client';
 
 import React from "react"
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useTrades } from '@/lib/trade-context';
 import { convertFormToTrade } from '@/lib/trade-utils';
 import { validateTradeForm, sanitizeString, validateImageFile } from '@/lib/validation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { ChevronDown, Eye, Upload, X } from 'lucide-react';
+import { ChevronDown, Upload, X } from 'lucide-react';
 import { TradeFormData, Currency } from '@/lib/types';
 import { calculatePnL, calculateRFactor, CURRENCY_SYMBOLS, getTradeOutcome } from '@/lib/trade-utils';
 import { ScreenshotViewer } from './screenshot-viewer';
 import { useToast } from '@/hooks/use-toast';
-import { getPersonalizedChecklistRecommendations, getSimilarTradeInsights, getSimilarTradeMatches, type PreTradeChecklistInput } from '@/lib/pre-trade-matcher';
-import { useSettings } from '@/lib/settings-context';
 import { clearPreTradeDraft, readPreTradeDraft } from '@/lib/pre-trade-draft';
 
 interface TradeFormProps {
@@ -70,11 +66,13 @@ export const FIB_LEVEL_OPTIONS = [
   'L3',
 ] as const;
 
+const CUSTOM_FIB_VALUE = '__custom__';
+
 export default function TradeForm({ onSuccess }: TradeFormProps) {
-  const { addTrade, trades } = useTrades();
+  const { addTrade } = useTrades();
   const { toast } = useToast();
-  const { baseCurrency } = useSettings();
   const draft = readPreTradeDraft();
+  const hasPreTradeDraft = Boolean(draft && Object.values(draft).some(Boolean));
   // Form data state
   const [formData, setFormData] = useState<TradeFormData>({
     date: new Date().toISOString().split('T')[0],
@@ -120,8 +118,13 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
   const [errors, setErrors] = useState<Partial<Record<keyof TradeFormData, string>>>({});
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [isCustomSetup, setIsCustomSetup] = useState(false);
-  const [selectedMatchedTradeId, setSelectedMatchedTradeId] = useState<string | null>(null);
-  const [showEmbeddedChecklist, setShowEmbeddedChecklist] = useState(false);
+  const [showChecklistValues, setShowChecklistValues] = useState(false);
+  const [isCustomLimit, setIsCustomLimit] = useState(
+    Boolean(formData.limit && !FIB_LEVEL_OPTIONS.includes(formData.limit as (typeof FIB_LEVEL_OPTIONS)[number]))
+  );
+  const [isCustomExit, setIsCustomExit] = useState(
+    Boolean(formData.exit && !FIB_LEVEL_OPTIONS.includes(formData.exit as (typeof FIB_LEVEL_OPTIONS)[number]))
+  );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -147,6 +150,21 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
 
     setIsCustomSetup(false);
     setFormData((prev) => ({ ...prev, setupName: selected }));
+  };
+
+  const handleFibPresetChange = (field: 'limit' | 'exit') => (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selected = e.target.value;
+
+    if (field === 'limit') {
+      setIsCustomLimit(selected === CUSTOM_FIB_VALUE);
+    } else {
+      setIsCustomExit(selected === CUSTOM_FIB_VALUE);
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      [field]: selected === CUSTOM_FIB_VALUE ? '' : selected,
+    }));
   };
 
   const handlePasteImage = (type: 'before' | 'after') => async (e: React.ClipboardEvent<HTMLDivElement>) => {
@@ -305,6 +323,8 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
       setErrors({});
       setSubmitStatus('success');
       setIsCustomSetup(false);
+      setIsCustomLimit(false);
+      setIsCustomExit(false);
 
       // Trigger callback and auto-clear success message
       if (onSuccess) onSuccess();
@@ -317,7 +337,6 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
 
   // Get current currency symbol
   const currentCurrencySymbol = CURRENCY_SYMBOLS[formData.currency] || '₹';
-  const baseCurrencySymbol = CURRENCY_SYMBOLS[baseCurrency] || '₹';
 
   // Calculate live P&L and R-Factor for preview (only if prices are provided)
   // Also show auto-derived W/L based on P&L
@@ -358,53 +377,6 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     return null;
   })();
 
-  const checklistInput = useMemo<PreTradeChecklistInput>(() => ({
-    marketTrend: formData.marketTrend,
-    setupType: formData.setupType,
-    volumeProfile: formData.volumeProfile,
-    emaTouch: formData.emaTouch,
-    timeFrame: formData.timeFrame as PreTradeChecklistInput['timeFrame'],
-    riskRewardRatio: formData.riskRewardRatio,
-    marketOpenType: formData.marketOpenType,
-    firstFiveMinuteCandleType: formData.firstFiveMinuteCandleType,
-  }), [formData.marketTrend, formData.setupType, formData.volumeProfile, formData.emaTouch, formData.timeFrame, formData.riskRewardRatio, formData.marketOpenType, formData.firstFiveMinuteCandleType]);
-
-  const similarTradeMatches = useMemo(
-    () => getSimilarTradeMatches(trades, checklistInput, 10),
-    [trades, checklistInput],
-  );
-
-  const similarTradeInsights = useMemo(
-    () => getSimilarTradeInsights(similarTradeMatches),
-    [similarTradeMatches],
-  );
-  const checklistRecommendations = useMemo(
-    () => getPersonalizedChecklistRecommendations(trades),
-    [trades],
-  );
-  const selectedMatchedTrade = useMemo(
-    () => similarTradeMatches.find((match) => match.trade.id === selectedMatchedTradeId) || null,
-    [similarTradeMatches, selectedMatchedTradeId],
-  );
-
-  const applyChecklistRecommendation = (
-    field:
-      | 'marketTrend'
-      | 'setupType'
-      | 'volumeProfile'
-      | 'emaTouch'
-      | 'timeFrame'
-      | 'riskRewardRatio'
-      | 'marketOpenType'
-      | 'firstFiveMinuteCandleType',
-    value: string,
-  ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
   // Show validation error for checkbox
   const getCheckboxError = (fieldName: string): boolean => {
     return fieldName in errors;
@@ -423,23 +395,28 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
               <CardHeader className="p-4 sm:p-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <CardTitle className="text-lg sm:text-xl">Pre-Trade Smart Checklist</CardTitle>
+                    <CardTitle className="text-lg sm:text-xl">Pre-Trade Checklist Values</CardTitle>
                     <CardDescription>
-                      Hidden by default here. Open it only when you want to review historical matches while logging the trade.
+                      The smart checklist stays in the dedicated Pre-Trade page. This screen keeps the original Add New Trade flow while still saving checklist data with the trade.
                     </CardDescription>
                   </div>
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setShowEmbeddedChecklist((prev) => !prev)}
+                    onClick={() => setShowChecklistValues((prev) => !prev)}
                   >
-                    {showEmbeddedChecklist ? 'Hide Checklist' : 'Show Checklist'}
-                    <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${showEmbeddedChecklist ? 'rotate-180' : ''}`} />
+                    {showChecklistValues ? 'Hide Checklist' : 'Show Checklist'}
+                    <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${showChecklistValues ? 'rotate-180' : ''}`} />
                   </Button>
                 </div>
               </CardHeader>
-              {showEmbeddedChecklist ? (
+              {showChecklistValues ? (
               <CardContent className="space-y-4 p-4 pt-0 sm:p-5 sm:pt-0">
+                <div className="rounded-lg border border-border bg-background/80 p-3 text-sm text-muted-foreground">
+                  {hasPreTradeDraft
+                    ? 'Checklist values were prefilled from your latest Pre-Trade session. Adjust anything here before saving.'
+                    : 'Use the Pre-Trade page for smart historical guidance, or fill these checklist values manually here.'}
+                </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">Market Trend*</label>
@@ -500,18 +477,6 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                     {errors.emaTouch && <p className="text-xs text-red-500 mt-1">{errors.emaTouch}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Timeframe*</label>
-                    <input
-                      type="text"
-                      name="timeFrame"
-                      value={formData.timeFrame}
-                      onChange={handleInputChange}
-                      placeholder="e.g., 5m, 15m, 1H, Daily"
-                      className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.timeFrame ? 'border-red-500' : 'border-border'}`}
-                    />
-                    {errors.timeFrame && <p className="text-xs text-red-500 mt-1">{errors.timeFrame}</p>}
-                  </div>
-                  <div>
                     <label className="block text-sm font-medium text-foreground mb-2">Risk-Reward Ratio*</label>
                     <input
                       type="number"
@@ -557,263 +522,9 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                     {errors.firstFiveMinuteCandleType && <p className="text-xs text-red-500 mt-1">{errors.firstFiveMinuteCandleType}</p>}
                   </div>
                 </div>
-
-                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  <div className="rounded-xl border border-border bg-card/70 p-3">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Similar Trades</p>
-                    <p className="mt-2 text-xl font-bold text-foreground">{similarTradeInsights.totalSimilarTrades}</p>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/70 p-3">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Signal</p>
-                    <p className={`mt-2 text-xl font-bold ${
-                      similarTradeInsights.confidenceLabel === 'Strong'
-                        ? 'text-green-400'
-                        : similarTradeInsights.confidenceLabel === 'Weak'
-                        ? 'text-red-400'
-                        : similarTradeInsights.confidenceLabel === 'Neutral'
-                        ? 'text-yellow-400'
-                        : 'text-muted-foreground'
-                    }`}>
-                      {similarTradeInsights.confidenceLabel}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/70 p-3">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Win Rate</p>
-                    <p className="mt-2 text-xl font-bold text-foreground">{similarTradeInsights.winRate}%</p>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/70 p-3">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Net P&amp;L</p>
-                    <p className={`mt-2 text-xl font-bold ${similarTradeInsights.netPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {baseCurrencySymbol}{similarTradeInsights.netPnl.toFixed(2)}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/70 p-3">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Avg Profit</p>
-                    <p className="mt-2 text-xl font-bold text-green-400">{baseCurrencySymbol}{similarTradeInsights.averageProfit.toFixed(2)}</p>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/70 p-3">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Avg Loss</p>
-                    <p className="mt-2 text-xl font-bold text-red-400">{baseCurrencySymbol}{similarTradeInsights.averageLoss.toFixed(2)}</p>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/70 p-3">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Profit Factor</p>
-                    <p className="mt-2 text-xl font-bold text-foreground">
-                      {Number.isFinite(similarTradeInsights.profitFactor) ? similarTradeInsights.profitFactor.toFixed(2) : '∞'}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/70 p-3">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Average R</p>
-                    <p className={`mt-2 text-xl font-bold ${similarTradeInsights.averageR >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {similarTradeInsights.averageR.toFixed(2)}R
-                    </p>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-border bg-card/60 p-3 sm:p-4">
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold text-foreground">What Historically Works For You</h3>
-                    <p className="text-xs text-muted-foreground">Built only from your own past entries with at least 2 samples per value</p>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {[
-                      ['Market Trend', checklistRecommendations.marketTrend, 'marketTrend'],
-                      ['Setup Type', checklistRecommendations.setupType, 'setupType'],
-                      ['Volume', checklistRecommendations.volumeProfile, 'volumeProfile'],
-                      ['EMA Touch', checklistRecommendations.emaTouch, 'emaTouch'],
-                      ['Timeframe', checklistRecommendations.timeFrame, 'timeFrame'],
-                      ['Risk-Reward', checklistRecommendations.riskRewardRatio, 'riskRewardRatio'],
-                      ['Market Open', checklistRecommendations.marketOpenType, 'marketOpenType'],
-                      ['First 5-Min Candle', checklistRecommendations.firstFiveMinuteCandleType, 'firstFiveMinuteCandleType'],
-                    ].map(([label, recommendation, field]) => (
-                      <div key={label} className="rounded-lg border border-border bg-background/80 p-3">
-                        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-                        <p className="mt-2 text-base font-semibold text-foreground">
-                          {recommendation ? recommendation.value : 'Not enough data yet'}
-                        </p>
-                        {recommendation ? (
-                          <>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {recommendation.trades} trades • {recommendation.winRate}% win rate • {baseCurrencySymbol}{recommendation.netPnl.toFixed(2)} net
-                            </p>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="mt-3"
-                              onClick={() => applyChecklistRecommendation(field as 'marketTrend' | 'setupType' | 'volumeProfile' | 'emaTouch' | 'timeFrame' | 'riskRewardRatio' | 'marketOpenType' | 'firstFiveMinuteCandleType', recommendation.value)}
-                            >
-                              Apply
-                            </Button>
-                          </>
-                        ) : (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Keep logging checklist-based trades and this will start recommending your strongest repeating conditions.
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-border bg-card/60 p-3 sm:p-4">
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold text-foreground">Top Historical Matches</h3>
-                    <p className="text-xs text-muted-foreground">
-                      Weighted scoring. High-quality matches: {similarTradeInsights.highQualityMatches}
-                    </p>
-                  </div>
-                  {similarTradeMatches.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No similar historical trades yet. Log more trades with this checklist and the guidance will improve automatically.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {similarTradeMatches.map(({ trade, score, maxScore, matchedFields, matchStrength }) => (
-                        <div key={trade.id} className="rounded-lg border border-border bg-background/80 p-3">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-sm font-semibold text-foreground">{trade.symbol} • {trade.setupName}</p>
-                                <Badge variant="outline" className={
-                                  matchStrength === 'High'
-                                    ? 'border-green-500/40 text-green-400'
-                                    : matchStrength === 'Medium'
-                                    ? 'border-yellow-500/40 text-yellow-400'
-                                    : 'border-muted text-muted-foreground'
-                                }>
-                                  {matchStrength}
-                                </Badge>
-                              </div>
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                {trade.date} • {trade.tradeResult} • matched: {matchedFields.join(', ')}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <div className="text-right">
-                                <p className="text-xs text-muted-foreground">Score</p>
-                                <p className="text-lg font-bold text-primary">{score}/{maxScore}</p>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setSelectedMatchedTradeId(trade.id)}
-                              >
-                                <Eye className="mr-2 h-4 w-4" />
-                                View
-                              </Button>
-                            </div>
-                          </div>
-                          <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
-                            <span>PnL: <span className={trade.pnlBase >= 0 ? 'text-green-400' : 'text-red-400'}>{baseCurrencySymbol}{trade.pnlBase.toFixed(2)}</span></span>
-                            <span>Trend: {trade.marketTrend || '—'}</span>
-                            <span>Type: {trade.setupType || '—'}</span>
-                            <span>TF: {trade.timeFrame || '—'}</span>
-                            <span>Open: {trade.marketOpenType || '—'}</span>
-                            <span>1st Candle: {trade.firstFiveMinuteCandleType || '—'}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
               </CardContent>
               ) : null}
             </Card>
-
-            <Dialog open={Boolean(selectedMatchedTrade)} onOpenChange={(open) => !open && setSelectedMatchedTradeId(null)}>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>
-                    {selectedMatchedTrade ? `${selectedMatchedTrade.trade.symbol} • ${selectedMatchedTrade.trade.setupName}` : 'Matched Trade'}
-                  </DialogTitle>
-                </DialogHeader>
-                {selectedMatchedTrade ? (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                      <div className="rounded-lg border border-border bg-secondary/40 p-3">
-                        <p className="text-xs text-muted-foreground">Date</p>
-                        <p className="mt-1 font-semibold">{selectedMatchedTrade.trade.date}</p>
-                      </div>
-                      <div className="rounded-lg border border-border bg-secondary/40 p-3">
-                        <p className="text-xs text-muted-foreground">Result</p>
-                        <p className="mt-1 font-semibold">{selectedMatchedTrade.trade.tradeResult}</p>
-                      </div>
-                      <div className="rounded-lg border border-border bg-secondary/40 p-3">
-                        <p className="text-xs text-muted-foreground">Weighted Score</p>
-                        <p className="mt-1 font-semibold text-primary">{selectedMatchedTrade.score}/{selectedMatchedTrade.maxScore}</p>
-                      </div>
-                      <div className="rounded-lg border border-border bg-secondary/40 p-3">
-                        <p className="text-xs text-muted-foreground">P&amp;L</p>
-                        <p className={`mt-1 font-semibold ${selectedMatchedTrade.trade.pnlBase >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {baseCurrencySymbol}{selectedMatchedTrade.trade.pnlBase.toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                      <div><p className="text-xs text-muted-foreground">Market Trend</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.marketTrend || '—'}</p></div>
-                      <div><p className="text-xs text-muted-foreground">Setup Type</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.setupType || '—'}</p></div>
-                      <div><p className="text-xs text-muted-foreground">Volume</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.volumeProfile || '—'}</p></div>
-                      <div><p className="text-xs text-muted-foreground">EMA Touch</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.emaTouch === undefined ? '—' : selectedMatchedTrade.trade.emaTouch ? 'Yes' : 'No'}</p></div>
-                      <div><p className="text-xs text-muted-foreground">Timeframe</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.timeFrame || '—'}</p></div>
-                      <div><p className="text-xs text-muted-foreground">Risk-Reward</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.riskRewardRatio?.toFixed(2) || '—'}</p></div>
-                      <div><p className="text-xs text-muted-foreground">Market Open</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.marketOpenType || '—'}</p></div>
-                      <div><p className="text-xs text-muted-foreground">First 5-Min Candle</p><p className="mt-1 text-sm font-medium">{selectedMatchedTrade.trade.firstFiveMinuteCandleType || '—'}</p></div>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Matched Fields</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {selectedMatchedTrade.matchedFields.map((field) => (
-                          <Badge key={field} variant="outline">{field}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                    {selectedMatchedTrade.trade.beforeTradeScreenshot || selectedMatchedTrade.trade.afterExitScreenshot ? (
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        {selectedMatchedTrade.trade.beforeTradeScreenshot ? (
-                          <div>
-                            <p className="text-xs text-muted-foreground">Before Trade Screenshot</p>
-                            <div className="mt-2">
-                              <ScreenshotViewer
-                                imageUrl={selectedMatchedTrade.trade.beforeTradeScreenshot}
-                                title={`${selectedMatchedTrade.trade.symbol} before trade`}
-                              />
-                            </div>
-                          </div>
-                        ) : null}
-                        {selectedMatchedTrade.trade.afterExitScreenshot ? (
-                          <div>
-                            <p className="text-xs text-muted-foreground">After Exit Screenshot</p>
-                            <div className="mt-2">
-                              <ScreenshotViewer
-                                imageUrl={selectedMatchedTrade.trade.afterExitScreenshot}
-                                title={`${selectedMatchedTrade.trade.symbol} after exit`}
-                              />
-                            </div>
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    {(selectedMatchedTrade.trade.preNotes || selectedMatchedTrade.trade.postNotes) ? (
-                      <div className="space-y-3">
-                        {selectedMatchedTrade.trade.preNotes ? (
-                          <div>
-                            <p className="text-xs text-muted-foreground">Pre-Trade Notes</p>
-                            <p className="mt-1 text-sm text-foreground">{selectedMatchedTrade.trade.preNotes}</p>
-                          </div>
-                        ) : null}
-                        {selectedMatchedTrade.trade.postNotes ? (
-                          <div>
-                            <p className="text-xs text-muted-foreground">Post-Trade Notes</p>
-                            <p className="mt-1 text-sm text-foreground">{selectedMatchedTrade.trade.postNotes}</p>
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </DialogContent>
-            </Dialog>
 
             {/* Date and Trade Type */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -893,7 +604,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
               </div>
             </div>
 
-            {/* Position and Checklist Timeframe */}
+            {/* Position and Time Frame */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Position*</label>
@@ -908,11 +619,16 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Checklist Timeframe</label>
-                <div className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm text-foreground">
-                  {formData.timeFrame || 'Choose a timeframe in the smart checklist above'}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">This value drives the historical trade matching and is stored with the trade.</p>
+                <label className="block text-sm font-medium text-foreground mb-2">Time Frame (When Entered)*</label>
+                <input
+                  type="text"
+                  name="timeFrame"
+                  value={formData.timeFrame}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 5m, 15m, 1h, Daily"
+                  className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.timeFrame ? 'border-red-500' : 'border-border'}`}
+                />
+                {errors.timeFrame && <p className="text-xs text-red-500 mt-1">{errors.timeFrame}</p>}
               </div>
             </div>
 
@@ -963,29 +679,37 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Limit (Fibonacci Level)*</label>
-                <select
-                  name="limit"
-                  value={formData.limit}
-                  onChange={handleInputChange}
-                  className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.limit ? 'border-red-500' : 'border-border'}`}
-                >
-                  <option value="">Select Fibonacci Level</option>
-                  <option value="L-0.07">L-0.07</option>
-                  <option value="L-0.05">L-0.05</option>
-                  <option value="L-0.01">L-0.01</option>
-                  <option value="L0">L0</option>
-                  <option value="L0.283">L0.283</option>
-                  <option value="L0.382">L0.382</option>
-                  <option value="L0.5">L0.5</option>
-                  <option value="L0.702">L0.702</option>
-                  <option value="L0.786">L0.786</option>
-                  <option value="L1">L1</option>
-                  <option value="L1.27">L1.27</option>
-                  <option value="L1.4">L1.4</option>
-                  <option value="L2">L2</option>
-                  <option value="L2.7">L2.7</option>
-                  <option value="L3">L3</option>
-                </select>
+                <div className="space-y-2">
+                  <select
+                    name="limit"
+                    value={isCustomLimit ? CUSTOM_FIB_VALUE : formData.limit}
+                    onChange={handleFibPresetChange('limit')}
+                    className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.limit ? 'border-red-500' : 'border-border'}`}
+                  >
+                    <option value="">Select Fibonacci Level</option>
+                    {FIB_LEVEL_OPTIONS.map((level) => (
+                      <option key={level} value={level}>
+                        {level}
+                      </option>
+                    ))}
+                    <option value={CUSTOM_FIB_VALUE}>Custom level...</option>
+                  </select>
+                  {isCustomLimit ? (
+                    <>
+                      <input
+                        type="text"
+                        name="limit"
+                        value={formData.limit}
+                        onChange={handleInputChange}
+                        placeholder="e.g., L1.618 or Custom TP"
+                        className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.limit ? 'border-red-500' : 'border-border'}`}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Examples: <span className="font-medium text-foreground">L1.618</span>, <span className="font-medium text-foreground">L2.236</span>, <span className="font-medium text-foreground">BE</span>, <span className="font-medium text-foreground">Trail Exit</span>
+                      </p>
+                    </>
+                  ) : null}
+                </div>
                 {errors.limit && <p className="text-xs text-red-500 mt-1">{errors.limit}</p>}
               </div>
             </div>
@@ -993,29 +717,37 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
             {/* Exit (Fibonacci Level) */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Exit (Fibonacci Level)*</label>
-              <select
-                name="exit"
-                value={formData.exit}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.exit ? 'border-red-500' : 'border-border'}`}
-              >
-                <option value="">Select Fibonacci Exit Level</option>
-                <option value="L-0.07">L-0.07</option>
-                <option value="L-0.05">L-0.05</option>
-                <option value="L-0.01">L-0.01</option>
-                <option value="L0">L0</option>
-                <option value="L0.283">L0.283</option>
-                <option value="L0.382">L0.382</option>
-                <option value="L0.5">L0.5</option>
-                <option value="L0.702">L0.702</option>
-                <option value="L0.786">L0.786</option>
-                <option value="L1">L1</option>
-                <option value="L1.27">L1.27</option>
-                <option value="L1.4">L1.4</option>
-                <option value="L2">L2</option>
-                <option value="L2.7">L2.7</option>
-                <option value="L3">L3</option>
-              </select>
+              <div className="space-y-2">
+                <select
+                  name="exit"
+                  value={isCustomExit ? CUSTOM_FIB_VALUE : formData.exit}
+                  onChange={handleFibPresetChange('exit')}
+                  className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.exit ? 'border-red-500' : 'border-border'}`}
+                >
+                  <option value="">Select Fibonacci Exit Level</option>
+                  {FIB_LEVEL_OPTIONS.map((level) => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
+                  ))}
+                  <option value={CUSTOM_FIB_VALUE}>Custom level...</option>
+                </select>
+                {isCustomExit ? (
+                  <>
+                    <input
+                      type="text"
+                      name="exit"
+                      value={formData.exit}
+                      onChange={handleInputChange}
+                      placeholder="e.g., L2.236 or Manual exit zone"
+                      className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.exit ? 'border-red-500' : 'border-border'}`}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Examples: <span className="font-medium text-foreground">L1.618</span>, <span className="font-medium text-foreground">L2.236</span>, <span className="font-medium text-foreground">BE</span>, <span className="font-medium text-foreground">Trail Exit</span>
+                    </p>
+                  </>
+                ) : null}
+              </div>
               {errors.exit && <p className="text-xs text-red-500 mt-1">{errors.exit}</p>}
             </div>
 

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Instagram, Linkedin } from 'lucide-react';
 
 const footerLinks = [
   { href: '/about', label: 'About Us' },
@@ -16,6 +17,11 @@ const footerLinks = [
   { href: '/sitemap.xml', label: 'Sitemap' },
 ];
 
+const socialLinks = [
+  { href: 'https://www.linkedin.com/company/traderlogify/', label: 'LinkedIn', icon: Linkedin },
+  { href: 'https://www.instagram.com/traderlogify/', label: 'Instagram', icon: Instagram },
+];
+
 export default function SiteFooter() {
   const year = new Date().getFullYear();
 
@@ -26,6 +32,20 @@ export default function SiteFooter() {
           <div>
             <p className="text-xs tracking-[0.12em] uppercase text-muted-foreground/80">Traderlogify</p>
             <p className="mt-1 text-xs text-muted-foreground/70">hello@traderlogify.online</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {socialLinks.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/40 px-3 py-1 text-xs text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-card hover:text-foreground"
+                >
+                  <link.icon className="h-3.5 w-3.5" />
+                  {link.label}
+                </a>
+              ))}
+            </div>
           </div>
           <p className="text-xs text-muted-foreground/70">{year}</p>
         </div>

@@ -1,13 +1,13 @@
 'use client';
 
-import { BarChart3, PlusCircle, Table, LineChart, Settings, Calendar, TrendingUp, Lightbulb, Target, Search, Zap, FileText, Brain, Sparkles } from 'lucide-react';
+import { BarChart3, PlusCircle, Table, LineChart, Settings, Calendar, TrendingUp, Lightbulb, Target, Search, Zap, FileText, Brain, Sparkles, Images, Youtube } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useAuth } from '@/lib/auth-context';
 
 interface SidebarProps {
   currentPage: string;
-  onPageChange: (page: 'dashboard' | 'pre-trade' | 'add-trade' | 'log' | 'analytics' | 'profit-loss' | 'weekly-review' | 'data-utilities' | 'ideas' | 'add-idea' | 'advanced-analytics' | 'goals' | 'search' | 'reports' | 'emotion-analyzer') => void;
+  onPageChange: (page: 'dashboard' | 'pre-trade' | 'add-trade' | 'gallery' | 'learning-videos' | 'log' | 'analytics' | 'profit-loss' | 'weekly-review' | 'data-utilities' | 'ideas' | 'add-idea' | 'advanced-analytics' | 'goals' | 'search' | 'reports' | 'emotion-analyzer') => void;
 }
 
 export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
@@ -17,6 +17,8 @@ export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'pre-trade', label: 'Pre-Trade', icon: Sparkles },
     { id: 'add-trade', label: 'Add Trade', icon: PlusCircle },
+    { id: 'gallery', label: 'Gallery', icon: Images },
+    { id: 'learning-videos', label: 'Learning Videos', icon: Youtube },
     { id: 'log', label: 'Trade Log', icon: Table },
     { id: 'analytics', label: 'Analytics', icon: LineChart },
     { id: 'advanced-analytics', label: 'Advanced Analytics', icon: Zap },

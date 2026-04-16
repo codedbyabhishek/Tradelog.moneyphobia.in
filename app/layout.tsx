@@ -32,6 +32,9 @@ export const metadata: Metadata = {
     'trading analytics',
     'trading notes',
     'trade review',
+    'emotion tagging for trades',
+    'emotional state analysis',
+    'review mindset trends',
   ],
   category: 'finance',
   alternates: {

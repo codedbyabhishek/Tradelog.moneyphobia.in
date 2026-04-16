@@ -215,6 +215,16 @@ export interface TradeIdea {
   tags?: string[];
 }
 
+export interface LearningVideo {
+  id: string;
+  title: string;
+  url: string;
+  videoId: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ============================================
 // Trading Goals & Tracking
 // ============================================

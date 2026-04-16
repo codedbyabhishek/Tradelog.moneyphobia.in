@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useTrades } from '@/lib/trade-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -50,6 +50,23 @@ export default function TradeLog() {
   const [filterSetup, setFilterSetup] = useState('All');
   const [filterTag, setFilterTag] = useState('All');
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const pendingTradeId = window.sessionStorage.getItem('td-open-trade-id');
+    if (!pendingTradeId) return;
+
+    const matchingTrade = trades.find((trade) => trade.id === pendingTradeId);
+    if (matchingTrade) {
+      const timeoutId = window.setTimeout(() => {
+        setSelectedTrade(matchingTrade);
+        window.sessionStorage.removeItem('td-open-trade-id');
+      }, 0);
+
+      return () => window.clearTimeout(timeoutId);
+    }
+  }, [trades]);
 
   const setupNames = useMemo(() => {
     return ['All', ...new Set(trades.map(t => t.setupName))];

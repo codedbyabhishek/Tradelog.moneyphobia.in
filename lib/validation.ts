@@ -146,17 +146,16 @@ export function validateTradeForm(formData: TradeFormData): Record<string, strin
   }
 
   // Limit (Fibonacci) validation
-  const validFibLevels = ['L-0.07', 'L-0.05', 'L-0.01', 'L0', 'L0.283', 'L0.382', 'L0.5', 'L0.702', 'L0.786', 'L1', 'L1.27', 'L1.4', 'L2', 'L2.7', 'L3'];
   if (!formData.limit) {
     errors.limit = 'Limit is required';
-  } else if (!validFibLevels.includes(formData.limit)) {
+  } else if (sanitizeString(formData.limit).length === 0) {
     errors.limit = 'Invalid Fibonacci level';
   }
 
   // Exit (Fibonacci) validation
   if (!formData.exit) {
     errors.exit = 'Exit level is required';
-  } else if (!validFibLevels.includes(formData.exit)) {
+  } else if (sanitizeString(formData.exit).length === 0) {
     errors.exit = 'Invalid Fibonacci level';
   }
 

@@ -28,13 +28,17 @@ import ReportsGenerator from '@/components/reports-generator';
 import EmotionAnalyzer from '@/components/emotion-analyzer';
 import EmailVerificationRequired from '@/components/email-verification-required';
 import PreTradeChecklistWorkspace from '@/components/pre-trade-checklist-workspace';
+import ScreenshotGallery from '@/components/screenshot-gallery';
+import LearningVideos from '@/components/learning-videos';
 
-type Page = 'dashboard' | 'pre-trade' | 'add-trade' | 'log' | 'analytics' | 'profit-loss' | 'weekly-review' | 'data-utilities' | 'ideas' | 'add-idea' | 'advanced-analytics' | 'goals' | 'search' | 'reports' | 'emotion-analyzer';
+type Page = 'dashboard' | 'pre-trade' | 'add-trade' | 'gallery' | 'learning-videos' | 'log' | 'analytics' | 'profit-loss' | 'weekly-review' | 'data-utilities' | 'ideas' | 'add-idea' | 'advanced-analytics' | 'goals' | 'search' | 'reports' | 'emotion-analyzer';
 
 const ALLOWED_PAGES: Page[] = [
   'dashboard',
   'pre-trade',
   'add-trade',
+  'gallery',
+  'learning-videos',
   'log',
   'analytics',
   'profit-loss',
@@ -81,6 +85,20 @@ function JournalAppContent() {
     }
   }, [currentPage]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash && ALLOWED_PAGES.includes(hash as Page)) {
+        setCurrentPage(hash as Page);
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
@@ -89,6 +107,10 @@ function JournalAppContent() {
         return <PreTradeChecklistWorkspace onStartTrade={() => setCurrentPage('add-trade')} />;
       case 'add-trade':
         return <TradeForm onSuccess={() => setCurrentPage('log')} />;
+      case 'gallery':
+        return <ScreenshotGallery />;
+      case 'learning-videos':
+        return <LearningVideos />;
       case 'log':
         return <TradeLog />;
       case 'analytics':

@@ -1,14 +1,14 @@
 'use client';
 
 import React from 'react';
-import { BarChart3, PlusCircle, Table, LineChart, Settings, Calendar, TrendingUp, Lightbulb, Palette, Target, Search, FileText, Brain, Ellipsis, Sparkles } from 'lucide-react';
+import { BarChart3, PlusCircle, Table, LineChart, Settings, Calendar, TrendingUp, Lightbulb, Palette, Target, Search, FileText, Brain, Ellipsis, Sparkles, Images, Youtube } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 
 interface MobileNavProps {
   currentPage: string;
-  onPageChange: (page: 'dashboard' | 'pre-trade' | 'add-trade' | 'log' | 'analytics' | 'profit-loss' | 'weekly-review' | 'data-utilities' | 'ideas' | 'add-idea' | 'advanced-analytics' | 'goals' | 'search' | 'reports' | 'emotion-analyzer') => void;
+  onPageChange: (page: 'dashboard' | 'pre-trade' | 'add-trade' | 'gallery' | 'learning-videos' | 'log' | 'analytics' | 'profit-loss' | 'weekly-review' | 'data-utilities' | 'ideas' | 'add-idea' | 'advanced-analytics' | 'goals' | 'search' | 'reports' | 'emotion-analyzer') => void;
 }
 
 export default function MobileNav({ currentPage, onPageChange }: MobileNavProps) {
@@ -21,6 +21,8 @@ export default function MobileNav({ currentPage, onPageChange }: MobileNavProps)
 
   const moreItems = [
     { id: 'pre-trade', label: 'Pre-Trade', icon: Sparkles },
+    { id: 'gallery', label: 'Gallery', icon: Images },
+    { id: 'learning-videos', label: 'Videos', icon: Youtube },
     { id: 'emotion-analyzer', label: 'Emotions', icon: Brain },
     { id: 'reports', label: 'Reports', icon: FileText },
     { id: 'goals', label: 'Goals', icon: Target },

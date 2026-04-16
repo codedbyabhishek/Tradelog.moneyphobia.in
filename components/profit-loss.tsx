@@ -1,17 +1,20 @@
 'use client';
 
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 import { TradeContext } from '@/lib/trade-context';
 import { useSettings } from '@/lib/settings-context';
 import { getTradeBasePnL, getTradeCharges, getTradeGrossPnL, CURRENCY_SYMBOLS, formatCurrency, convertToBaseCurrency, getCapitalAdjustmentAmount, getNetCapitalAdjustments } from '@/lib/trade-utils';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { Copy, Share2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 export default function ProfitLoss() {
   const { baseCurrency, startingBalance, capitalAdjustments } = useSettings();
+  const { toast } = useToast();
   const context = useContext(TradeContext);
-  if (!context) return null;
-
-  const { trades } = context;
+  const trades = context?.trades ?? [];
+  const [sharePeriodType, setSharePeriodType] = useState<'daily' | 'monthly' | 'yearly' | 'financial-year'>('monthly');
   const totalPnL = trades.reduce((sum, trade) => sum + getTradeBasePnL(trade), 0);
   const netCapitalAdjustments = getNetCapitalAdjustments(capitalAdjustments);
   const investedCapital = startingBalance + netCapitalAdjustments;
@@ -182,12 +185,214 @@ export default function ProfitLoss() {
     ? positiveMonths.reduce((max: any, month: any) => (month.pnl > max.pnl ? month : max)) 
     : null;
 
+  const createShareSummaryMap = (
+    getKey: (trade: typeof sortedTrades[number]) => string,
+    getLabel: (trade: typeof sortedTrades[number]) => string
+  ) => {
+    const map = new Map<string, { key: string; label: string; pnl: number; grossPnl: number; charges: number; trades: number }>();
+
+    sortedTrades.forEach((trade) => {
+      const key = getKey(trade);
+      const basePnL = getTradeBasePnL(trade);
+      const charges = getTradeCharges(trade);
+      const baseCharges = trade.currency ? convertToBaseCurrency(charges, trade.currency, trade.exchangeRate) : charges;
+      const grossPnL = getTradeGrossPnL(trade);
+      const baseGrossPnL = trade.currency ? convertToBaseCurrency(grossPnL, trade.currency, trade.exchangeRate) : grossPnL;
+      const existing = map.get(key);
+
+      if (existing) {
+        existing.pnl += basePnL;
+        existing.grossPnl += baseGrossPnL;
+        existing.charges += baseCharges;
+        existing.trades += 1;
+      } else {
+        map.set(key, {
+          key,
+          label: getLabel(trade),
+          pnl: basePnL,
+          grossPnl: baseGrossPnL,
+          charges: baseCharges,
+          trades: 1,
+        });
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.key.localeCompare(a.key));
+  };
+
+  const shareableSummaries = {
+    daily: createShareSummaryMap(
+      (trade) => trade.date,
+      (trade) => new Date(trade.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    ),
+    monthly: createShareSummaryMap(
+      (trade) => {
+        const date = new Date(trade.date);
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      },
+      (trade) => new Date(trade.date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    ),
+    yearly: createShareSummaryMap(
+      (trade) => String(new Date(trade.date).getFullYear()),
+      (trade) => String(new Date(trade.date).getFullYear())
+    ),
+    'financial-year': createShareSummaryMap(
+      (trade) => {
+        const date = new Date(trade.date);
+        const year = date.getFullYear();
+        const fyStart = date.getMonth() >= 3 ? year : year - 1;
+        return `FY-${fyStart}`;
+      },
+      (trade) => {
+        const date = new Date(trade.date);
+        const year = date.getFullYear();
+        const fyStart = date.getMonth() >= 3 ? year : year - 1;
+        const fyEndShort = String((fyStart + 1) % 100).padStart(2, '0');
+        return `FY ${fyStart}-${fyEndShort}`;
+      }
+    ),
+  };
+
+  const activeShareSummaries = shareableSummaries[sharePeriodType];
+  const activeShareSummary = activeShareSummaries[0] ?? null;
+
+  const shareCardText = activeShareSummary
+    ? [
+        `Traderlogify P&L Snapshot`,
+        `${activeShareSummary.label}`,
+        `Net P&L: ${baseCurrencySymbol}${activeShareSummary.pnl.toFixed(2)}`,
+        `Gross P&L: ${baseCurrencySymbol}${activeShareSummary.grossPnl.toFixed(2)}`,
+        `Charges: ${baseCurrencySymbol}${activeShareSummary.charges.toFixed(2)}`,
+        `Trades: ${activeShareSummary.trades}`,
+      ].join('\n')
+    : '';
+
+  const handleCopyShareCard = async () => {
+    if (!shareCardText) return;
+
+    try {
+      await navigator.clipboard.writeText(shareCardText);
+      toast({
+        title: 'P&L card copied',
+        description: 'The selected P&L snapshot is ready to paste anywhere.',
+      });
+    } catch {
+      toast({
+        title: 'Copy failed',
+        description: 'Clipboard access was not available.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleShareCard = async () => {
+    if (!shareCardText) return;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Traderlogify P&L Snapshot - ${activeShareSummary?.label || ''}`,
+          text: shareCardText,
+        });
+        return;
+      } catch {
+        // fall through to copy flow
+      }
+    }
+
+    await handleCopyShareCard();
+  };
+
+  if (!context) return null;
+
   return (
     <div className="flex-1 overflow-auto min-h-screen flex flex-col">
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
         <div className="mb-6 sm:mb-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Profit & Loss Summary</h2>
           <p className="text-sm sm:text-base text-muted-foreground">Track your earnings and identify profitable patterns</p>
+        </div>
+
+        <div className="bg-card p-4 sm:p-6 rounded-lg border border-border mb-6 sm:mb-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold text-foreground">Shareable P&amp;L Card</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Create a clean P&amp;L snapshot for daily, monthly, yearly, or financial-year sharing without changing your existing reports.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {([
+                ['daily', 'Date Wise'],
+                ['monthly', 'Monthly'],
+                ['yearly', 'Yearly'],
+                ['financial-year', 'Financial Year'],
+              ] as const).map(([value, label]) => (
+                <Button
+                  key={value}
+                  type="button"
+                  variant={sharePeriodType === value ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSharePeriodType(value)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {activeShareSummary ? (
+            <div className="mt-6 rounded-2xl border border-border bg-secondary/30 p-4 sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Traderlogify Snapshot</p>
+                  <p className="mt-2 text-xl sm:text-2xl font-bold text-foreground">{activeShareSummary.label}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{activeShareSummary.trades} trade(s) included</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" onClick={handleCopyShareCard}>
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy Card
+                  </Button>
+                  <Button type="button" onClick={handleShareCard}>
+                    <Share2 className="mr-2 h-4 w-4" />
+                    Share Card
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="rounded-xl border border-border bg-card px-4 py-3">
+                  <p className="text-xs text-muted-foreground">Net P&amp;L</p>
+                  <p className={`mt-1 text-xl font-bold ${activeShareSummary.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {baseCurrencySymbol}{activeShareSummary.pnl.toFixed(2)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border bg-card px-4 py-3">
+                  <p className="text-xs text-muted-foreground">Gross P&amp;L</p>
+                  <p className={`mt-1 text-xl font-bold ${activeShareSummary.grossPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {baseCurrencySymbol}{activeShareSummary.grossPnl.toFixed(2)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border bg-card px-4 py-3">
+                  <p className="text-xs text-muted-foreground">Charges</p>
+                  <p className="mt-1 text-xl font-bold text-orange-400">
+                    {baseCurrencySymbol}{activeShareSummary.charges.toFixed(2)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border bg-card px-4 py-3">
+                  <p className="text-xs text-muted-foreground">Trades</p>
+                  <p className="mt-1 text-xl font-bold text-foreground">
+                    {activeShareSummary.trades}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-6 rounded-xl border border-dashed border-border bg-secondary/20 p-6 text-sm text-muted-foreground">
+              No trades available yet for this P&amp;L share card.
+            </div>
+          )}
         </div>
 
         {/* Overall Summary - All values in base currency */}
