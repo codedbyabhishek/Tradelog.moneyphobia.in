@@ -34,11 +34,38 @@ export type RuleViolation =
 // Emotional state during trade for psychology tracking
 export type EmotionTag = 'Calm' | 'Confident' | 'Anxious' | 'Fearful' | 'Greedy' | 'Frustrated' | 'Revenge' | 'FOMO' | 'Neutral';
 
+export const MISTAKE_TAG_OPTIONS = [
+  'No mistake (good loss)',
+  'No setup followed',
+  'Time frame change',
+  'Overtrading',
+  'Early exit',
+  'Late entry',
+  'Late exit',
+  'SL hunt fear',
+  'Stop loss moved',
+  'Target moved',
+  'Greed',
+  'FOMO entry',
+  'Revenge trade',
+  'Confirmation bias',
+  'News trade',
+  'Oversized position',
+  'Poor risk-reward',
+  'No trade plan',
+  'Emotional trade',
+] as const;
+
+export type MistakeTag = (typeof MISTAKE_TAG_OPTIONS)[number];
+
 export interface Trade {
   id: string;
   isFavorite?: boolean;
   tags?: string[];
   date: string;
+  // Legacy compatibility aliases still referenced by older modules.
+  entryDate?: string;
+  exitDate?: string;
   dayOfWeek: string;
   symbol: string;
   tradeType: 'Intraday' | 'Swing' | 'Scalping' | 'Positional';
@@ -47,6 +74,7 @@ export interface Trade {
   entryPrice?: number;
   exitPrice?: number;
   stopLoss: number;
+  stopLossPrice?: number;
   quantity: number;
   fees: number;
   // Charge breakdown (optional, backward compatible)
@@ -69,9 +97,11 @@ export interface Trade {
   confidence: number;
   preNotes: string;
   postNotes: string;
+  notes?: string;
+  emotion?: EmotionTag;
   beforeTradeScreenshot?: string;
   afterExitScreenshot?: string;
-  mistakeTag?: 'Overtrading' | 'Early exit' | 'Late entry' | 'SL hunt fear' | 'Greed' | 'No mistake (good loss)';
+  mistakeTag?: MistakeTag;
   timeFrame?: string;
   marketTrend?: MarketTrend;
   setupType?: SetupType;
@@ -165,7 +195,7 @@ export interface TradeFormData {
   postNotes: string;
   beforeTradeScreenshot?: string;
   afterExitScreenshot?: string;
-  mistakeTag?: 'Overtrading' | 'Early exit' | 'Late entry' | 'SL hunt fear' | 'Greed' | 'No mistake (good loss)';
+  mistakeTag?: MistakeTag;
   exitRFactor?: string;
   timeFrame: string;
   // DEPRECATED: W/L is now auto-derived from P&L

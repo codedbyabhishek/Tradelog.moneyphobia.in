@@ -9,6 +9,18 @@ import { Trade } from '@/lib/types';
 import { calculatePnL, calculateRFactor } from '@/lib/trade-utils';
 import { format } from 'date-fns';
 
+function getTradeTimestamp(trade: Trade, kind: 'entry' | 'exit'): string {
+  if (kind === 'entry') {
+    return trade.entryDate || trade.date;
+  }
+
+  return trade.exitDate || trade.entryDate || trade.date;
+}
+
+function getTradeStopLoss(trade: Trade): number {
+  return trade.stopLossPrice ?? trade.stopLoss;
+}
+
 /**
  * Export trades to CSV
  */
@@ -31,15 +43,17 @@ export function exportTradesCSV(trades: Trade[], filename?: string): void {
   const rows = trades.map((trade) => {
     const pnl = calculatePnL(trade);
     const rFactor = calculateRFactor(trade);
-    const duration = (new Date(trade.exitDate).getTime() - new Date(trade.entryDate).getTime()) / (1000 * 60 * 60);
+    const duration =
+      (new Date(getTradeTimestamp(trade, 'exit')).getTime() - new Date(getTradeTimestamp(trade, 'entry')).getTime()) /
+      (1000 * 60 * 60);
 
     return [
-      format(new Date(trade.entryDate), 'yyyy-MM-dd HH:mm'),
+      format(new Date(getTradeTimestamp(trade, 'entry')), 'yyyy-MM-dd HH:mm'),
       trade.symbol,
       trade.setupName,
-      trade.entryPrice.toFixed(2),
-      trade.exitPrice.toFixed(2),
-      trade.stopLossPrice.toFixed(2),
+      (trade.entryPrice ?? 0).toFixed(2),
+      (trade.exitPrice ?? 0).toFixed(2),
+      getTradeStopLoss(trade).toFixed(2),
       trade.quantity,
       pnl.toFixed(2),
       rFactor.toFixed(2),
@@ -193,11 +207,11 @@ export function generatePDFReport(
         </tr>
         ${trades.slice(-20).map(trade => `
           <tr>
-            <td>${format(new Date(trade.entryDate), 'yyyy-MM-dd')}</td>
+            <td>${format(new Date(getTradeTimestamp(trade, 'entry')), 'yyyy-MM-dd')}</td>
             <td>${trade.symbol}</td>
             <td>${trade.setupName}</td>
-            <td>$${trade.entryPrice.toFixed(2)}</td>
-            <td>$${trade.exitPrice.toFixed(2)}</td>
+            <td>$${(trade.entryPrice ?? 0).toFixed(2)}</td>
+            <td>$${(trade.exitPrice ?? 0).toFixed(2)}</td>
             <td class="${calculatePnL(trade) >= 0 ? 'positive' : 'negative'}">${calculatePnL(trade) >= 0 ? '+' : ''}$${calculatePnL(trade).toFixed(2)}</td>
           </tr>
         `).join('')}

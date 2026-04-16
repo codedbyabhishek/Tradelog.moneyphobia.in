@@ -12,6 +12,12 @@ interface PendingTrade {
   retries: number;
 }
 
+interface SyncServiceWorkerRegistration extends ServiceWorkerRegistration {
+  sync?: {
+    register: (tag: string) => Promise<void>;
+  };
+}
+
 const PENDING_TRADES_STORE = 'pending-trades';
 const MAX_RETRIES = 3;
 
@@ -33,8 +39,8 @@ async function handleOnline() {
   try {
     await syncPendingTrades();
     if ('serviceWorker' in navigator) {
-      const reg = await navigator.serviceWorker.ready;
-      reg.sync.register('sync-trades');
+      const reg = (await navigator.serviceWorker.ready) as SyncServiceWorkerRegistration;
+      await reg.sync?.register('sync-trades');
     }
   } catch (error) {
     console.error('[Offline Sync] Sync failed:', error);
@@ -61,6 +67,10 @@ export async function addPendingTrade(trade: any): Promise<string> {
         if (!db.objectStoreNames.contains(PENDING_TRADES_STORE)) {
           // Create store if it doesn't exist
           const upgradeTx = request.transaction;
+          if (!upgradeTx) {
+            reject(new Error('IndexedDB upgrade transaction unavailable'));
+            return;
+          }
           objectStore = upgradeTx.objectStore(PENDING_TRADES_STORE);
         } else {
           const tx = db.transaction([PENDING_TRADES_STORE], 'readwrite');

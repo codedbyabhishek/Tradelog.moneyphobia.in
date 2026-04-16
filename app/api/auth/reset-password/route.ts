@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { jsonError } from '@/lib/server/http';
+import { jsonError, parseJsonBody } from '@/lib/server/http';
 import { consumePasswordResetToken, validatePasswordResetToken } from '@/lib/server/password-reset';
 
 export const runtime = 'nodejs';
@@ -10,7 +10,10 @@ function validatePassword(password: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = await parseJsonBody(request);
+    if (!body) {
+      return jsonError('Invalid reset payload.', 400);
+    }
     const token = String(body?.token || '').trim();
     const newPassword = String(body?.password || '');
 

@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from 'next/dynamic';
 import { useEffect, useState } from "react";
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { TradeProvider } from '@/lib/trade-context';
@@ -13,23 +14,39 @@ import AuthScreen from '@/components/auth-screen';
 import Sidebar from '@/components/sidebar';
 import MobileNav from '@/components/mobile-nav';
 import Dashboard from '@/components/dashboard';
-import TradeForm from '@/components/trade-form';
-import TradeLog from '@/components/trade-log';
-import Analytics from '@/components/analytics';
-import ProfitLoss from '@/components/profit-loss';
-import WeeklyReview from '@/components/weekly-review';
-import DataUtilities from '@/components/data-utilities';
-import IdeasList from '@/components/ideas-list';
-import IdeaForm from '@/components/idea-form';
-import AdvancedAnalytics from '@/components/advanced-analytics';
-import GoalsTracker from '@/components/goals-tracker';
-import TradeSearch from '@/components/trade-search';
-import ReportsGenerator from '@/components/reports-generator';
-import EmotionAnalyzer from '@/components/emotion-analyzer';
 import EmailVerificationRequired from '@/components/email-verification-required';
-import PreTradeChecklistWorkspace from '@/components/pre-trade-checklist-workspace';
-import ScreenshotGallery from '@/components/screenshot-gallery';
-import LearningVideos from '@/components/learning-videos';
+
+function createPageLoader(label: string) {
+  function PageLoader() {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center p-6 text-sm text-muted-foreground">
+        Loading {label}...
+      </div>
+    );
+  }
+
+  PageLoader.displayName = `${label.replace(/\s+/g, '')}Loader`;
+  return PageLoader;
+}
+
+const TradeForm = dynamic(() => import('@/components/trade-form'), { loading: createPageLoader('trade form') });
+const TradeLog = dynamic(() => import('@/components/trade-log'), { loading: createPageLoader('trade log') });
+const Analytics = dynamic(() => import('@/components/analytics'), { loading: createPageLoader('analytics') });
+const ProfitLoss = dynamic(() => import('@/components/profit-loss'), { loading: createPageLoader('profit and loss') });
+const WeeklyReview = dynamic(() => import('@/components/weekly-review'), { loading: createPageLoader('weekly review') });
+const DataUtilities = dynamic(() => import('@/components/data-utilities'), { loading: createPageLoader('data utilities') });
+const IdeasList = dynamic(() => import('@/components/ideas-list'), { loading: createPageLoader('ideas') });
+const IdeaForm = dynamic(() => import('@/components/idea-form'), { loading: createPageLoader('idea form') });
+const AdvancedAnalytics = dynamic(() => import('@/components/advanced-analytics'), { loading: createPageLoader('advanced analytics') });
+const GoalsTracker = dynamic(() => import('@/components/goals-tracker'), { loading: createPageLoader('goals') });
+const TradeSearch = dynamic(() => import('@/components/trade-search'), { loading: createPageLoader('search') });
+const ReportsGenerator = dynamic(() => import('@/components/reports-generator'), { loading: createPageLoader('reports') });
+const EmotionAnalyzer = dynamic(() => import('@/components/emotion-analyzer'), { loading: createPageLoader('emotion analyzer') });
+const PreTradeChecklistWorkspace = dynamic(() => import('@/components/pre-trade-checklist-workspace'), {
+  loading: createPageLoader('pre-trade workspace'),
+});
+const ScreenshotGallery = dynamic(() => import('@/components/screenshot-gallery'), { loading: createPageLoader('gallery') });
+const LearningVideos = dynamic(() => import('@/components/learning-videos'), { loading: createPageLoader('learning videos') });
 
 type Page = 'dashboard' | 'pre-trade' | 'add-trade' | 'gallery' | 'learning-videos' | 'log' | 'analytics' | 'profit-loss' | 'weekly-review' | 'data-utilities' | 'ideas' | 'add-idea' | 'advanced-analytics' | 'goals' | 'search' | 'reports' | 'emotion-analyzer';
 

@@ -31,12 +31,19 @@ export default function AuthScreen() {
     setNotice(null);
     setLoading(true);
 
+    const normalizedEmail = email.trim();
+    const normalizedName = name.trim();
+
     try {
       if (mode === 'forgot-password') {
+        if (!normalizedEmail) {
+          setNotice('Enter your email address first.');
+          return;
+        }
         const res = await fetch('/api/auth/forgot-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email: normalizedEmail }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -44,9 +51,9 @@ export default function AuthScreen() {
         }
         setNotice('If that account exists, a password reset link has been sent.');
       } else if (mode === 'signup') {
-        await signup(name, email, password);
+        await signup(normalizedName, normalizedEmail, password);
       } else {
-        await login(email, password);
+        await login(normalizedEmail, password);
       }
     } finally {
       setLoading(false);

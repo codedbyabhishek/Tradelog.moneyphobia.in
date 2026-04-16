@@ -1,17 +1,20 @@
 'use client';
 
+import { useState } from 'react';
 import { useTrades } from '@/lib/trade-context';
 import { useSettings } from '@/lib/settings-context';
 import { getAccountStats, getTradeCharges, convertToBaseCurrency, CURRENCY_SYMBOLS, getNetCapitalAdjustments } from '@/lib/trade-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, TrendingDown, DollarSign, Target, AlertCircle, Zap, Clock3, CalendarDays } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { TrendingUp, TrendingDown, DollarSign, Target, AlertCircle, Zap, Clock3, CalendarDays, ChevronDown } from 'lucide-react';
 import CalendarView from './calendar-view';
 import GitHubSyncButton from './github-sync-button';
 import FavoritesBoard from './favorites-board';
-import DhanSyncCard from './dhan-sync-card';
+import BrokerSyncHub from './broker-sync-hub';
 import { EmptyStateIllustration } from './brand-illustrations';
 import UpgradeBanner from './upgrade-banner';
 import { isProPlan } from '@/lib/subscription';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface StatCardProps {
   icon: React.ComponentType<{ className?: string }>;
@@ -23,16 +26,30 @@ interface StatCardProps {
 
 function StatCard({ icon: Icon, title, value, subtitle, isPositive }: StatCardProps) {
   return (
-    <Card className="bg-card border-border h-full rounded-lg">
-      <CardHeader className="p-2.5 pb-1 sm:p-3 sm:pb-1 lg:p-3.5 lg:pb-1.5">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-[10px] sm:text-[11px] font-medium text-muted-foreground truncate">{title}</CardTitle>
-          <Icon className={`h-3.5 w-3.5 flex-shrink-0 ${isPositive !== undefined ? (isPositive ? 'text-green-400' : 'text-red-400') : 'text-primary'}`} />
+    <Card className="h-full min-h-[144px] rounded-3xl border-border/70 bg-card/95 shadow-lg shadow-black/5">
+      <CardHeader className="p-3 pb-1.5 sm:p-4 sm:pb-2">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <CardTitle className="truncate text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground sm:text-xs">
+              {title}
+            </CardTitle>
+          </div>
+          <div
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border ${
+              isPositive !== undefined
+                ? isPositive
+                  ? 'border-emerald-500/30 bg-emerald-500/10'
+                  : 'border-red-500/30 bg-red-500/10'
+                : 'border-primary/30 bg-primary/10'
+            }`}
+          >
+            <Icon className={`h-4 w-4 ${isPositive !== undefined ? (isPositive ? 'text-green-400' : 'text-red-400') : 'text-primary'}`} />
+          </div>
         </div>
       </CardHeader>
-      <CardContent className="p-2.5 pt-0 sm:p-3 sm:pt-0 lg:p-3.5 lg:pt-0">
-        <div className="text-sm sm:text-base lg:text-lg font-bold text-foreground break-words leading-tight">{value}</div>
-        {subtitle && <p className="mt-1 text-[10px] sm:text-[11px] text-muted-foreground leading-snug">{subtitle}</p>}
+      <CardContent className="flex flex-1 flex-col justify-between p-3 pt-0 sm:p-4 sm:pt-0">
+        <div className="text-xl font-bold leading-tight text-foreground sm:text-2xl">{value}</div>
+        {subtitle && <p className="mt-2 text-[11px] leading-snug text-muted-foreground sm:text-xs">{subtitle}</p>}
       </CardContent>
     </Card>
   );
@@ -41,6 +58,7 @@ function StatCard({ icon: Icon, title, value, subtitle, isPositive }: StatCardPr
 export default function Dashboard() {
   const { trades } = useTrades();
   const { baseCurrency, startingBalance, capitalAdjustments, billingState } = useSettings();
+  const [brokerHubOpen, setBrokerHubOpen] = useState(false);
   const stats = getAccountStats(trades);
   const baseCurrencySymbol = CURRENCY_SYMBOLS[baseCurrency];
   const netCapitalAdjustments = getNetCapitalAdjustments(capitalAdjustments);
@@ -54,6 +72,45 @@ export default function Dashboard() {
     return sum + baseCharges;
   }, 0);
   const proPlan = isProPlan(billingState);
+  const primaryCards: StatCardProps[] = [
+    { icon: Zap, title: 'Total Trades', value: stats.totalTrades, subtitle: `${stats.winRate}% win rate` },
+    {
+      icon: DollarSign,
+      title: `Current Balance (${baseCurrency})`,
+      value: `${baseCurrencySymbol}${currentBalance.toFixed(2)}`,
+      subtitle: `Capital: ${baseCurrencySymbol}${investedCapital.toFixed(2)}`,
+      isPositive: currentBalance >= investedCapital,
+    },
+    {
+      icon: TrendingUp,
+      title: `Net P&L (${baseCurrency})`,
+      value: `${baseCurrencySymbol}${stats.totalPnL.toFixed(2)}`,
+      subtitle: `Avg R: ${stats.averageR.toFixed(2)}`,
+      isPositive: stats.totalPnL >= 0,
+    },
+    {
+      icon: Target,
+      title: `Max Drawdown (${baseCurrency})`,
+      value: `${baseCurrencySymbol}${stats.maxDrawdown.toFixed(2)}`,
+      subtitle: 'Peak to trough',
+    },
+  ];
+
+  const secondaryCards: StatCardProps[] = [
+    { icon: Clock3, title: 'Best Timeframe', value: stats.bestTimeFrame, subtitle: 'Highest total P&L timeframe', isPositive: true },
+    { icon: Clock3, title: 'Worst Timeframe', value: stats.worstTimeFrame, subtitle: 'Lowest total P&L timeframe', isPositive: false },
+    { icon: CalendarDays, title: 'Good Day', value: stats.goodDay, subtitle: 'Best weekday by total P&L', isPositive: true },
+    { icon: CalendarDays, title: 'Bad Day', value: stats.badDay, subtitle: 'Weakest weekday by total P&L', isPositive: false },
+  ];
+
+  if (totalBrokerage > 0) {
+    secondaryCards.push({
+      icon: DollarSign,
+      title: `Brokerage Paid (${baseCurrency})`,
+      value: `${baseCurrencySymbol}${totalBrokerage.toFixed(2)}`,
+      subtitle: 'Total charges deducted',
+    });
+  }
 
   return (
     <div className="w-full min-w-0 flex flex-col bg-background">
@@ -86,60 +143,82 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Stats & setup cards grid - All P&L values in base currency */}
-        <div className="grid w-full grid-cols-2 gap-2.5 lg:grid-cols-4 sm:gap-3">
-          <StatCard icon={Zap} title="Total Trades" value={stats.totalTrades} subtitle={`${stats.winRate}% win rate`} />
-          <StatCard
-            icon={DollarSign}
-            title={`Current Balance (${baseCurrency})`}
-            value={`${baseCurrencySymbol}${currentBalance.toFixed(2)}`}
-            subtitle={`Capital: ${baseCurrencySymbol}${investedCapital.toFixed(2)}`}
-            isPositive={currentBalance >= investedCapital}
-          />
-          <StatCard
-            icon={TrendingUp}
-            title={`Net P&L (${baseCurrency})`}
-            value={`${baseCurrencySymbol}${stats.totalPnL.toFixed(2)}`}
-            subtitle={`Avg R: ${stats.averageR.toFixed(2)}`}
-            isPositive={stats.totalPnL >= 0}
-          />
-          <StatCard icon={Target} title={`Max Drawdown (${baseCurrency})`} value={`${baseCurrencySymbol}${stats.maxDrawdown.toFixed(2)}`} subtitle="Peak to trough" />
-          <DhanSyncCard />
-          <StatCard icon={Clock3} title="Best Timeframe" value={stats.bestTimeFrame} subtitle="Highest total P&L timeframe" isPositive />
-          <StatCard icon={Clock3} title="Worst Timeframe" value={stats.worstTimeFrame} subtitle="Lowest total P&L timeframe" isPositive={false} />
-          <StatCard icon={CalendarDays} title="Good Day" value={stats.goodDay} subtitle="Best weekday by total P&L" isPositive />
-          <StatCard icon={CalendarDays} title="Bad Day" value={stats.badDay} subtitle="Weakest weekday by total P&L" isPositive={false} />
-          {totalBrokerage > 0 && (
-            <StatCard
-              icon={DollarSign}
-              title={`Brokerage Paid (${baseCurrency})`}
-              value={`${baseCurrencySymbol}${totalBrokerage.toFixed(2)}`}
-              subtitle="Total charges deducted"
-            />
-          )}
-          <Card className="bg-card border-border rounded-lg">
-            <CardHeader className="p-2.5 pb-1 sm:p-3 sm:pb-1 lg:p-3.5 lg:pb-1.5">
-              <CardTitle className="flex items-center gap-2 text-xs sm:text-sm">
-                <TrendingUp className="h-3.5 w-3.5 text-green-400 flex-shrink-0" />
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Performance Snapshot</p>
+              <p className="mt-1 text-sm text-muted-foreground">Core account metrics with a cleaner, equal-sized card system.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid w-full grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {primaryCards.map((card) => (
+            <StatCard key={card.title} {...card} />
+          ))}
+        </div>
+
+        <Collapsible open={brokerHubOpen} onOpenChange={setBrokerHubOpen} className="space-y-3">
+          <div className="rounded-2xl border border-border/70 bg-card/60 p-4 sm:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Broker Connections</p>
+                <h2 className="mt-2 text-lg font-semibold text-foreground sm:text-xl">Broker Sync Hub</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Keep broker setup, connection status, and sync actions in one dedicated section instead of mixing them with dashboard stats.
+                </p>
+              </div>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="self-start">
+                  {brokerHubOpen ? 'Hide Broker Hub' : 'Show Broker Hub'}
+                  <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${brokerHubOpen ? 'rotate-180' : ''}`} />
+                </Button>
+              </CollapsibleTrigger>
+            </div>
+          </div>
+          <CollapsibleContent>
+            <BrokerSyncHub />
+          </CollapsibleContent>
+        </Collapsible>
+
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Trading Edge</p>
+            <p className="mt-1 text-sm text-muted-foreground">Timeframe, weekday, and setup cues separated from the core account metrics.</p>
+          </div>
+        </div>
+
+        <div className="grid w-full grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {secondaryCards.map((card) => (
+            <StatCard key={card.title} {...card} />
+          ))}
+          <Card className="h-full min-h-[144px] rounded-3xl border-border/70 bg-card/95 shadow-lg shadow-black/5">
+            <CardHeader className="p-3 pb-1.5 sm:p-4 sm:pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+                <span className="flex h-9 w-9 items-center justify-center rounded-2xl border border-emerald-500/30 bg-emerald-500/10">
+                  <TrendingUp className="h-4 w-4 flex-shrink-0 text-green-400" />
+                </span>
                 <span>Best Setup</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-2.5 pt-0 sm:p-3 sm:pt-0 lg:p-3.5 lg:pt-0">
-              <div className="text-sm sm:text-base font-bold text-foreground break-words leading-tight">{stats.bestSetup}</div>
-              <p className="mt-1 text-[10px] sm:text-[11px] text-muted-foreground">Most profitable setup</p>
+            <CardContent className="flex flex-1 flex-col justify-between p-3 pt-0 sm:p-4 sm:pt-0">
+              <div className="text-xl font-bold leading-tight text-foreground">{stats.bestSetup}</div>
+              <p className="mt-2 text-[11px] text-muted-foreground sm:text-xs">Most profitable setup</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-border rounded-lg">
-            <CardHeader className="p-2.5 pb-1 sm:p-3 sm:pb-1 lg:p-3.5 lg:pb-1.5">
-              <CardTitle className="flex items-center gap-2 text-xs sm:text-sm">
-                <TrendingDown className="h-3.5 w-3.5 text-red-400 flex-shrink-0" />
+          <Card className="h-full min-h-[144px] rounded-3xl border-border/70 bg-card/95 shadow-lg shadow-black/5">
+            <CardHeader className="p-3 pb-1.5 sm:p-4 sm:pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+                <span className="flex h-9 w-9 items-center justify-center rounded-2xl border border-red-500/30 bg-red-500/10">
+                  <TrendingDown className="h-4 w-4 flex-shrink-0 text-red-400" />
+                </span>
                 <span>Worst Setup</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-2.5 pt-0 sm:p-3 sm:pt-0 lg:p-3.5 lg:pt-0">
-              <div className="text-sm sm:text-base font-bold text-foreground break-words leading-tight">{stats.worstSetup}</div>
-              <p className="mt-1 text-[10px] sm:text-[11px] text-muted-foreground">Least profitable setup</p>
+            <CardContent className="flex flex-1 flex-col justify-between p-3 pt-0 sm:p-4 sm:pt-0">
+              <div className="text-xl font-bold leading-tight text-foreground">{stats.worstSetup}</div>
+              <p className="mt-2 text-[11px] text-muted-foreground sm:text-xs">Least profitable setup</p>
             </CardContent>
           </Card>
         </div>

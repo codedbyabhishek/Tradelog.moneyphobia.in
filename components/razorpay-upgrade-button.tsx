@@ -4,6 +4,7 @@ import { useContext, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SettingsContext } from '@/lib/settings-context';
+import { trackEvent } from '@/lib/analytics';
 
 declare global {
   interface Window {
@@ -50,6 +51,12 @@ export default function RazorpayUpgradeButton({
     setMessage(null);
 
     try {
+      trackEvent('begin_checkout', {
+        currency: 'INR',
+        plan: 'pro',
+        billing_cycle: billingCycle,
+      });
+
       const res = await fetch('/api/billing/subscribe', {
         method: 'POST',
         credentials: 'include',
@@ -98,6 +105,12 @@ export default function RazorpayUpgradeButton({
               settings?.saveBillingState(confirmData.billing);
             }
 
+            trackEvent('purchase', {
+              currency: 'INR',
+              transaction_id: response.razorpay_payment_id || response.razorpay_subscription_id || 'unknown',
+              plan: 'pro',
+              billing_cycle: billingCycle,
+            });
             setMessage('Payment authorised and your Pro plan is now active.');
           } catch (error) {
             setMessage(error instanceof Error ? error.message : 'Payment was authorised but confirmation failed.');
@@ -115,6 +128,11 @@ export default function RazorpayUpgradeButton({
 
       razorpay.on('payment.failed', (response: any) => {
         const errorDescription = response?.error?.description || response?.error?.reason;
+        trackEvent('purchase_failed', {
+          plan: 'pro',
+          billing_cycle: billingCycle,
+          reason: errorDescription || 'unknown',
+        });
         setMessage(errorDescription || 'Payment failed. Please try again.');
       });
 

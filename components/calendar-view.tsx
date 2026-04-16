@@ -2,7 +2,6 @@
 
 import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Settings2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trade } from '@/lib/types';
 import { getTradeBasePnL, getTradeCharges, convertToBaseCurrency, CURRENCY_SYMBOLS, BASE_CURRENCY } from '@/lib/trade-utils';
@@ -33,6 +32,66 @@ interface DayStats {
 
 interface CalendarViewProps {
   trades: Trade[];
+}
+
+function getDaySurfaceClasses(isToday: boolean, isCurrentMonthDay: boolean, tradeCount: number, pnl: number): string {
+  if (isToday) {
+    return 'bg-primary/12 ring-1 ring-primary/50 border border-primary/30 shadow-sm';
+  }
+
+  if (!isCurrentMonthDay) {
+    return 'bg-muted/30 border border-border/50 opacity-80';
+  }
+
+  if (tradeCount === 0) {
+    return 'bg-card border border-border/70 shadow-[0_1px_2px_rgba(15,23,42,0.05)] hover:bg-muted/20';
+  }
+
+  return pnl >= 0
+    ? 'bg-emerald-50 border border-emerald-200 shadow-[0_1px_2px_rgba(5,150,105,0.08)] hover:bg-emerald-100/70 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:shadow-none dark:hover:bg-emerald-500/15'
+    : 'bg-red-50 border border-red-200 shadow-[0_1px_2px_rgba(220,38,38,0.08)] hover:bg-red-100/70 dark:bg-red-500/10 dark:border-red-500/30 dark:shadow-none dark:hover:bg-red-500/15';
+}
+
+function getTradeBoxClasses(pnl: number): string {
+  return pnl >= 0
+    ? 'bg-emerald-100/80 border-emerald-300/90 dark:bg-emerald-500/10 dark:border-emerald-500/30'
+    : 'bg-red-100/80 border-red-300/90 dark:bg-red-500/10 dark:border-red-500/30';
+}
+
+function getPnlTextClasses(value: number, emphasis: 'strong' | 'soft' = 'strong'): string {
+  if (value >= 0) {
+    return emphasis === 'strong'
+      ? 'text-emerald-700 dark:text-emerald-400'
+      : 'text-emerald-600 dark:text-emerald-300';
+  }
+
+  return emphasis === 'strong'
+    ? 'text-red-700 dark:text-red-400'
+    : 'text-red-600 dark:text-red-300';
+}
+
+function getTradeBoxLineClasses(value: number, emphasis: 'primary' | 'secondary' | 'meta' = 'primary'): string {
+  if (value >= 0) {
+    if (emphasis === 'primary') {
+      return 'text-emerald-800 dark:text-emerald-300';
+    }
+
+    if (emphasis === 'secondary') {
+      return 'text-emerald-700 dark:text-emerald-200';
+    }
+
+    return 'text-emerald-900/80 dark:text-emerald-100/85';
+  }
+
+  if (emphasis === 'primary') {
+    return 'text-red-800 dark:text-red-300';
+  }
+
+  if (emphasis === 'secondary') {
+    return 'text-red-700 dark:text-red-200';
+  }
+
+  return 'text-red-900/80 dark:text-red-100/85';
 }
 
 function getDaysInMonth(date: Date, trades: Trade[], todayStr: string): DayStats[] {
@@ -198,22 +257,18 @@ export default function CalendarView({ trades }: CalendarViewProps) {
           {/* Right: Monthly Summary - All values in base currency */}
           <div className="flex flex-wrap items-center gap-3 sm:gap-5 text-xs sm:text-sm justify-start sm:justify-end">
             <div className="flex flex-col items-start sm:items-end">
-              <span className="text-muted-foreground">Monthly:</span>
+              <span className="text-foreground/70 dark:text-muted-foreground">Monthly:</span>
               <span
-                className={`text-sm sm:text-base font-semibold ${
-                  monthlyStats.monthPnL >= 0 ? 'text-blue-400' : 'text-red-400'
-                }`}
+                className={`text-sm sm:text-base font-semibold ${getPnlTextClasses(monthlyStats.monthPnL)}`}
               >
                 {baseCurrencySymbol}
                 {monthlyStats.monthPnL.toFixed(2)}
               </span>
             </div>
             <div className="hidden sm:flex flex-col items-end">
-              <span className="text-muted-foreground">Gross P&amp;L:</span>
+              <span className="text-foreground/70 dark:text-muted-foreground">Gross P&amp;L:</span>
               <span
-                className={`text-xs sm:text-sm font-medium ${
-                  monthlyStats.monthGrossPnL >= 0 ? 'text-blue-300' : 'text-red-300'
-                }`}
+                className={`text-xs sm:text-sm font-medium ${getPnlTextClasses(monthlyStats.monthGrossPnL, 'soft')}`}
               >
                 {baseCurrencySymbol}
                 {monthlyStats.monthGrossPnL.toFixed(2)}
@@ -221,15 +276,15 @@ export default function CalendarView({ trades }: CalendarViewProps) {
             </div>
             {monthlyStats.monthCharges > 0 && (
               <div className="flex flex-col items-end">
-                <span className="text-muted-foreground">Brokerage:</span>
-                <span className="text-xs sm:text-sm font-medium text-orange-400">
+                <span className="text-foreground/70 dark:text-muted-foreground">Brokerage:</span>
+                <span className="text-xs sm:text-sm font-medium text-amber-700 dark:text-orange-400">
                   -{baseCurrencySymbol}
                   {monthlyStats.monthCharges.toFixed(2)}
                 </span>
               </div>
             )}
             <div className="flex flex-col items-end">
-              <span className="text-muted-foreground">Trading days:</span>
+              <span className="text-foreground/70 dark:text-muted-foreground">Trading days:</span>
               <span className="font-semibold">{monthlyStats.tradingDays}</span>
             </div>
             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -249,15 +304,15 @@ export default function CalendarView({ trades }: CalendarViewProps) {
                 key={day}
                 className="rounded-xl bg-background/60 px-2 sm:px-3 lg:px-4 py-2 flex items-center"
               >
-                <p className="text-[11px] sm:text-xs font-semibold tracking-wide text-muted-foreground">
+                <p className="text-[11px] sm:text-xs font-semibold tracking-wide text-foreground/80">
                   {day}
                 </p>
               </div>
             ))}
             <div className="rounded-xl bg-background/80 px-2 sm:px-3 lg:px-4 py-2 flex items-center justify-end">
-              <p className="text-[11px] sm:text-xs font-semibold tracking-wide text-muted-foreground">
-                Weekly
-              </p>
+                <p className="text-[11px] sm:text-xs font-semibold tracking-wide text-foreground/80">
+                  Weekly
+                </p>
             </div>
           </div>
 
@@ -292,13 +347,12 @@ export default function CalendarView({ trades }: CalendarViewProps) {
                     return (
                       <div
                         key={`${day.date}-${index}`}
-                        className={`min-h-24 sm:min-h-28 lg:min-h-32 p-2 sm:p-3 lg:p-4 rounded-xl relative transition-colors ${
-                          day.isToday
-                            ? 'bg-primary/15 ring-1 ring-primary/60'
-                            : isCurrentMonthDay
-                              ? 'bg-background/50 hover:bg-background/80'
-                              : 'bg-muted/20 opacity-60'
-                        }`}
+                        className={`min-h-24 sm:min-h-28 lg:min-h-32 p-2 sm:p-3 lg:p-4 rounded-xl relative transition-colors ${getDaySurfaceClasses(
+                          day.isToday,
+                          isCurrentMonthDay,
+                          day.tradeCount,
+                          day.pnl
+                        )}`}
                       >
                         {/* Day Number */}
                         <div className="relative mb-1.5 sm:mb-2">
@@ -311,7 +365,9 @@ export default function CalendarView({ trades }: CalendarViewProps) {
                           ) : (
                             <p
                               className={`text-[11px] sm:text-xs font-semibold ${
-                                isCurrentMonthDay ? 'text-foreground' : 'text-muted-foreground'
+                                isCurrentMonthDay
+                                  ? 'text-foreground'
+                                  : 'text-foreground/55 dark:text-muted-foreground'
                               }`}
                             >
                               {dayNum}
@@ -322,17 +378,11 @@ export default function CalendarView({ trades }: CalendarViewProps) {
                         {/* Trade Data - shown in base currency */}
                         {day.tradeCount > 0 && (
                           <div
-                            className={`rounded-lg border px-2 py-1.5 sm:px-2.5 sm:py-2 text-[11px] sm:text-xs ${
-                              day.pnl >= 0
-                                ? 'bg-blue-500/10 border-blue-500/30'
-                                : 'bg-red-500/10 border-red-500/30'
-                            }`}
+                            className={`rounded-lg border px-2 py-1.5 sm:px-2.5 sm:py-2 text-[11px] sm:text-xs ${getTradeBoxClasses(day.pnl)}`}
                           >
                             {day.charges > 0 && (
                               <p
-                                className={`mb-0.5 ${
-                                  day.grossPnl >= 0 ? 'text-blue-300' : 'text-red-300'
-                                }`}
+                                className={`mb-0.5 font-medium ${getTradeBoxLineClasses(day.grossPnl, 'secondary')}`}
                               >
                                 G: {day.grossPnl >= 0 ? '+' : ''}
                                 {baseCurrencySymbol}
@@ -340,16 +390,16 @@ export default function CalendarView({ trades }: CalendarViewProps) {
                               </p>
                             )}
                             <p
-                              className={`font-semibold ${
-                                day.pnl >= 0 ? 'text-blue-400' : 'text-red-400'
-                              }`}
+                              className={`font-semibold ${getTradeBoxLineClasses(day.pnl, 'primary')}`}
                             >
                               {day.charges > 0 ? 'N: ' : ''}
                               {day.pnl >= 0 ? '+' : ''}
                               {baseCurrencySymbol}
                               {day.pnl.toFixed(2)}
                             </p>
-                            <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">
+                            <p
+                              className={`mt-0.5 text-[10px] sm:text-[11px] ${getTradeBoxLineClasses(day.pnl, 'meta')}`}
+                            >
                               Trades: {day.tradeCount}
                             </p>
                           </div>
@@ -359,19 +409,17 @@ export default function CalendarView({ trades }: CalendarViewProps) {
                   })}
 
                   {/* Weekly summary column */}
-                  <div className="min-h-24 sm:min-h-28 lg:min-h-32 p-2 sm:p-3 lg:p-4 rounded-xl bg-background/60 border border-border/70 flex flex-col justify-between">
-                    <div className="text-[10px] sm:text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                  <div className="min-h-24 sm:min-h-28 lg:min-h-32 p-2 sm:p-3 lg:p-4 rounded-xl bg-card border border-border/70 shadow-[0_1px_2px_rgba(15,23,42,0.05)] dark:shadow-none flex flex-col justify-between">
+                    <div className="text-[10px] sm:text-xs font-semibold tracking-wide text-foreground/80 uppercase">
                       Week {weekIndex + 1}
                     </div>
                     <div
-                      className={`text-sm sm:text-base font-semibold ${
-                        weekPnL >= 0 ? 'text-blue-400' : 'text-red-400'
-                      }`}
+                      className={`text-sm sm:text-base font-semibold ${getPnlTextClasses(weekPnL)}`}
                     >
                       {baseCurrencySymbol}
                       {weekPnL.toFixed(2)}
                     </div>
-                    <div className="text-[10px] sm:text-xs text-muted-foreground">
+                    <div className="text-[10px] sm:text-xs text-foreground/75">
                       {weekTradingDays} traded day{weekTradingDays === 1 ? '' : 's'}
                     </div>
                   </div>
@@ -384,12 +432,12 @@ export default function CalendarView({ trades }: CalendarViewProps) {
 
       {/* Legend */}
       <div className="border-t border-border px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-center gap-6 bg-background/60">
-        <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-          <span className="w-2 h-2 rounded-full bg-blue-400" />
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-foreground/80">
+          <span className="w-2 h-2 rounded-full bg-emerald-600 dark:bg-emerald-400" />
           <span>Profit</span>
         </div>
-        <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-          <span className="w-2 h-2 rounded-full bg-red-400" />
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-foreground/80">
+          <span className="w-2 h-2 rounded-full bg-red-600 dark:bg-red-400" />
           <span>Loss</span>
         </div>
       </div>

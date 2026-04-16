@@ -6,10 +6,10 @@
     "node": "22.x"
   },
   "scripts": {
-    "build": "next build",
-    "dev": "next dev",
-    "lint": "eslint .",
-    "start": "next start"
+    "build": "node scripts/suppress-baseline-warning.js && BROWSERSLIST_IGNORE_OLD_DATA=true BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA=true next build",
+    "dev": "node scripts/suppress-baseline-warning.js && BROWSERSLIST_IGNORE_OLD_DATA=true BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA=true next dev",
+    "lint": "node scripts/suppress-baseline-warning.js && BROWSERSLIST_IGNORE_OLD_DATA=true BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA=true eslint .",
+    "start": "node scripts/suppress-baseline-warning.js && BROWSERSLIST_IGNORE_OLD_DATA=true BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA=true next start"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -50,6 +50,7 @@
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.5.1",
     "google-auth-library": "^10.6.2",
+    "html-to-image": "^1.11.13",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
     "mysql2": "^3.19.0",
@@ -77,7 +78,7 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "baseline-browser-mapping": "^2.10.13",
+    "baseline-browser-mapping": "^2.10.19",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.2"
   }

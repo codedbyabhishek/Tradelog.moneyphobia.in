@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbQuery } from '@/lib/server/db';
-import { jsonError } from '@/lib/server/http';
+import { jsonError, parseJsonBody } from '@/lib/server/http';
 import { consumeRateLimit, getClientIp } from '@/lib/server/rate-limit';
 import { normalizeAuthEmail } from '@/lib/server/auth';
 import { createPasswordResetToken, ensurePasswordResetTable } from '@/lib/server/password-reset';
@@ -21,7 +21,10 @@ const GENERIC_RESPONSE = {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = await parseJsonBody(request);
+    if (!body) {
+      return jsonError('Invalid password reset payload.', 400);
+    }
     const email = normalizeAuthEmail(String(body?.email || ''));
     const ip = getClientIp(request);
 

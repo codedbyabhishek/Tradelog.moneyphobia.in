@@ -87,7 +87,16 @@ export async function ensureEmailVerificationSchema() {
     }
   }
 
-  await dbExecute('UPDATE users SET email_verified_at = COALESCE(email_verified_at, NOW())');
+  await dbExecute(
+    `UPDATE users
+     SET email_verified_at = COALESCE(
+       email_verified_at,
+       CASE
+         WHEN google_sub IS NOT NULL THEN NOW()
+         ELSE NULL
+       END
+     )`,
+  );
 
   await dbExecute(
     `CREATE TABLE IF NOT EXISTS email_verification_tokens (

@@ -6,6 +6,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { ChunkRecovery } from '@/components/chunk-recovery'
 import GoogleAnalytics from '@/components/google-analytics'
+import CookieConsentBanner from '@/components/cookie-consent-banner'
 import { ServiceWorkerRegister } from '@/components/service-worker-register'
 import { ThemeProvider } from '@/lib/theme-context'
 import { HydrationBoundary } from '@/components/hydration-boundary'
@@ -158,6 +159,7 @@ export default function RootLayout({
               <GoogleAnalytics />
               <ServiceWorkerRegister />
               {children}
+              <CookieConsentBanner />
             </ErrorBoundary>
             <Analytics />
           </ThemeProvider>

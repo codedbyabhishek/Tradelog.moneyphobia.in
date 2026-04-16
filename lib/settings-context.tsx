@@ -108,6 +108,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   }, [user, isAuthLoading]);
 
   const setBaseCurrency = (currency: Currency) => {
+    if (currency === baseCurrency) return;
     setBaseCurrencyState(currency);
 
     if (!user) return;
@@ -124,6 +125,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const setStartingBalance = (balance: number) => {
     const normalizedBalance = Number.isFinite(balance) ? balance : DEFAULT_STARTING_BALANCE;
+    if (normalizedBalance === startingBalance) return;
     setStartingBalanceState(normalizedBalance);
 
     if (!user) return;
@@ -143,6 +145,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       .filter((item) => item.id && item.date && Number.isFinite(item.amount))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
+    if (JSON.stringify(normalized) === JSON.stringify(capitalAdjustments)) return;
+
     setCapitalAdjustmentsState(normalized);
 
     if (!user) return;
@@ -159,6 +163,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const saveBillingState = (billing: BillingState) => {
     const normalized = normalizeBillingState(billing);
+    if (JSON.stringify(normalized) === JSON.stringify(billingState)) return;
     setBillingState(normalized);
 
     if (!user) return;

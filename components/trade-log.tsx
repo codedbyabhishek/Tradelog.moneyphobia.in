@@ -6,7 +6,7 @@ import { useTrades } from '@/lib/trade-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trade } from '@/lib/types';
-import { Trash2, Eye, Filter, Star, Pencil, Upload, X } from 'lucide-react';
+import { Trash2, Eye, Filter, Star, Pencil, Upload, X, Share2 } from 'lucide-react';
 import { CURRENCY_SYMBOLS, getTradeOutcome } from '@/lib/trade-utils';
 import { ScreenshotViewer } from './screenshot-viewer';
 import { useToast } from '@/hooks/use-toast';
@@ -14,6 +14,7 @@ import { validateImageFile } from '@/lib/validation';
 import { FIB_LEVEL_OPTIONS, PRESET_SETUPS } from './trade-form';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { EmptyStateIllustration } from './brand-illustrations';
+import ShareCardDialog from '@/components/share-card-dialog';
 
 function isBrokerSyncedTrade(trade: Trade) {
   return trade.id.startsWith('dhan:');
@@ -49,6 +50,7 @@ export default function TradeLog() {
   const [sortBy, setSortBy] = useState<'date' | 'pnl'>('date');
   const [filterSetup, setFilterSetup] = useState('All');
   const [filterTag, setFilterTag] = useState('All');
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -695,12 +697,16 @@ export default function TradeLog() {
                 </div>
               )}
 
-              <Button onClick={() => setSelectedTrade(null)} className="w-full bg-primary hover:bg-primary/90">
-                Close
+              <Button onClick={() => setIsShareDialogOpen(true)} variant="outline" className="w-full">
+                <Share2 className="mr-2 h-4 w-4" />
+                Share Trade
               </Button>
               <Button onClick={() => openEditTrade(selectedTrade)} variant="outline" className="w-full">
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit Trade
+              </Button>
+              <Button onClick={() => setSelectedTrade(null)} className="w-full bg-primary hover:bg-primary/90">
+                Close
               </Button>
             </CardContent>
           </Card>
@@ -958,6 +964,14 @@ export default function TradeLog() {
           </Card>
         </div>
       )}
+
+      <ShareCardDialog
+        open={isShareDialogOpen}
+        onOpenChange={setIsShareDialogOpen}
+        mode="trade"
+        trades={trades}
+        trade={selectedTrade}
+      />
     </div>
   );
 }

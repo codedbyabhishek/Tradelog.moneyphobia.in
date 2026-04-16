@@ -1,8 +1,9 @@
 'use client';
 
 import Script from 'next/script';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { getCookieConsent } from '@/lib/analytics';
 
 declare global {
   interface Window {
@@ -11,14 +12,27 @@ declare global {
   }
 }
 
-const MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-8RQ0E36081';
+const MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || '';
 
 export default function GoogleAnalytics() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
-    if (!window.gtag || !MEASUREMENT_ID) return;
+    const updateConsent = () => {
+      setEnabled(getCookieConsent() === 'accepted');
+    };
+
+    updateConsent();
+    window.addEventListener('td-cookie-consent-change', updateConsent as EventListener);
+    return () => {
+      window.removeEventListener('td-cookie-consent-change', updateConsent as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!window.gtag || !MEASUREMENT_ID || !enabled) return;
 
     const search = searchParams?.toString();
     const pagePath = search ? `${pathname}?${search}` : pathname;
@@ -26,9 +40,9 @@ export default function GoogleAnalytics() {
     window.gtag('config', MEASUREMENT_ID, {
       page_path: pagePath,
     });
-  }, [pathname, searchParams]);
+  }, [enabled, pathname, searchParams]);
 
-  if (!MEASUREMENT_ID) return null;
+  if (!MEASUREMENT_ID || !enabled) return null;
 
   return (
     <>

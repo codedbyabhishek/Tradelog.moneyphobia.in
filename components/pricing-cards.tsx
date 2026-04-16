@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { SUBSCRIPTION_PLANS } from '@/lib/subscription';
 import RazorpayUpgradeButton from '@/components/razorpay-upgrade-button';
+import { trackEvent } from '@/lib/analytics';
 
 interface PricingCardsProps {
   compact?: boolean;
@@ -51,7 +52,17 @@ export default function PricingCards({ compact = false }: PricingCardsProps) {
                 </div>
               ) : (
                 <Button asChild className="w-full" variant="outline">
-                  <Link href="/app">{plan.cta}</Link>
+                  <Link
+                    href="/app"
+                    onClick={() =>
+                      trackEvent('select_content', {
+                        content_type: 'pricing_cta',
+                        content_id: `plan_${plan.id}_open_app`,
+                      })
+                    }
+                  >
+                    {plan.cta}
+                  </Link>
                 </Button>
               )}
             </CardContent>

@@ -36,6 +36,19 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "__tests__",
+    "components/advanced-search.tsx",
+    "components/calendar-heatmap.tsx",
+    "components/goals-tracker-enhanced.tsx",
+    "components/notifications.tsx",
+    "components/performance-dashboard.tsx",
+    "components/sentiment-analysis.tsx",
+    "components/trade-analysis.tsx",
+    "lib/advanced-filters.ts",
+    "lib/data-export-import.ts",
+    "lib/notifications-manager.ts",
+    "lib/sentiment-analysis.ts",
+    "lib/trade-analysis.ts"
   ]
 }

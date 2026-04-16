@@ -6,7 +6,6 @@ import { useSettings } from '@/lib/settings-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trade } from '@/lib/types';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import {
   getTradeBasePnL,
@@ -18,9 +17,12 @@ import {
   getCapitalAdjustmentAmount,
   getNetCapitalAdjustments,
 } from '@/lib/trade-utils';
+import { BROKER_DEFINITIONS, getBrokerDefinition, getBrokerIdFromTrade, type BrokerId } from '@/lib/brokers';
 import {
   LineChart,
   Line,
+  AreaChart,
+  Area,
   BarChart,
   Bar,
   PieChart,
@@ -31,11 +33,12 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from 'recharts';
 import { EmptyStateIllustration } from './brand-illustrations';
 
 type DateRangeKey = 'all' | '7d' | '30d' | 'month' | 'custom';
-type BrokerFilter = 'all' | 'manual' | 'dhan';
+type BrokerFilter = 'all' | BrokerId;
 
 const DATE_RANGE_OPTIONS: Array<{ key: DateRangeKey; label: string }> = [
   { key: 'all', label: 'All Time' },
@@ -45,10 +48,47 @@ const DATE_RANGE_OPTIONS: Array<{ key: DateRangeKey; label: string }> = [
   { key: 'custom', label: 'Custom' },
 ];
 
-const CHART_COLORS = ['#10b981', '#ef4444', '#3b82f6', '#f59e0b', '#8b5cf6'];
+const CHART_COLORS = ['#10b981', '#ff4d6d', '#3b82f6', '#f59e0b', '#8b5cf6'];
+const POSITIVE_CHART = '#10b981';
+const NEGATIVE_CHART = '#ff4d6d';
+const NEUTRAL_CHART = '#7c3aed';
 
-function isDhanTrade(trade: Trade) {
-  return trade.id.startsWith('dhan:');
+function AnalyticsTooltip({
+  active,
+  payload,
+  label,
+  formatter,
+}: {
+  active?: boolean;
+  payload?: Array<{ name?: string; value?: number; color?: string; payload?: Record<string, unknown> }>;
+  label?: string;
+  formatter?: (value: number, name?: string) => string;
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+
+  return (
+    <div className="min-w-[180px] rounded-2xl border border-border/70 bg-background/95 p-3 shadow-2xl backdrop-blur">
+      {label ? <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</p> : null}
+      <div className="mt-2 space-y-1.5">
+        {payload.map((item, index) => (
+          <div key={`${item.name || 'value'}-${index}`} className="flex items-center justify-between gap-4 text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: item.color || 'var(--color-primary)' }}
+              />
+              <span>{item.name || 'Value'}</span>
+            </div>
+            <span className="font-semibold text-foreground">
+              {formatter && typeof item.value === 'number'
+                ? formatter(item.value, item.name)
+                : item.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function getLocalDateString(date: Date) {
@@ -125,8 +165,7 @@ export default function Analytics() {
     return sortedTrades.filter((trade) => {
       if (setupFilter !== 'all' && trade.setupName !== setupFilter) return false;
       if (tagFilter !== 'all' && !(trade.tags || []).includes(tagFilter)) return false;
-      if (brokerFilter === 'dhan' && !isDhanTrade(trade)) return false;
-      if (brokerFilter === 'manual' && isDhanTrade(trade)) return false;
+      if (brokerFilter !== 'all' && getBrokerIdFromTrade(trade) !== brokerFilter) return false;
 
       if (dateBounds.start && trade.date < dateBounds.start) return false;
       if (dateBounds.end && trade.date > dateBounds.end) return false;
@@ -240,18 +279,18 @@ export default function Analytics() {
   }, [filteredTrades]);
 
   const brokerPerformanceData = useMemo(() => {
-    const groups: Record<string, { label: string; pnl: number; trades: number }> = {
-      manual: { label: 'Manual', pnl: 0, trades: 0 },
-      dhan: { label: 'Dhan', pnl: 0, trades: 0 },
-    };
+    const groups = new Map<BrokerId, { label: string; pnl: number; trades: number }>();
 
     filteredTrades.forEach((trade) => {
-      const key = isDhanTrade(trade) ? 'dhan' : 'manual';
-      groups[key].pnl += getTradeBasePnL(trade);
-      groups[key].trades += 1;
+      const brokerId = getBrokerIdFromTrade(trade);
+      const broker = getBrokerDefinition(brokerId);
+      const existing = groups.get(brokerId) || { label: broker.shortLabel, pnl: 0, trades: 0 };
+      existing.pnl += getTradeBasePnL(trade);
+      existing.trades += 1;
+      groups.set(brokerId, existing);
     });
 
-    return Object.values(groups)
+    return Array.from(groups.values())
       .filter((group) => group.trades > 0)
       .map((group) => ({
         ...group,
@@ -371,6 +410,8 @@ export default function Analytics() {
     };
   }, [setupPerformanceData]);
 
+  const outcomeTotal = winLossData.reduce((sum, item) => sum + item.value, 0);
+
   return (
     <div className="w-full min-h-screen flex flex-col gap-3 sm:gap-4 lg:gap-6 p-2 sm:p-4 lg:p-6 overflow-hidden">
       <div className="space-y-1">
@@ -434,8 +475,11 @@ export default function Analytics() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Trades</SelectItem>
-                  <SelectItem value="manual">Manual Only</SelectItem>
-                  <SelectItem value="dhan">Dhan Synced Only</SelectItem>
+                  {BROKER_DEFINITIONS.map((broker) => (
+                    <SelectItem key={broker.id} value={broker.id}>
+                      {broker.status === 'live' ? broker.label : `${broker.label} (Coming Soon)`}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -622,21 +666,29 @@ export default function Analytics() {
             </CardHeader>
             <CardContent className="p-3 sm:p-6">
               <ResponsiveContainer width="100%" height={300} minHeight={240}>
-                <LineChart data={equityCurveData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <AreaChart data={equityCurveData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                  <defs>
+                    <linearGradient id="equityFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.36} />
+                      <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="2 10" stroke="var(--color-border)" vertical={false} />
                   <XAxis dataKey="date" stroke="var(--color-muted-foreground)" style={{ fontSize: '10px' }} />
                   <YAxis stroke="var(--color-muted-foreground)" style={{ fontSize: '10px' }} />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'var(--color-secondary)',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: '8px',
-                      fontSize: '12px',
-                    }}
-                    formatter={(value: number) => formatCurrency(value, baseCurrency)}
+                    content={<AnalyticsTooltip formatter={(value) => formatCurrency(value, baseCurrency)} />}
                   />
-                  <Line type="monotone" dataKey="balance" stroke="var(--color-primary)" strokeWidth={2} dot={false} />
-                </LineChart>
+                  <Area type="monotone" dataKey="balance" stroke="var(--color-primary)" strokeWidth={3} fill="url(#equityFill)" />
+                  <Line
+                    type="monotone"
+                    dataKey="balance"
+                    stroke="var(--color-primary)"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4, fill: 'var(--color-primary)', stroke: 'var(--color-background)', strokeWidth: 2 }}
+                  />
+                </AreaChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
@@ -654,16 +706,24 @@ export default function Analytics() {
                       data={winLossData}
                       cx="50%"
                       cy="50%"
-                      outerRadius={80}
+                      innerRadius={58}
+                      outerRadius={86}
+                      paddingAngle={4}
                       labelLine={false}
-                      label={(entry) => `${entry.name}: ${entry.value}`}
                       dataKey="value"
                     >
                       {winLossData.map((entry, index) => (
                         <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: number) => value} />
+                    <text x="50%" y="48%" textAnchor="middle" dominantBaseline="middle" className="fill-foreground text-sm font-semibold">
+                      Outcomes
+                    </text>
+                    <text x="50%" y="58%" textAnchor="middle" dominantBaseline="middle" className="fill-muted-foreground text-[12px]">
+                      {outcomeTotal} trades
+                    </text>
+                    <Tooltip content={<AnalyticsTooltip formatter={(value) => `${value}`} />} />
+                    <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
                   </PieChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -672,7 +732,7 @@ export default function Analytics() {
             <Card className="bg-card border-border">
               <CardHeader className="p-4 sm:p-6">
                 <CardTitle className="text-base sm:text-lg">Broker Comparison</CardTitle>
-                <CardDescription className="text-xs sm:text-sm">Manual vs Dhan performance inside the current date range</CardDescription>
+                <CardDescription className="text-xs sm:text-sm">Manual and broker-synced performance inside the current date range</CardDescription>
               </CardHeader>
               <CardContent className="p-3 sm:p-6">
                 {brokerPerformanceData.length === 0 ? (
@@ -680,19 +740,19 @@ export default function Analytics() {
                 ) : (
                   <ResponsiveContainer width="100%" height={240} minHeight={200}>
                     <BarChart data={brokerPerformanceData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                      <defs>
+                        <linearGradient id="brokerBar" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0%" stopColor="#38bdf8" />
+                          <stop offset="100%" stopColor="#7c3aed" />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="2 10" stroke="var(--color-border)" vertical={false} />
                       <XAxis dataKey="label" stroke="var(--color-muted-foreground)" style={{ fontSize: '10px' }} />
                       <YAxis stroke="var(--color-muted-foreground)" style={{ fontSize: '10px' }} />
                       <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'var(--color-secondary)',
-                          border: '1px solid var(--color-border)',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                        }}
-                        formatter={(value: number) => formatCurrency(value, baseCurrency)}
+                        content={<AnalyticsTooltip formatter={(value) => formatCurrency(value, baseCurrency)} />}
                       />
-                      <Bar dataKey="pnl" fill="#06b6d4" radius={[8, 8, 0, 0]} />
+                      <Bar dataKey="pnl" fill="url(#brokerBar)" radius={[12, 12, 4, 4]} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -709,19 +769,20 @@ export default function Analytics() {
               <CardContent className="p-3 sm:p-6">
                 <ResponsiveContainer width="100%" height={260} minHeight={220}>
                   <BarChart data={setupPerformanceData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                    <CartesianGrid strokeDasharray="2 10" stroke="var(--color-border)" vertical={false} />
                     <XAxis dataKey="name" stroke="var(--color-muted-foreground)" style={{ fontSize: '10px' }} />
                     <YAxis stroke="var(--color-muted-foreground)" style={{ fontSize: '10px' }} />
                     <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'var(--color-secondary)',
-                        border: '1px solid var(--color-border)',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                      }}
-                      formatter={(value: number) => formatCurrency(value, baseCurrency)}
+                      content={<AnalyticsTooltip formatter={(value) => formatCurrency(value, baseCurrency)} />}
                     />
-                    <Bar dataKey="pnl" fill="var(--color-primary)" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="pnl" radius={[12, 12, 4, 4]}>
+                      {setupPerformanceData.map((entry) => (
+                        <Cell
+                          key={entry.name}
+                          fill={entry.pnl >= 0 ? POSITIVE_CHART : NEGATIVE_CHART}
+                        />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -735,19 +796,20 @@ export default function Analytics() {
               <CardContent className="p-3 sm:p-6">
                 <ResponsiveContainer width="100%" height={260} minHeight={220}>
                   <BarChart data={dayPerformanceData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                    <CartesianGrid strokeDasharray="2 10" stroke="var(--color-border)" vertical={false} />
                     <XAxis dataKey="day" stroke="var(--color-muted-foreground)" style={{ fontSize: '10px' }} />
                     <YAxis stroke="var(--color-muted-foreground)" style={{ fontSize: '10px' }} />
                     <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'var(--color-secondary)',
-                        border: '1px solid var(--color-border)',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                      }}
-                      formatter={(value: number) => formatCurrency(value, baseCurrency)}
+                      content={<AnalyticsTooltip formatter={(value) => formatCurrency(value, baseCurrency)} />}
                     />
-                    <Bar dataKey="pnl" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="pnl" radius={[12, 12, 4, 4]}>
+                      {dayPerformanceData.map((entry) => (
+                        <Cell
+                          key={entry.day}
+                          fill={entry.pnl >= 0 ? POSITIVE_CHART : NEGATIVE_CHART}
+                        />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>

@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { CheckboxItem } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Search, Filter, Save, Trash2, X } from 'lucide-react';
 import {

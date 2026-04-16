@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbExecute, dbQuery } from '@/lib/server/db';
 import { getCurrentUser } from '@/lib/server/auth';
 import { getAdminBillingOverride } from '@/lib/server/admin';
-import { jsonError } from '@/lib/server/http';
+import { jsonError, parseJsonBody } from '@/lib/server/http';
 
 export const runtime = 'nodejs';
 
@@ -47,12 +47,18 @@ export async function PUT(request: NextRequest) {
     const user = await getCurrentUser();
     if (!user) return jsonError('Unauthorized', 401);
 
-    const body = await request.json();
+    const body = await parseJsonBody(request);
+    if (!body) {
+      return jsonError('Invalid settings payload.', 400);
+    }
     const key = String(body?.key || '').trim();
     const value = body?.value;
 
     if (!key) {
       return jsonError('Invalid settings key.', 400);
+    }
+    if (key.length > 100) {
+      return jsonError('Settings key is too long.', 400);
     }
 
     await dbExecute(

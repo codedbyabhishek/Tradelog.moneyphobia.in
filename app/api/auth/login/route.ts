@@ -9,7 +9,7 @@ import {
   validateLoginInput,
   verifyPassword,
 } from '@/lib/server/auth';
-import { jsonError } from '@/lib/server/http';
+import { jsonError, parseJsonBody } from '@/lib/server/http';
 import { consumeRateLimit, getClientIp } from '@/lib/server/rate-limit';
 import { loadBootstrapData } from '@/lib/server/bootstrap';
 
@@ -25,7 +25,10 @@ interface UserRow {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await parseJsonBody(request);
+    if (!body) {
+      return jsonError('Invalid login payload.', 400);
+    }
     const emailRaw = typeof body?.email === 'string' ? body.email : '';
     const normalizedEmail = emailRaw.trim().toLowerCase();
     const ip = getClientIp(request);

@@ -8,14 +8,17 @@ import {
   upsertSubscriptionRecord,
   verifyRazorpayPaymentSignature,
 } from '@/lib/server/billing';
-import { jsonError } from '@/lib/server/http';
+import { isUnauthorizedError, jsonError, parseJsonBody } from '@/lib/server/http';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
     const user = await requireUser();
-    const body = await request.json().catch(() => ({}));
+    const body = await parseJsonBody(request);
+    if (body === null) {
+      return jsonError('Invalid payment confirmation payload.', 400);
+    }
     const paymentId = String(body?.razorpay_payment_id || '').trim();
     const subscriptionId = String(body?.razorpay_subscription_id || '').trim();
     const signature = String(body?.razorpay_signature || '').trim();
@@ -68,6 +71,9 @@ export async function POST(request: NextRequest) {
       paymentId,
     });
   } catch (error) {
+    if (isUnauthorizedError(error)) {
+      return jsonError('Unauthorized', 401);
+    }
     console.error('[billing/confirm] error', error);
     return jsonError(error instanceof Error ? error.message : 'Failed to confirm payment.', 500);
   }

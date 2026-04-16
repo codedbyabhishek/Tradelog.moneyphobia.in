@@ -177,3 +177,24 @@ CREATE TABLE IF NOT EXISTS billing_webhook_events (
   created_at DATETIME NOT NULL,
   PRIMARY KEY (event_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS shared_cards (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  share_id VARCHAR(32) NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  share_type VARCHAR(24) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  caption TEXT NULL,
+  summary_text TEXT NULL,
+  image_data_url LONGTEXT NOT NULL,
+  payload_json LONGTEXT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uniq_shared_cards_share_id (share_id),
+  KEY idx_shared_cards_user (user_id),
+  KEY idx_shared_cards_expires_at (expires_at),
+  KEY idx_shared_cards_created_at (created_at),
+  CONSTRAINT fk_shared_cards_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

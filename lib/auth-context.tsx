@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { clearAuthUser, clearBootstrap, readAuthUser, storeAuthUser, storeBootstrap } from '@/lib/client-bootstrap';
 import type { AppBootstrapData } from '@/lib/bootstrap';
+import { trackEvent } from '@/lib/analytics';
 
 export interface AuthUser {
   id: number;
@@ -132,6 +133,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       storeAuthUser(data.user || null);
       storeBootstrap(data.user ? data.bootstrap || null : null);
       setError(null);
+      trackEvent('login', {
+        method: 'email',
+      });
     } catch (error) {
       const message = normalizeClientError(error, 'Failed to login.');
       setError(message);
@@ -159,6 +163,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       storeAuthUser(data.user || null);
       storeBootstrap(data.user ? data.bootstrap || null : null);
       setError(null);
+      trackEvent('sign_up', {
+        method: 'email',
+      });
     } catch (error) {
       const message = normalizeClientError(error, 'Failed to create account.');
       setError(message);
@@ -186,6 +193,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       storeAuthUser(data.user || null);
       storeBootstrap(data.user ? data.bootstrap || null : null);
       setError(null);
+      trackEvent('login', {
+        method: 'google',
+      });
     } catch (error) {
       const message = normalizeClientError(error, 'Failed to sign in with Google.');
       setError(message);

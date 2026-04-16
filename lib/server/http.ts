@@ -7,3 +7,15 @@ export function jsonError(
 ) {
   return NextResponse.json({ error: message }, { status, headers });
 }
+
+export function isUnauthorizedError(error: unknown) {
+  return error instanceof Error && error.message === 'UNAUTHORIZED';
+}
+
+export async function parseJsonBody<T = Record<string, unknown>>(request: Request): Promise<T | null> {
+  try {
+    return (await request.json()) as T;
+  } catch {
+    return null;
+  }
+}

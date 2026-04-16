@@ -31,6 +31,18 @@ export function ThemeToggle() {
    * @returns Appropriate icon for current theme
    */
   const getThemeIcon = () => {
+    if (theme === 'prism') {
+      return (
+        <svg
+          className="w-4 h-4"
+          fill="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path d="M12 2 3 7v10l9 5 9-5V7l-9-5zm0 2.3 6.5 3.6L12 11.5 5.5 7.9 12 4.3zm-7 5.1 6 3.4v6.9l-6-3.3V9.4zm8 10.3v-6.9l6-3.4v6.9l-6 3.4z" />
+        </svg>
+      );
+    }
     if (theme === 'cyberpunk') {
       return (
         <svg
@@ -85,6 +97,8 @@ export function ThemeToggle() {
         return 'System';
       case 'cyberpunk':
         return 'Cyberpunk';
+      case 'prism':
+        return 'Prism Glass';
       default:
         return 'Theme';
     }
@@ -214,6 +228,32 @@ export function ThemeToggle() {
         </DropdownMenuItem>
 
         {/* Cyberpunk theme option */}
+        <DropdownMenuItem
+          onClick={() => handleThemeSelect('prism')}
+          className="cursor-pointer flex items-center gap-2"
+          aria-label="Switch to prism glass theme"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path d="M12 2 3 7v10l9 5 9-5V7l-9-5zm0 2.3 6.5 3.6L12 11.5 5.5 7.9 12 4.3zm-7 5.1 6 3.4v6.9l-6-3.3V9.4zm8 10.3v-6.9l6-3.4v6.9l-6 3.4z" />
+          </svg>
+          <span>Prism Glass</span>
+          {theme === 'prism' && (
+            <svg
+              className="ml-auto w-4 h-4 text-primary"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path d="M20.285 2l-11.285 11.567-5.556-5.558L0 9.99l8.744 8.744L24 4.41z" />
+            </svg>
+          )}
+        </DropdownMenuItem>
+
         <DropdownMenuItem
           onClick={() => handleThemeSelect('cyberpunk')}
           className="cursor-pointer flex items-center gap-2"

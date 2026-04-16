@@ -193,7 +193,8 @@ export function getSimilarTradeMatches(
         score += FIELD_WEIGHTS.riskRewardRatio;
       }
 
-      const matchStrength = score >= 10 ? 'High' : score >= 6 ? 'Medium' : 'Low';
+      const matchStrength: SimilarTradeMatch['matchStrength'] =
+        score >= 10 ? 'High' : score >= 6 ? 'Medium' : 'Low';
 
       return {
         trade,

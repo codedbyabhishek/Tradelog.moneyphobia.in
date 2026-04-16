@@ -67,6 +67,6 @@ export async function dbQuery<T = unknown>(
 
 export async function dbExecute(sql: string, values: unknown[] = []) {
   const pool = getDbPool();
-  const [result] = await pool.execute(sql, values);
+  const [result] = await pool.execute(sql, values as any[]);
   return result;
 }

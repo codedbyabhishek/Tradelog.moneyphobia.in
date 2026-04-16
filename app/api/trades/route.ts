@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbExecute, dbQuery } from '@/lib/server/db';
 import { getCurrentUser } from '@/lib/server/auth';
-import { jsonError } from '@/lib/server/http';
+import { jsonError, parseJsonBody } from '@/lib/server/http';
 
 export const runtime = 'nodejs';
 
 interface TradeRow {
   trade_id: string;
   trade_json: string;
+}
+
+interface TradePayload {
+  id?: string;
+  date?: string;
+  symbol?: string;
+  setupName?: string;
 }
 
 function parseTradeRows(rows: TradeRow[]) {
@@ -51,15 +58,26 @@ export async function POST(request: NextRequest) {
       return jsonError('Unauthorized', 401);
     }
 
-    const body = await request.json();
-    const trade = body?.trade;
+    const body = await parseJsonBody(request);
+    if (!body) {
+      return jsonError('Invalid trade payload.', 400);
+    }
+    const trade = body?.trade as TradePayload | undefined;
 
     if (!trade || typeof trade !== 'object' || !trade.id || !trade.date) {
       return jsonError('Invalid trade payload.', 400);
     }
 
+    const tradeId = String(trade.id || '').trim();
+    const tradeDate = String(trade.date || '').trim();
+    const symbol = String(trade.symbol || '').trim();
+    const setupName = String(trade.setupName || '').trim();
+
+    if (!tradeId || !/^\d{4}-\d{2}-\d{2}$/.test(tradeDate) || !symbol || !setupName) {
+      return jsonError('Trade ID, date, symbol, and setup name are required.', 400);
+    }
+
     const tradeJson = JSON.stringify(trade);
-    const tradeDate = String(trade.date);
 
     await dbExecute(
       `INSERT INTO trades (user_id, trade_id, trade_json, trade_date, created_at, updated_at)
@@ -68,7 +86,7 @@ export async function POST(request: NextRequest) {
          trade_json = VALUES(trade_json),
          trade_date = VALUES(trade_date),
          updated_at = NOW()`,
-      [user.id, String(trade.id), tradeJson, tradeDate]
+      [user.id, tradeId, tradeJson, tradeDate]
     );
 
     return NextResponse.json({ ok: true });

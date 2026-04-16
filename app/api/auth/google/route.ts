@@ -10,7 +10,7 @@ import {
   normalizeAuthEmail,
   setSessionCookie,
 } from '@/lib/server/auth';
-import { jsonError } from '@/lib/server/http';
+import { jsonError, parseJsonBody } from '@/lib/server/http';
 import { consumeRateLimit, getClientIp } from '@/lib/server/rate-limit';
 import { loadBootstrapData } from '@/lib/server/bootstrap';
 
@@ -31,7 +31,10 @@ const googleClient = new OAuth2Client();
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = await parseJsonBody(request);
+    if (!body) {
+      return jsonError('Invalid Google sign-in payload.', 400);
+    }
     const credential = String(body?.credential || '').trim();
     const ip = getClientIp(request);
 

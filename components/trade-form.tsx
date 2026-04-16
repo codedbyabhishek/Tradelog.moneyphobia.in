@@ -8,7 +8,7 @@ import { validateTradeForm, sanitizeString, validateImageFile } from '@/lib/vali
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, Upload, X } from 'lucide-react';
-import { TradeFormData, Currency } from '@/lib/types';
+import { TradeFormData, Currency, MISTAKE_TAG_OPTIONS } from '@/lib/types';
 import { calculatePnL, calculateRFactor, CURRENCY_SYMBOLS, getTradeOutcome } from '@/lib/trade-utils';
 import { ScreenshotViewer } from './screenshot-viewer';
 import { useToast } from '@/hooks/use-toast';
@@ -941,13 +941,15 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                 className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">Select mistake tag (if applicable)</option>
-                <option value="No mistake (good loss)">No mistake (good loss)</option>
-                <option value="Overtrading">Overtrading</option>
-                <option value="Early exit">Early exit</option>
-                <option value="Late entry">Late entry</option>
-                <option value="SL hunt fear">SL hunt fear</option>
-                <option value="Greed">Greed</option>
+                {MISTAKE_TAG_OPTIONS.map((tag) => (
+                  <option key={tag} value={tag}>
+                    {tag}
+                  </option>
+                ))}
               </select>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Includes setup discipline, time frame change, emotional execution, and risk-management mistakes.
+              </p>
             </div>
 
             {/* Screenshot Uploads */}

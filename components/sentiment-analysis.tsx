@@ -185,7 +185,7 @@ export function SentimentAnalysis({ trades }: SentimentAnalysisProps) {
                   label={{ value: 'Sentiment (1-5)', angle: 90, position: 'insideRight', offset: -5 }}
                 />
                 <Tooltip
-                  formatter={(value: any, name: string) => {
+                  formatter={(value: number, name?: string) => {
                     if (name === 'pnl') return `$${value.toFixed(2)}`;
                     return value.toFixed(1);
                   }}

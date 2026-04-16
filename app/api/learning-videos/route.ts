@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbExecute, dbQuery } from '@/lib/server/db';
 import { getCurrentUser } from '@/lib/server/auth';
-import { jsonError } from '@/lib/server/http';
+import { jsonError, parseJsonBody } from '@/lib/server/http';
 
 export const runtime = 'nodejs';
 
 interface LearningVideoRow {
   video_id: string;
   video_json: string;
+}
+
+interface LearningVideoPayload {
+  id?: string;
+  title?: string;
+  url?: string;
+  videoId?: string;
 }
 
 export async function GET() {
@@ -42,10 +49,21 @@ export async function POST(request: NextRequest) {
     const user = await getCurrentUser();
     if (!user) return jsonError('Unauthorized', 401);
 
-    const body = await request.json();
-    const video = body?.video;
+    const body = await parseJsonBody(request);
+    if (!body) {
+      return jsonError('Invalid learning video payload.', 400);
+    }
+    const video = body?.video as LearningVideoPayload | undefined;
     if (!video || typeof video !== 'object' || !video.id) {
       return jsonError('Invalid learning video payload.', 400);
+    }
+
+    const title = String(video.title || '').trim();
+    const url = String(video.url || '').trim();
+    const videoId = String(video.videoId || '').trim();
+
+    if (!title || !url || !videoId) {
+      return jsonError('Learning video title, URL, and video ID are required.', 400);
     }
 
     await dbExecute(

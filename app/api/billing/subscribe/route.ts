@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/server/auth';
 import { createRazorpaySubscription, getRazorpayPublicKey } from '@/lib/server/billing';
-import { jsonError } from '@/lib/server/http';
+import { isUnauthorizedError, jsonError, parseJsonBody } from '@/lib/server/http';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
     const user = await requireUser();
-    const body = await request.json().catch(() => ({}));
+    const body = await parseJsonBody(request);
+    if (body === null) {
+      return jsonError('Invalid subscription payload.', 400);
+    }
     const billingCycle = body?.billingCycle === 'yearly' ? 'yearly' : 'monthly';
 
     if (!getRazorpayPublicKey()) {
@@ -32,6 +35,9 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
+    if (isUnauthorizedError(error)) {
+      return jsonError('Unauthorized', 401);
+    }
     console.error('[billing/subscribe] error', error);
     return jsonError(error instanceof Error ? error.message : 'Failed to create subscription.', 500);
   }
