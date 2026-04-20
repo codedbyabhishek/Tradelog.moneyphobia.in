@@ -17,6 +17,8 @@ import Dashboard from '@/components/dashboard';
 import EmailVerificationRequired from '@/components/email-verification-required';
 import { buildAppPath, type Page } from '@/lib/app-routes';
 
+const PAGE_CHUNK_RELOAD_KEY = 'td-page-chunk-reload-once';
+
 function createPageLoader(label: string) {
   function PageLoader() {
     return (
@@ -30,24 +32,87 @@ function createPageLoader(label: string) {
   return PageLoader;
 }
 
-const TradeForm = dynamic(() => import('@/components/trade-form'), { loading: createPageLoader('trade form') });
-const TradeLog = dynamic(() => import('@/components/trade-log'), { loading: createPageLoader('trade log') });
-const Analytics = dynamic(() => import('@/components/analytics'), { loading: createPageLoader('analytics') });
-const ProfitLoss = dynamic(() => import('@/components/profit-loss'), { loading: createPageLoader('profit and loss') });
-const WeeklyReview = dynamic(() => import('@/components/weekly-review'), { loading: createPageLoader('weekly review') });
-const DataUtilities = dynamic(() => import('@/components/data-utilities'), { loading: createPageLoader('data utilities') });
-const IdeasList = dynamic(() => import('@/components/ideas-list'), { loading: createPageLoader('ideas') });
-const IdeaForm = dynamic(() => import('@/components/idea-form'), { loading: createPageLoader('idea form') });
-const AdvancedAnalytics = dynamic(() => import('@/components/advanced-analytics'), { loading: createPageLoader('advanced analytics') });
-const GoalsTracker = dynamic(() => import('@/components/goals-tracker'), { loading: createPageLoader('goals') });
-const TradeSearch = dynamic(() => import('@/components/trade-search'), { loading: createPageLoader('search') });
-const ReportsGenerator = dynamic(() => import('@/components/reports-generator'), { loading: createPageLoader('reports') });
-const EmotionAnalyzer = dynamic(() => import('@/components/emotion-analyzer'), { loading: createPageLoader('emotion analyzer') });
-const PreTradeChecklistWorkspace = dynamic(() => import('@/components/pre-trade-checklist-workspace'), {
-  loading: createPageLoader('pre-trade workspace'),
-});
-const ScreenshotGallery = dynamic(() => import('@/components/screenshot-gallery'), { loading: createPageLoader('gallery') });
-const LearningVideos = dynamic(() => import('@/components/learning-videos'), { loading: createPageLoader('learning videos') });
+function isChunkLoadError(input: unknown): boolean {
+  const message = String(input || '').toLowerCase();
+  return (
+    message.includes('failed to load chunk') ||
+    message.includes('loading chunk') ||
+    message.includes('chunkloaderror') ||
+    message.includes('failed to fetch dynamically imported module') ||
+    message.includes('failed to load module script')
+  );
+}
+
+function createChunkErrorFallback(label: string) {
+  function ChunkErrorFallback() {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center p-6">
+        <div className="max-w-md rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
+          <h2 className="text-lg font-semibold text-foreground">Could not load {label}</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            A stale app file was detected. Reload the page to fetch the latest version.
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-4 inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+          >
+            Reload Page
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  ChunkErrorFallback.displayName = `${label.replace(/\s+/g, '')}ChunkErrorFallback`;
+  return ChunkErrorFallback;
+}
+
+function loadPage(
+  importer: () => Promise<{ default: React.ComponentType<any> }>,
+  label: string,
+) {
+  return async () => {
+    try {
+      return await importer();
+    } catch (error) {
+      if (typeof window !== 'undefined' && isChunkLoadError(error)) {
+        try {
+          if (sessionStorage.getItem(PAGE_CHUNK_RELOAD_KEY) !== '1') {
+            sessionStorage.setItem(PAGE_CHUNK_RELOAD_KEY, '1');
+            window.location.reload();
+          }
+        } catch {
+          // no-op
+        }
+
+        return { default: createChunkErrorFallback(label) };
+      }
+
+      throw error;
+    }
+  };
+}
+
+const TradeForm = dynamic(loadPage(() => import('@/components/trade-form'), 'trade form'), { loading: createPageLoader('trade form') });
+const TradeLog = dynamic(loadPage(() => import('@/components/trade-log'), 'trade log'), { loading: createPageLoader('trade log') });
+const Analytics = dynamic(loadPage(() => import('@/components/analytics'), 'analytics'), { loading: createPageLoader('analytics') });
+const ProfitLoss = dynamic(loadPage(() => import('@/components/profit-loss'), 'profit and loss'), { loading: createPageLoader('profit and loss') });
+const WeeklyReview = dynamic(loadPage(() => import('@/components/weekly-review'), 'weekly review'), { loading: createPageLoader('weekly review') });
+const DataUtilities = dynamic(loadPage(() => import('@/components/data-utilities'), 'data utilities'), { loading: createPageLoader('data utilities') });
+const IdeasList = dynamic(loadPage(() => import('@/components/ideas-list'), 'ideas'), { loading: createPageLoader('ideas') });
+const IdeaForm = dynamic(loadPage(() => import('@/components/idea-form'), 'idea form'), { loading: createPageLoader('idea form') });
+const AdvancedAnalytics = dynamic(loadPage(() => import('@/components/advanced-analytics'), 'advanced analytics'), { loading: createPageLoader('advanced analytics') });
+const GoalsTracker = dynamic(loadPage(() => import('@/components/goals-tracker'), 'goals'), { loading: createPageLoader('goals') });
+const TradeSearch = dynamic(loadPage(() => import('@/components/trade-search'), 'search'), { loading: createPageLoader('search') });
+const ReportsGenerator = dynamic(loadPage(() => import('@/components/reports-generator'), 'reports'), { loading: createPageLoader('reports') });
+const EmotionAnalyzer = dynamic(loadPage(() => import('@/components/emotion-analyzer'), 'emotion analyzer'), { loading: createPageLoader('emotion analyzer') });
+const PreTradeChecklistWorkspace = dynamic(
+  loadPage(() => import('@/components/pre-trade-checklist-workspace'), 'pre-trade workspace'),
+  { loading: createPageLoader('pre-trade workspace') },
+);
+const ScreenshotGallery = dynamic(loadPage(() => import('@/components/screenshot-gallery'), 'gallery'), { loading: createPageLoader('gallery') });
+const LearningVideos = dynamic(loadPage(() => import('@/components/learning-videos'), 'learning videos'), { loading: createPageLoader('learning videos') });
 
 function JournalAppContent({ currentPage }: { currentPage: Page }) {
   const { user, isLoading } = useAuth();
