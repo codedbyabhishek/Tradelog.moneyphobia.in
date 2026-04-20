@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from "react";
+import { useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { TradeProvider } from '@/lib/trade-context';
 import { SettingsProvider } from '@/lib/settings-context';
@@ -15,6 +15,7 @@ import Sidebar from '@/components/sidebar';
 import MobileNav from '@/components/mobile-nav';
 import Dashboard from '@/components/dashboard';
 import EmailVerificationRequired from '@/components/email-verification-required';
+import { buildAppPath, type Page } from '@/lib/app-routes';
 
 function createPageLoader(label: string) {
   function PageLoader() {
@@ -48,82 +49,18 @@ const PreTradeChecklistWorkspace = dynamic(() => import('@/components/pre-trade-
 const ScreenshotGallery = dynamic(() => import('@/components/screenshot-gallery'), { loading: createPageLoader('gallery') });
 const LearningVideos = dynamic(() => import('@/components/learning-videos'), { loading: createPageLoader('learning videos') });
 
-type Page = 'dashboard' | 'pre-trade' | 'add-trade' | 'gallery' | 'learning-videos' | 'log' | 'analytics' | 'profit-loss' | 'weekly-review' | 'data-utilities' | 'ideas' | 'add-idea' | 'advanced-analytics' | 'goals' | 'search' | 'reports' | 'emotion-analyzer';
-
-const ALLOWED_PAGES: Page[] = [
-  'dashboard',
-  'pre-trade',
-  'add-trade',
-  'gallery',
-  'learning-videos',
-  'log',
-  'analytics',
-  'profit-loss',
-  'weekly-review',
-  'data-utilities',
-  'ideas',
-  'add-idea',
-  'advanced-analytics',
-  'goals',
-  'search',
-  'reports',
-  'emotion-analyzer',
-];
-
-function getInitialPage(): Page {
-  if (typeof window === 'undefined') {
-    return 'dashboard';
-  }
-
-  const hash = window.location.hash.replace('#', '');
-  if (hash && ALLOWED_PAGES.includes(hash as Page)) {
-    window.localStorage.setItem('td-last-page', hash);
-    return hash as Page;
-  }
-
-  const stored = window.localStorage.getItem('td-last-page');
-  if (stored && ALLOWED_PAGES.includes(stored as Page)) {
-    return stored as Page;
-  }
-
-  return 'dashboard';
-}
-
-function JournalAppContent() {
+function JournalAppContent({ currentPage }: { currentPage: Page }) {
   const { user, isLoading } = useAuth();
-  const [currentPage, setCurrentPage] = useState<Page>(getInitialPage);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem('td-last-page', currentPage);
-    const hash = `#${currentPage}`;
-    if (window.location.hash !== hash) {
-      window.history.replaceState(null, '', hash);
-    }
-  }, [currentPage]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const handleHashChange = () => {
-      const hash = window.location.hash.replace('#', '');
-      if (hash && ALLOWED_PAGES.includes(hash as Page)) {
-        setCurrentPage(hash as Page);
-      }
-    };
-
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+  const router = useRouter();
 
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
         return <Dashboard />;
       case 'pre-trade':
-        return <PreTradeChecklistWorkspace onStartTrade={() => setCurrentPage('add-trade')} />;
+        return <PreTradeChecklistWorkspace onStartTrade={() => router.push(buildAppPath('add-trade'))} />;
       case 'add-trade':
-        return <TradeForm onSuccess={() => setCurrentPage('log')} />;
+        return <TradeForm onSuccess={() => router.push(buildAppPath('log'))} />;
       case 'gallery':
         return <ScreenshotGallery />;
       case 'learning-videos':
@@ -141,7 +78,7 @@ function JournalAppContent() {
       case 'ideas':
         return <IdeasList />;
       case 'add-idea':
-        return <IdeaForm onSuccess={() => setCurrentPage('ideas')} />;
+        return <IdeaForm onSuccess={() => router.push(buildAppPath('ideas'))} />;
       case 'advanced-analytics':
         return <AdvancedAnalytics />;
       case 'goals':
@@ -176,7 +113,7 @@ function JournalAppContent() {
   return (
     <div className="flex min-h-[100dvh] md:h-dvh flex-col md:flex-row bg-background overflow-x-hidden">
       <div className="hidden md:block">
-        <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
+        <Sidebar currentPage={currentPage} />
       </div>
 
       <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-[calc(84px+env(safe-area-inset-bottom))] md:pb-0">
@@ -184,13 +121,13 @@ function JournalAppContent() {
       </main>
 
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50">
-        <MobileNav currentPage={currentPage} onPageChange={setCurrentPage} />
+        <MobileNav currentPage={currentPage} />
       </div>
     </div>
   );
 }
 
-export default function JournalApp() {
+export default function JournalApp({ currentPage }: { currentPage: Page }) {
   return (
     <HydrationBoundary>
       <AuthProvider>
@@ -200,7 +137,7 @@ export default function JournalApp() {
               <GoalsProvider>
                 <FiltersProvider>
                   <TemplatesProvider>
-                    <JournalAppContent />
+                    <JournalAppContent currentPage={currentPage} />
                   </TemplatesProvider>
                 </FiltersProvider>
               </GoalsProvider>

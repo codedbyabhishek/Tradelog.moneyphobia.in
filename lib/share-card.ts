@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { CapitalAdjustment, Currency, Trade } from '@/lib/types';
-import { formatCurrency, getNetCapitalAdjustments, getTradeBasePnL, getTradeOutcome } from '@/lib/trade-utils';
+import { formatCurrency, formatBaseCurrencyAmount, getNetCapitalAdjustments, getTradeBasePnL, getTradeOutcome } from '@/lib/trade-utils';
 
 export type ShareVisualTheme = 'light' | 'dark' | 'prism' | 'cyberpunk';
 export type ShareRangePreset = 'today' | 'last7' | 'custom';
@@ -110,7 +110,7 @@ export function buildPerformanceShareText(snapshot: PerformanceShareSnapshot, ba
   const lines = [
     `Traderlogify Performance Snapshot`,
     snapshot.label,
-    `Net P&L: ${formatCurrency(snapshot.totalPnl, baseCurrency)}`,
+    `Net P&L: ${formatBaseCurrencyAmount(snapshot.totalPnl, baseCurrency)}`,
     `Win Rate: ${snapshot.winRate.toFixed(1)}%`,
     `Trades: ${snapshot.tradeCount}`,
   ];
@@ -120,11 +120,11 @@ export function buildPerformanceShareText(snapshot: PerformanceShareSnapshot, ba
   }
 
   if (snapshot.bestTrade) {
-    lines.push(`Best Trade: ${snapshot.bestTrade.symbol} ${formatCurrency(getTradeBasePnL(snapshot.bestTrade), baseCurrency)}`);
+    lines.push(`Best Trade: ${snapshot.bestTrade.symbol} ${formatBaseCurrencyAmount(getTradeBasePnL(snapshot.bestTrade), baseCurrency)}`);
   }
 
   if (snapshot.worstTrade) {
-    lines.push(`Worst Trade: ${snapshot.worstTrade.symbol} ${formatCurrency(getTradeBasePnL(snapshot.worstTrade), baseCurrency)}`);
+    lines.push(`Worst Trade: ${snapshot.worstTrade.symbol} ${formatBaseCurrencyAmount(getTradeBasePnL(snapshot.worstTrade), baseCurrency)}`);
   }
 
   return lines.join('\n');

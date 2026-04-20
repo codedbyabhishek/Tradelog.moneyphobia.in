@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,9 +9,13 @@ import SiteFooter from '@/components/site-footer';
 import { AuthSceneIllustration } from '@/components/brand-illustrations';
 import GoogleSignInButton from '@/components/google-signin-button';
 
-export default function AuthScreen() {
+type AuthMode = 'login' | 'signup' | 'forgot-password';
+
+export default function AuthScreen({ initialMode = 'login' }: { initialMode?: AuthMode }) {
   const { login, signup, loginWithGoogle, error, clearError } = useAuth();
-  const [mode, setMode] = useState<'login' | 'signup' | 'forgot-password'>('login');
+  const router = useRouter();
+  const pathname = usePathname();
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [loading, setLoading] = useState(false);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 
@@ -19,10 +24,18 @@ export default function AuthScreen() {
   const [password, setPassword] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
 
-  const switchMode = (nextMode: 'login' | 'signup' | 'forgot-password') => {
+  const switchMode = (nextMode: AuthMode) => {
     clearError();
     setNotice(null);
     setMode(nextMode);
+
+    if (pathname === '/login' || pathname === '/signup') {
+      if (nextMode === 'signup' && pathname !== '/signup') {
+        router.replace('/signup');
+      } else if (nextMode !== 'signup' && pathname !== '/login') {
+        router.replace('/login');
+      }
+    }
   };
 
   const onSubmit = async (e: FormEvent) => {

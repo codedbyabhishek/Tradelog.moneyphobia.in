@@ -85,28 +85,28 @@ export default function PublicSiteHeader() {
         <div className="flex items-center gap-2">
           <Button asChild variant="ghost" className="hidden sm:inline-flex">
             <Link
-              href="/pricing"
+              href="/login"
               onClick={() =>
                 trackEvent('select_content', {
                   content_type: 'cta',
-                  content_id: 'header_go_pro',
+                  content_id: 'header_login',
                 })
               }
             >
-              Go Pro
+              Login
             </Link>
           </Button>
           <Button asChild>
             <Link
-              href="/app"
+              href="/signup"
               onClick={() =>
                 trackEvent('select_content', {
                   content_type: 'cta',
-                  content_id: 'header_open_app',
+                  content_id: 'header_signup',
                 })
               }
             >
-              Open App
+              Sign Up
             </Link>
           </Button>
           <Sheet>
@@ -151,28 +151,28 @@ export default function PublicSiteHeader() {
               <div className="mt-6 grid gap-3">
                 <Button asChild variant="outline">
                   <Link
-                    href="/pricing"
+                    href="/login"
                     onClick={() =>
                       trackEvent('select_content', {
                         content_type: 'cta',
-                        content_id: 'mobile_header_go_pro',
+                        content_id: 'mobile_header_login',
                       })
                     }
                   >
-                    Go Pro
+                    Login
                   </Link>
                 </Button>
                 <Button asChild>
                   <Link
-                    href="/app"
+                    href="/signup"
                     onClick={() =>
                       trackEvent('select_content', {
                         content_type: 'cta',
-                        content_id: 'mobile_header_open_app',
+                        content_id: 'mobile_header_signup',
                       })
                     }
                   >
-                    Open App
+                    Sign Up
                   </Link>
                 </Button>
               </div>

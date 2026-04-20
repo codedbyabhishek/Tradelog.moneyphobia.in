@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useTrades } from '@/lib/trade-context';
 import { useSettings } from '@/lib/settings-context';
-import { getTradeBasePnL, CURRENCY_SYMBOLS } from '@/lib/trade-utils';
+import { getTradeBasePnL, formatBaseCurrencyAmount } from '@/lib/trade-utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -80,7 +80,7 @@ export default function EmotionAnalyzer() {
   const [emotionMetric, setEmotionMetric] = useState<EmotionMetric>('entry');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
 
-  const symbol = CURRENCY_SYMBOLS[baseCurrency];
+  const formatBaseAmount = (value: number, decimals: number = 0) => formatBaseCurrencyAmount(value, baseCurrency, decimals);
   const proPlan = isProPlan(billingState);
 
   const filteredTrades = useMemo(() => {
@@ -242,7 +242,7 @@ export default function EmotionAnalyzer() {
     if (best.avgPnL > 0 || best.winRate >= 60) {
       patterns.push({
         pattern: `${best.emotion} State Excellence`,
-        description: `${best.emotion} has your strongest emotional profile with ${best.winRate.toFixed(1)}% win rate and ${symbol}${best.avgPnL.toFixed(0)} average P&L.`,
+        description: `${best.emotion} has your strongest emotional profile with ${best.winRate.toFixed(1)}% win rate and ${formatBaseCurrencyAmount(best.avgPnL, baseCurrency, 0)} average P&L.`,
         tradeCount: best.totalTrades,
         impact: 'positive',
         recommendation: `Recreate the routines, preparation, and market conditions that tend to put you into ${best.emotion}.`,
@@ -252,7 +252,7 @@ export default function EmotionAnalyzer() {
     if (worst.avgPnL < 0 || worst.winRate <= 40) {
       patterns.push({
         pattern: `${worst.emotion} State Avoidance`,
-        description: `${worst.emotion} is dragging results with ${worst.winRate.toFixed(1)}% win rate and ${symbol}${worst.avgPnL.toFixed(0)} average P&L.`,
+        description: `${worst.emotion} is dragging results with ${worst.winRate.toFixed(1)}% win rate and ${formatBaseCurrencyAmount(worst.avgPnL, baseCurrency, 0)} average P&L.`,
         tradeCount: worst.totalTrades,
         impact: 'negative',
         recommendation: `Use a cooldown, smaller size, or a no-trade rule when you notice ${worst.emotion}.`,
@@ -304,7 +304,7 @@ export default function EmotionAnalyzer() {
     }
 
     return patterns.slice(0, 4);
-  }, [emotionCorrelations, emotionPerformance, symbol]);
+  }, [baseCurrency, emotionCorrelations, emotionPerformance]);
 
   const emotionMetricData = useMemo(
     () =>
@@ -459,7 +459,7 @@ export default function EmotionAnalyzer() {
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {summary.worstEmotion
-                    ? `${symbol}${summary.worstEmotion.avgPnL.toFixed(0)} average P&L`
+                    ? `${formatBaseAmount(summary.worstEmotion.avgPnL)} average P&L`
                     : 'More samples needed for a reliable signal'}
                 </p>
               </CardContent>
@@ -578,18 +578,18 @@ export default function EmotionAnalyzer() {
                 <div className="rounded-xl bg-muted/40 p-3">
                   <p className="text-xs text-muted-foreground">Total P&L</p>
                   <p className={performance.totalPnL >= 0 ? 'mt-1 font-semibold text-emerald-600' : 'mt-1 font-semibold text-rose-600'}>
-                    {symbol}{performance.totalPnL.toFixed(0)}
+                    {formatBaseAmount(performance.totalPnL)}
                   </p>
                 </div>
                 <div className="rounded-xl bg-muted/40 p-3">
                   <p className="text-xs text-muted-foreground">Avg Per Trade</p>
                   <p className={performance.avgPnL >= 0 ? 'mt-1 font-semibold text-emerald-600' : 'mt-1 font-semibold text-rose-600'}>
-                    {symbol}{performance.avgPnL.toFixed(0)}
+                    {formatBaseAmount(performance.avgPnL)}
                   </p>
                 </div>
                 <div className="rounded-xl bg-muted/40 p-3">
                   <p className="text-xs text-muted-foreground">Consistency</p>
-                  <p className="mt-1 font-semibold">{symbol}{performance.consistency.toFixed(0)}</p>
+                  <p className="mt-1 font-semibold">{formatBaseAmount(performance.consistency)}</p>
                 </div>
                 <div className="rounded-xl bg-muted/40 p-3">
                   <p className="text-xs text-muted-foreground">Avg Hold Time</p>
@@ -658,7 +658,7 @@ export default function EmotionAnalyzer() {
                         <div className="rounded-lg border border-border bg-background p-3 text-sm shadow-lg">
                           <p className="font-semibold">{data.fullName}</p>
                           <p className={data.avgPnL >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
-                            Avg P&amp;L: {symbol}{data.avgPnL}
+                            Avg P&amp;L: {formatBaseAmount(Number(data.avgPnL))}
                           </p>
                         </div>
                       );
@@ -707,7 +707,7 @@ export default function EmotionAnalyzer() {
                   <div className="rounded-xl bg-muted/40 p-3">
                     <p className="text-xs text-muted-foreground">Avg P&amp;L</p>
                     <p className={correlation.avgPnL >= 0 ? 'mt-1 text-lg font-semibold text-emerald-600' : 'mt-1 text-lg font-semibold text-rose-600'}>
-                      {symbol}{correlation.avgPnL.toFixed(0)}
+                      {formatBaseAmount(correlation.avgPnL)}
                     </p>
                   </div>
                   <div className="rounded-xl bg-muted/40 p-3">
@@ -776,7 +776,7 @@ export default function EmotionAnalyzer() {
               <div className="rounded-xl bg-muted/40 p-3 text-sm">
                 <p className="text-xs text-muted-foreground">Emotion-aware P&amp;L</p>
                 <p className={summary.totalPnL >= 0 ? 'mt-1 font-semibold text-emerald-600' : 'mt-1 font-semibold text-rose-600'}>
-                  {symbol}{summary.totalPnL.toFixed(0)}
+                  {formatBaseAmount(summary.totalPnL)}
                 </p>
               </div>
             </div>

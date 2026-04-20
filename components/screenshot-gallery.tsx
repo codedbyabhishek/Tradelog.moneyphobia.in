@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { Image as ImageIcon, LayoutGrid, Search } from 'lucide-react';
 import { useTrades } from '@/lib/trade-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScreenshotViewer } from '@/components/screenshot-viewer';
 import { cn } from '@/lib/utils';
+import { buildAppPath } from '@/lib/app-routes';
 
 type ScreenshotFilter = 'All' | 'Before Trade' | 'After Exit';
 type GalleryLayout = 'grid' | 'masonry' | 'compact';
@@ -39,6 +41,7 @@ function getInitialLayout(): GalleryLayout {
 }
 
 export default function ScreenshotGallery() {
+  const router = useRouter();
   const { trades } = useTrades();
   const [filter, setFilter] = useState<ScreenshotFilter>('All');
   const [layout, setLayout] = useState<GalleryLayout>(getInitialLayout);
@@ -117,8 +120,7 @@ export default function ScreenshotGallery() {
   const openTradeInLog = (tradeId: string) => {
     if (typeof window === 'undefined') return;
     window.sessionStorage.setItem('td-open-trade-id', tradeId);
-    window.history.pushState(null, '', '#log');
-    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    router.push(buildAppPath('log'));
   };
 
   const renderScreenshotCard = (item: ScreenshotEntry) => (

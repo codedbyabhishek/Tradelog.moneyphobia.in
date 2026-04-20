@@ -53,11 +53,11 @@ export default function PricingCards({ compact = false }: PricingCardsProps) {
               ) : (
                 <Button asChild className="w-full" variant="outline">
                   <Link
-                    href="/app"
+                    href="/signup"
                     onClick={() =>
                       trackEvent('select_content', {
                         content_type: 'pricing_cta',
-                        content_id: `plan_${plan.id}_open_app`,
+                        content_id: `plan_${plan.id}_signup`,
                       })
                     }
                   >

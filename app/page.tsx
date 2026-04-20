@@ -185,13 +185,13 @@ export default function HomePage() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg">
                 <TrackedLink
-                  href="/app"
+                  href="/signup"
                   eventParams={{
                     content_type: 'cta',
-                    content_id: 'hero_open_app',
+                    content_id: 'hero_signup',
                   }}
                 >
-                  Open Journal App
+                  Create Free Account
                 </TrackedLink>
               </Button>
               <Button asChild variant="outline" size="lg">
@@ -305,10 +305,10 @@ export default function HomePage() {
             </Button>
             <Button asChild variant="outline">
               <TrackedLink
-                href="/app"
+                href="/signup"
                 eventParams={{
                   content_type: 'cta',
-                  content_id: 'free_vs_pro_try_free',
+                  content_id: 'free_vs_pro_signup',
                 }}
               >
                 Try Free Version
@@ -348,13 +348,13 @@ export default function HomePage() {
               </p>
               <Button asChild className="mt-4 w-full">
                 <TrackedLink
-                  href="/app"
+                  href="/login"
                   eventParams={{
                     content_type: 'cta',
-                    content_id: 'best_fit_go_to_app',
+                    content_id: 'best_fit_go_to_login',
                   }}
                 >
-                  Go to App
+                  Login to App
                 </TrackedLink>
               </Button>
             </div>

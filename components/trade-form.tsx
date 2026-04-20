@@ -7,6 +7,7 @@ import { convertFormToTrade } from '@/lib/trade-utils';
 import { validateTradeForm, sanitizeString, validateImageFile } from '@/lib/validation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ChevronDown, Upload, X } from 'lucide-react';
 import { TradeFormData, Currency, MISTAKE_TAG_OPTIONS } from '@/lib/types';
 import { calculatePnL, calculateRFactor, CURRENCY_SYMBOLS, getTradeOutcome } from '@/lib/trade-utils';
@@ -119,6 +120,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [isCustomSetup, setIsCustomSetup] = useState(false);
   const [showChecklistValues, setShowChecklistValues] = useState(false);
+  const [useFibonacciLevels, setUseFibonacciLevels] = useState(false);
   const [isCustomLimit, setIsCustomLimit] = useState(
     Boolean(formData.limit && !FIB_LEVEL_OPTIONS.includes(formData.limit as (typeof FIB_LEVEL_OPTIONS)[number]))
   );
@@ -259,7 +261,9 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
    * Validate form data before submission using centralized validation
    */
   const validateForm = (): boolean => {
-    const validationErrors = validateTradeForm(formData);
+    const validationErrors = validateTradeForm(formData, {
+      requireFibonacciLevels: useFibonacciLevels,
+    });
     setErrors(validationErrors);
     return Object.keys(validationErrors).length === 0;
   };
@@ -325,6 +329,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
       setIsCustomSetup(false);
       setIsCustomLimit(false);
       setIsCustomExit(false);
+      setUseFibonacciLevels(false);
 
       // Trigger callback and auto-clear success message
       if (onSuccess) onSuccess();
@@ -663,6 +668,39 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
             </div>
 
             {/* Stop Loss and Limit (Fibonacci) */}
+            <div className="rounded-lg border border-border bg-background/60 p-4">
+              <label
+                htmlFor="use-fibonacci-levels"
+                className="flex cursor-pointer items-start gap-3 rounded-md border border-dashed border-primary/30 bg-primary/5 p-3 transition-colors hover:border-primary/50 hover:bg-primary/10"
+              >
+                <Checkbox
+                  id="use-fibonacci-levels"
+                  checked={useFibonacciLevels}
+                  className="mt-0.5 size-5 border-2 border-primary bg-background shadow-none"
+                  onCheckedChange={(checked) => {
+                    const enabled = checked === true;
+                    setUseFibonacciLevels(enabled);
+                    if (!enabled) {
+                      setErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.limit;
+                        delete next.exit;
+                        return next;
+                      });
+                    }
+                  }}
+                />
+                <div className="space-y-1">
+                  <div className="block text-sm font-medium text-foreground">
+                    Fibonacci Level checklist
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Turn this on only if this trade uses Fibonacci levels. Then limit and exit Fibonacci fields become mandatory.
+                  </p>
+                </div>
+              </label>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Stop Loss*</label>
@@ -678,12 +716,15 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                 {errors.stopLoss && <p className="text-xs text-red-500 mt-1">{errors.stopLoss}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Limit (Fibonacci Level)*</label>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Limit (Fibonacci Level){useFibonacciLevels ? '*' : ''}
+                </label>
                 <div className="space-y-2">
                   <select
                     name="limit"
                     value={isCustomLimit ? CUSTOM_FIB_VALUE : formData.limit}
                     onChange={handleFibPresetChange('limit')}
+                    disabled={!useFibonacciLevels}
                     className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.limit ? 'border-red-500' : 'border-border'}`}
                   >
                     <option value="">Select Fibonacci Level</option>
@@ -701,6 +742,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                         name="limit"
                         value={formData.limit}
                         onChange={handleInputChange}
+                        disabled={!useFibonacciLevels}
                         placeholder="e.g., L1.618 or Custom TP"
                         className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.limit ? 'border-red-500' : 'border-border'}`}
                       />
@@ -716,12 +758,15 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
 
             {/* Exit (Fibonacci Level) */}
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Exit (Fibonacci Level)*</label>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Exit (Fibonacci Level){useFibonacciLevels ? '*' : ''}
+              </label>
               <div className="space-y-2">
                 <select
                   name="exit"
                   value={isCustomExit ? CUSTOM_FIB_VALUE : formData.exit}
                   onChange={handleFibPresetChange('exit')}
+                  disabled={!useFibonacciLevels}
                   className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.exit ? 'border-red-500' : 'border-border'}`}
                 >
                   <option value="">Select Fibonacci Exit Level</option>
@@ -739,6 +784,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                       name="exit"
                       value={formData.exit}
                       onChange={handleInputChange}
+                      disabled={!useFibonacciLevels}
                       placeholder="e.g., L2.236 or Manual exit zone"
                       className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.exit ? 'border-red-500' : 'border-border'}`}
                     />

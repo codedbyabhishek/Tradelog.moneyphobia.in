@@ -90,8 +90,12 @@ export function validateGitHubCredentials(
 /**
  * Validate trade form data comprehensively
  */
-export function validateTradeForm(formData: TradeFormData): Record<string, string> {
+export function validateTradeForm(
+  formData: TradeFormData,
+  options?: { requireFibonacciLevels?: boolean }
+): Record<string, string> {
   const errors: Record<string, string> = {};
+  const requireFibonacciLevels = options?.requireFibonacciLevels ?? true;
 
   // Symbol validation
   if (!formData.symbol) {
@@ -145,18 +149,20 @@ export function validateTradeForm(formData: TradeFormData): Record<string, strin
     errors.firstFiveMinuteCandleType = 'First 5-minute candle type is required';
   }
 
-  // Limit (Fibonacci) validation
-  if (!formData.limit) {
-    errors.limit = 'Limit is required';
-  } else if (sanitizeString(formData.limit).length === 0) {
-    errors.limit = 'Invalid Fibonacci level';
-  }
+  if (requireFibonacciLevels) {
+    // Limit (Fibonacci) validation
+    if (!formData.limit) {
+      errors.limit = 'Limit is required';
+    } else if (sanitizeString(formData.limit).length === 0) {
+      errors.limit = 'Invalid Fibonacci level';
+    }
 
-  // Exit (Fibonacci) validation
-  if (!formData.exit) {
-    errors.exit = 'Exit level is required';
-  } else if (sanitizeString(formData.exit).length === 0) {
-    errors.exit = 'Invalid Fibonacci level';
+    // Exit (Fibonacci) validation
+    if (!formData.exit) {
+      errors.exit = 'Exit level is required';
+    } else if (sanitizeString(formData.exit).length === 0) {
+      errors.exit = 'Invalid Fibonacci level';
+    }
   }
 
   // Stop loss validation

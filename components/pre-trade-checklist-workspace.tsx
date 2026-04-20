@@ -14,7 +14,7 @@ import {
   getSimilarTradeMatches,
   type PreTradeChecklistInput,
 } from '@/lib/pre-trade-matcher';
-import { CURRENCY_SYMBOLS } from '@/lib/trade-utils';
+import { formatBaseCurrencyAmount, getTradeBasePnL } from '@/lib/trade-utils';
 import { ScreenshotViewer } from '@/components/screenshot-viewer';
 import { Eye, Sparkles } from 'lucide-react';
 
@@ -25,7 +25,7 @@ interface PreTradeChecklistWorkspaceProps {
 export default function PreTradeChecklistWorkspace({ onStartTrade }: PreTradeChecklistWorkspaceProps) {
   const { trades } = useTrades();
   const { baseCurrency } = useSettings();
-  const baseCurrencySymbol = CURRENCY_SYMBOLS[baseCurrency] || '₹';
+  const formatBaseAmount = (value: number, decimals: number = 2) => formatBaseCurrencyAmount(value, baseCurrency, decimals);
 
   const [checklist, setChecklist] = useState<PreTradeChecklistInput>({
     marketTrend: '',
@@ -237,7 +237,7 @@ export default function PreTradeChecklistWorkspace({ onStartTrade }: PreTradeChe
                 {recommendation ? (
                   <>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {recommendation.trades} trades • {recommendation.winRate}% win rate • {baseCurrencySymbol}{recommendation.netPnl.toFixed(2)} net
+                      {recommendation.trades} trades • {recommendation.winRate}% win rate • {formatBaseAmount(recommendation.netPnl)} net
                     </p>
                     <Button
                       type="button"
@@ -291,16 +291,16 @@ export default function PreTradeChecklistWorkspace({ onStartTrade }: PreTradeChe
               <div className="rounded-xl border border-border bg-card/70 p-3">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Net P&amp;L</p>
                 <p className={`mt-2 text-xl font-bold ${similarTradeInsights.netPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {baseCurrencySymbol}{similarTradeInsights.netPnl.toFixed(2)}
+                  {formatBaseAmount(similarTradeInsights.netPnl)}
                 </p>
               </div>
               <div className="rounded-xl border border-border bg-card/70 p-3">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Avg Profit</p>
-                <p className="mt-2 text-xl font-bold text-green-400">{baseCurrencySymbol}{similarTradeInsights.averageProfit.toFixed(2)}</p>
+                <p className="mt-2 text-xl font-bold text-green-400">{formatBaseAmount(similarTradeInsights.averageProfit)}</p>
               </div>
               <div className="rounded-xl border border-border bg-card/70 p-3">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Avg Loss</p>
-                <p className="mt-2 text-xl font-bold text-red-400">{baseCurrencySymbol}{similarTradeInsights.averageLoss.toFixed(2)}</p>
+                <p className="mt-2 text-xl font-bold text-red-400">{formatBaseAmount(similarTradeInsights.averageLoss)}</p>
               </div>
               <div className="rounded-xl border border-border bg-card/70 p-3">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Profit Factor</p>
@@ -366,7 +366,7 @@ export default function PreTradeChecklistWorkspace({ onStartTrade }: PreTradeChe
                     </div>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
-                    <span>PnL: <span className={trade.pnlBase >= 0 ? 'text-green-400' : 'text-red-400'}>{baseCurrencySymbol}{trade.pnlBase.toFixed(2)}</span></span>
+                    <span>PnL: <span className={getTradeBasePnL(trade) >= 0 ? 'text-green-400' : 'text-red-400'}>{formatBaseAmount(getTradeBasePnL(trade))}</span></span>
                     <span>Trend: {trade.marketTrend || '—'}</span>
                     <span>Type: {trade.setupType || '—'}</span>
                     <span>TF: {trade.timeFrame || '—'}</span>
@@ -404,7 +404,7 @@ export default function PreTradeChecklistWorkspace({ onStartTrade }: PreTradeChe
                   <div className="rounded-lg border border-border bg-secondary/40 p-3">
                     <p className="text-xs text-muted-foreground">P&amp;L</p>
                     <p className={`mt-1 font-semibold ${selectedMatchedTrade.trade.pnlBase >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {baseCurrencySymbol}{selectedMatchedTrade.trade.pnlBase.toFixed(2)}
+                      {formatBaseAmount(getTradeBasePnL(selectedMatchedTrade.trade))}
                     </p>
                   </div>
                 </div>

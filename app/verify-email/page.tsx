@@ -69,7 +69,7 @@ export default function VerifyEmailPage() {
         <div className="space-y-4">
           <p>This verification link is invalid, missing, or has expired.</p>
           {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
-          <Link className="text-primary underline underline-offset-4" href="/app">
+          <Link className="text-primary underline underline-offset-4" href="/login">
             Back to login
           </Link>
         </div>

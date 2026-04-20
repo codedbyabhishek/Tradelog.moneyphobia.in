@@ -90,7 +90,7 @@ export default async function SharedCardPage({ params }: PageParams) {
           </p>
           <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button asChild>
-              <Link href="/app">Open Traderlogify</Link>
+              <Link href="/login">Open Traderlogify</Link>
             </Button>
             <Button asChild variant="outline">
               <Link href="/">Visit Homepage</Link>
@@ -145,7 +145,7 @@ export default async function SharedCardPage({ params }: PageParams) {
             </a>
           </Button>
           <Button asChild variant="outline">
-            <Link href="/app">Open Traderlogify</Link>
+            <Link href="/login">Open Traderlogify</Link>
           </Button>
         </div>
       </div>

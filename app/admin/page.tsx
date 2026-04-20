@@ -113,7 +113,7 @@ export default async function AdminPage() {
             </CardHeader>
             <CardContent>
               <Button asChild>
-                <Link href="/app">Open App Login</Link>
+                <Link href="/login">Open App Login</Link>
               </Button>
             </CardContent>
           </Card>
@@ -141,7 +141,7 @@ export default async function AdminPage() {
                 Example: <code>ADMIN_EMAILS=you@example.com,team@example.com</code>
               </p>
               <Button asChild variant="outline">
-                <Link href="/app">Back to App</Link>
+                <Link href="/app/dashboard">Back to App</Link>
               </Button>
             </CardContent>
           </Card>

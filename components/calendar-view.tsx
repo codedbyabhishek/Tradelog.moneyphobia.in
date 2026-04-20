@@ -4,7 +4,8 @@ import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Trade } from '@/lib/types';
-import { getTradeBasePnL, getTradeCharges, convertToBaseCurrency, CURRENCY_SYMBOLS, BASE_CURRENCY } from '@/lib/trade-utils';
+import { useSettings } from '@/lib/settings-context';
+import { getTradeBasePnL, getTradeCharges, convertToBaseCurrency, CURRENCY_SYMBOLS, convertBaseAmountToDisplayCurrency } from '@/lib/trade-utils';
 
 /** Format a local Date as YYYY-MM-DD without any UTC conversion */
 function toLocalDateStr(d: Date): string {
@@ -157,7 +158,8 @@ function getDaysInMonth(date: Date, trades: Trade[], todayStr: string): DayStats
 
 export default function CalendarView({ trades }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const baseCurrencySymbol = CURRENCY_SYMBOLS[BASE_CURRENCY];
+  const { baseCurrency } = useSettings();
+  const baseCurrencySymbol = CURRENCY_SYMBOLS[baseCurrency];
 
   const todayStr = useMemo(() => toLocalDateStr(new Date()), []);
   const daysInMonth = useMemo(() => getDaysInMonth(currentDate, trades, todayStr), [currentDate, todayStr, trades]);
@@ -262,7 +264,7 @@ export default function CalendarView({ trades }: CalendarViewProps) {
                 className={`text-sm sm:text-base font-semibold ${getPnlTextClasses(monthlyStats.monthPnL)}`}
               >
                 {baseCurrencySymbol}
-                {monthlyStats.monthPnL.toFixed(2)}
+                {convertBaseAmountToDisplayCurrency(monthlyStats.monthPnL, baseCurrency).toFixed(2)}
               </span>
             </div>
             <div className="hidden sm:flex flex-col items-end">
@@ -271,7 +273,7 @@ export default function CalendarView({ trades }: CalendarViewProps) {
                 className={`text-xs sm:text-sm font-medium ${getPnlTextClasses(monthlyStats.monthGrossPnL, 'soft')}`}
               >
                 {baseCurrencySymbol}
-                {monthlyStats.monthGrossPnL.toFixed(2)}
+                {convertBaseAmountToDisplayCurrency(monthlyStats.monthGrossPnL, baseCurrency).toFixed(2)}
               </span>
             </div>
             {monthlyStats.monthCharges > 0 && (
@@ -279,7 +281,7 @@ export default function CalendarView({ trades }: CalendarViewProps) {
                 <span className="text-foreground/70 dark:text-muted-foreground">Brokerage:</span>
                 <span className="text-xs sm:text-sm font-medium text-amber-700 dark:text-orange-400">
                   -{baseCurrencySymbol}
-                  {monthlyStats.monthCharges.toFixed(2)}
+                  {convertBaseAmountToDisplayCurrency(monthlyStats.monthCharges, baseCurrency).toFixed(2)}
                 </span>
               </div>
             )}
@@ -386,7 +388,7 @@ export default function CalendarView({ trades }: CalendarViewProps) {
                               >
                                 G: {day.grossPnl >= 0 ? '+' : ''}
                                 {baseCurrencySymbol}
-                                {day.grossPnl.toFixed(2)}
+                                {convertBaseAmountToDisplayCurrency(day.grossPnl, baseCurrency).toFixed(2)}
                               </p>
                             )}
                             <p
@@ -395,7 +397,7 @@ export default function CalendarView({ trades }: CalendarViewProps) {
                               {day.charges > 0 ? 'N: ' : ''}
                               {day.pnl >= 0 ? '+' : ''}
                               {baseCurrencySymbol}
-                              {day.pnl.toFixed(2)}
+                              {convertBaseAmountToDisplayCurrency(day.pnl, baseCurrency).toFixed(2)}
                             </p>
                             <p
                               className={`mt-0.5 text-[10px] sm:text-[11px] ${getTradeBoxLineClasses(day.pnl, 'meta')}`}
@@ -417,7 +419,7 @@ export default function CalendarView({ trades }: CalendarViewProps) {
                       className={`text-sm sm:text-base font-semibold ${getPnlTextClasses(weekPnL)}`}
                     >
                       {baseCurrencySymbol}
-                      {weekPnL.toFixed(2)}
+                      {convertBaseAmountToDisplayCurrency(weekPnL, baseCurrency).toFixed(2)}
                     </div>
                     <div className="text-[10px] sm:text-xs text-foreground/75">
                       {weekTradingDays} traded day{weekTradingDays === 1 ? '' : 's'}

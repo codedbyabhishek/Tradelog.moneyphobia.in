@@ -9,7 +9,7 @@ import { useSettings } from '@/lib/settings-context';
 import { useTheme } from '@/lib/theme-context';
 import { cn } from '@/lib/utils';
 import { CapitalAdjustment, Trade } from '@/lib/types';
-import { CURRENCY_SYMBOLS, formatCurrency, getTradeBasePnL, getTradeOutcome } from '@/lib/trade-utils';
+import { CURRENCY_SYMBOLS, formatBaseCurrencyAmount, formatCurrency, getTradeBasePnL, getTradeOutcome } from '@/lib/trade-utils';
 import {
   buildPerformanceShareSnapshot,
   buildPerformanceShareText,
@@ -717,7 +717,7 @@ export default function ShareCardDialog({
                             'mt-2 text-2xl font-semibold',
                             performanceSnapshot.totalPnl >= 0 ? themeTokens.positive : themeTokens.negative,
                           )}>
-                            {formatCurrency(performanceSnapshot.totalPnl, baseCurrency)}
+                            {formatBaseCurrencyAmount(performanceSnapshot.totalPnl, baseCurrency)}
                           </p>
                         </div>
                       ) : null}
@@ -751,11 +751,11 @@ export default function ShareCardDialog({
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div>
                             <p className={cn('text-xs uppercase tracking-[0.18em]', themeTokens.muted)}>Starting Balance</p>
-                            <p className="mt-2 text-xl font-semibold">{formatCurrency(performanceSnapshot.balanceStart, baseCurrency)}</p>
+                            <p className="mt-2 text-xl font-semibold">{formatBaseCurrencyAmount(performanceSnapshot.balanceStart, baseCurrency)}</p>
                           </div>
                           <div>
                             <p className={cn('text-xs uppercase tracking-[0.18em]', themeTokens.muted)}>Ending Balance</p>
-                            <p className="mt-2 text-xl font-semibold">{formatCurrency(performanceSnapshot.balanceEnd, baseCurrency)}</p>
+                            <p className="mt-2 text-xl font-semibold">{formatBaseCurrencyAmount(performanceSnapshot.balanceEnd, baseCurrency)}</p>
                           </div>
                         </div>
                       </div>
@@ -791,7 +791,7 @@ export default function ShareCardDialog({
                                   border: `1px solid ${themeTokens.grid}`,
                                   color: themeTokens.line,
                                 }}
-                                formatter={(value) => formatCurrency(Number(value ?? 0), baseCurrency)}
+                                formatter={(value) => formatBaseCurrencyAmount(Number(value ?? 0), baseCurrency)}
                               />
                               <Area
                                 type="monotone"
@@ -814,7 +814,7 @@ export default function ShareCardDialog({
                             <>
                               <p className="mt-2 text-lg font-semibold">{performanceSnapshot.bestTrade.symbol}</p>
                               <p className={cn('text-sm', themeTokens.positive)}>
-                                {formatCurrency(getTradeBasePnL(performanceSnapshot.bestTrade), baseCurrency)}
+                                {formatBaseCurrencyAmount(getTradeBasePnL(performanceSnapshot.bestTrade), baseCurrency)}
                               </p>
                             </>
                           ) : (
@@ -827,7 +827,7 @@ export default function ShareCardDialog({
                             <>
                               <p className="mt-2 text-lg font-semibold">{performanceSnapshot.worstTrade.symbol}</p>
                               <p className={cn('text-sm', themeTokens.negative)}>
-                                {formatCurrency(getTradeBasePnL(performanceSnapshot.worstTrade), baseCurrency)}
+                                {formatBaseCurrencyAmount(getTradeBasePnL(performanceSnapshot.worstTrade), baseCurrency)}
                               </p>
                             </>
                           ) : (

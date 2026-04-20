@@ -84,6 +84,23 @@ export function convertToBaseCurrency(pnl: number, currency: Currency, exchangeR
 }
 
 /**
+ * Convert a canonical INR-normalized amount into the user's selected display currency.
+ * Stored `pnlBase` values are currently normalized to INR across the app.
+ */
+export function convertBaseAmountToDisplayCurrency(amount: number, displayCurrency: Currency): number {
+  if (displayCurrency === 'INR') {
+    return amount;
+  }
+
+  const rate = getExchangeRateToBase(displayCurrency);
+  if (!rate) {
+    return amount;
+  }
+
+  return amount / rate;
+}
+
+/**
  * Calculate Profit/Loss for a trade.
  *
  * Overloads:
@@ -536,6 +553,13 @@ export function formatCurrency(value: number, currency: Currency, decimals: numb
   
   // For currencies with symbols before the number
   return `${symbol}${formatted}`;
+}
+
+/**
+ * Format an INR-normalized analytics value in the user's selected display currency.
+ */
+export function formatBaseCurrencyAmount(value: number, displayCurrency: Currency, decimals: number = 2): string {
+  return formatCurrency(convertBaseAmountToDisplayCurrency(value, displayCurrency), displayCurrency, decimals);
 }
 
 /**

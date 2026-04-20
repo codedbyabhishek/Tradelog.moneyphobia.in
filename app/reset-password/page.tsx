@@ -84,7 +84,7 @@ export default function ResetPasswordPage() {
       {!checking && !valid ? (
         <div className="space-y-4">
           <p>This reset link is invalid, missing, or has expired.</p>
-          <Link className="text-primary underline underline-offset-4" href="/app">
+          <Link className="text-primary underline underline-offset-4" href="/login">
             Back to login
           </Link>
         </div>

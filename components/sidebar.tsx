@@ -1,16 +1,17 @@
 'use client';
 
+import Link from 'next/link';
 import { BarChart3, PlusCircle, Table, LineChart, Settings, Calendar, TrendingUp, Lightbulb, Target, Search, Zap, FileText, Brain, Sparkles, Images, Youtube } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useAuth } from '@/lib/auth-context';
+import { buildAppPath, type Page } from '@/lib/app-routes';
 
 interface SidebarProps {
-  currentPage: string;
-  onPageChange: (page: 'dashboard' | 'pre-trade' | 'add-trade' | 'gallery' | 'learning-videos' | 'log' | 'analytics' | 'profit-loss' | 'weekly-review' | 'data-utilities' | 'ideas' | 'add-idea' | 'advanced-analytics' | 'goals' | 'search' | 'reports' | 'emotion-analyzer') => void;
+  currentPage: Page;
 }
 
-export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
+export default function Sidebar({ currentPage }: SidebarProps) {
   const { user, logout } = useAuth();
 
   const menuItems = [
@@ -45,9 +46,9 @@ export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
           const Icon = item.icon;
           const isActive = currentPage === item.id;
           return (
-            <button
+            <Link
               key={item.id}
-              onClick={() => onPageChange(item.id as any)}
+              href={buildAppPath(item.id as Page)}
               className={cn(
                 'w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors',
                 isActive
@@ -57,7 +58,7 @@ export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
             >
               <Icon className="w-5 h-5 flex-shrink-0" />
               <span className="font-medium">{item.label}</span>
-            </button>
+            </Link>
           );
         })}
       </nav>

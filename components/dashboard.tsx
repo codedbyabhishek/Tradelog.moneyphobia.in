@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useTrades } from '@/lib/trade-context';
 import { useSettings } from '@/lib/settings-context';
-import { getAccountStats, getTradeCharges, convertToBaseCurrency, CURRENCY_SYMBOLS, getNetCapitalAdjustments } from '@/lib/trade-utils';
+import { getAccountStats, getTradeCharges, convertToBaseCurrency, formatBaseCurrencyAmount, getNetCapitalAdjustments } from '@/lib/trade-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { TrendingUp, TrendingDown, DollarSign, Target, AlertCircle, Zap, Clock3, CalendarDays, ChevronDown } from 'lucide-react';
@@ -20,11 +20,14 @@ interface StatCardProps {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   value: React.ReactNode;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   isPositive?: boolean;
 }
 
 function StatCard({ icon: Icon, title, value, subtitle, isPositive }: StatCardProps) {
+  const valueColorClass =
+    isPositive === undefined ? 'text-foreground' : isPositive ? 'text-green-400' : 'text-red-400';
+
   return (
     <Card className="h-full min-h-[144px] rounded-3xl border-border/70 bg-card/95 shadow-lg shadow-black/5">
       <CardHeader className="p-3 pb-1.5 sm:p-4 sm:pb-2">
@@ -48,8 +51,8 @@ function StatCard({ icon: Icon, title, value, subtitle, isPositive }: StatCardPr
         </div>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col justify-between p-3 pt-0 sm:p-4 sm:pt-0">
-        <div className="text-xl font-bold leading-tight text-foreground sm:text-2xl">{value}</div>
-        {subtitle && <p className="mt-2 text-[11px] leading-snug text-muted-foreground sm:text-xs">{subtitle}</p>}
+        <div className={`text-xl font-bold leading-tight sm:text-2xl ${valueColorClass}`}>{value}</div>
+        {subtitle && <div className="mt-2 text-[11px] leading-snug text-muted-foreground sm:text-xs">{subtitle}</div>}
       </CardContent>
     </Card>
   );
@@ -60,10 +63,11 @@ export default function Dashboard() {
   const { baseCurrency, startingBalance, capitalAdjustments, billingState } = useSettings();
   const [brokerHubOpen, setBrokerHubOpen] = useState(false);
   const stats = getAccountStats(trades);
-  const baseCurrencySymbol = CURRENCY_SYMBOLS[baseCurrency];
   const netCapitalAdjustments = getNetCapitalAdjustments(capitalAdjustments);
   const investedCapital = startingBalance + netCapitalAdjustments;
   const currentBalance = investedCapital + stats.totalPnL;
+  const totalPnLPercentage = investedCapital > 0 ? (stats.totalPnL / investedCapital) * 100 : null;
+  const formatBaseAmount = (value: number, decimals: number = 2) => formatBaseCurrencyAmount(value, baseCurrency, decimals);
   
   // Total brokerage paid across all trades
   const totalBrokerage = trades.reduce((sum, t) => {
@@ -77,21 +81,28 @@ export default function Dashboard() {
     {
       icon: DollarSign,
       title: `Current Balance (${baseCurrency})`,
-      value: `${baseCurrencySymbol}${currentBalance.toFixed(2)}`,
-      subtitle: `Capital: ${baseCurrencySymbol}${investedCapital.toFixed(2)}`,
+      value: formatBaseAmount(currentBalance),
+      subtitle: `Capital: ${formatBaseAmount(investedCapital)}`,
       isPositive: currentBalance >= investedCapital,
     },
     {
       icon: TrendingUp,
       title: `Net P&L (${baseCurrency})`,
-      value: `${baseCurrencySymbol}${stats.totalPnL.toFixed(2)}`,
-      subtitle: `Avg R: ${stats.averageR.toFixed(2)}`,
+      value: formatBaseAmount(stats.totalPnL),
+      subtitle: (
+        <div className="space-y-1">
+          <p className={stats.totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}>
+            {totalPnLPercentage === null ? 'No capital base yet' : `${stats.totalPnL >= 0 ? '+' : ''}${totalPnLPercentage.toFixed(2)}%`}
+          </p>
+          <p>Avg R: {stats.averageR.toFixed(2)}</p>
+        </div>
+      ),
       isPositive: stats.totalPnL >= 0,
     },
     {
       icon: Target,
       title: `Max Drawdown (${baseCurrency})`,
-      value: `${baseCurrencySymbol}${stats.maxDrawdown.toFixed(2)}`,
+      value: formatBaseAmount(stats.maxDrawdown),
       subtitle: 'Peak to trough',
     },
   ];
@@ -107,7 +118,7 @@ export default function Dashboard() {
     secondaryCards.push({
       icon: DollarSign,
       title: `Brokerage Paid (${baseCurrency})`,
-      value: `${baseCurrencySymbol}${totalBrokerage.toFixed(2)}`,
+      value: formatBaseAmount(totalBrokerage),
       subtitle: 'Total charges deducted',
     });
   }
@@ -276,11 +287,10 @@ export default function Dashboard() {
                   <div className="w-2 h-2 rounded-full bg-cyan-400 mt-2 flex-shrink-0" />
                   <div className="min-w-0">
                     <p className="text-xs sm:text-sm font-medium text-foreground">
-                      Current Balance: {baseCurrencySymbol}
-                      {currentBalance.toFixed(2)} ({baseCurrency})
+                      Current Balance: {formatBaseAmount(currentBalance)} ({baseCurrency})
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Starting balance + deposits/withdrawals = {baseCurrencySymbol}{investedCapital.toFixed(2)}
+                      Starting balance + deposits/withdrawals = {formatBaseAmount(investedCapital)}
                     </p>
                   </div>
                 </div>
@@ -289,8 +299,7 @@ export default function Dashboard() {
                   <div className="w-2 h-2 rounded-full bg-yellow-400 mt-2 flex-shrink-0" />
                   <div className="min-w-0">
                     <p className="text-xs sm:text-sm font-medium text-foreground">
-                      Net P&L: {baseCurrencySymbol}
-                      {stats.totalPnL.toFixed(2)} ({baseCurrency})
+                      Net P&L: {formatBaseAmount(stats.totalPnL)} ({baseCurrency})
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Cumulative profit/loss after brokerage deductions
@@ -302,8 +311,7 @@ export default function Dashboard() {
                   <div className="w-2 h-2 rounded-full bg-orange-400 mt-2 flex-shrink-0" />
                   <div className="min-w-0">
                     <p className="text-xs sm:text-sm font-medium text-foreground">
-                      Max Drawdown: {baseCurrencySymbol}
-                      {stats.maxDrawdown.toFixed(2)} ({baseCurrency})
+                      Max Drawdown: {formatBaseAmount(stats.maxDrawdown)} ({baseCurrency})
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Your largest peak-to-trough decline

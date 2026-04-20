@@ -1,17 +1,18 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { BarChart3, PlusCircle, Table, LineChart, Settings, Calendar, TrendingUp, Lightbulb, Palette, Target, Search, FileText, Brain, Ellipsis, Sparkles, Images, Youtube } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { buildAppPath, type Page } from '@/lib/app-routes';
 
 interface MobileNavProps {
-  currentPage: string;
-  onPageChange: (page: 'dashboard' | 'pre-trade' | 'add-trade' | 'gallery' | 'learning-videos' | 'log' | 'analytics' | 'profit-loss' | 'weekly-review' | 'data-utilities' | 'ideas' | 'add-idea' | 'advanced-analytics' | 'goals' | 'search' | 'reports' | 'emotion-analyzer') => void;
+  currentPage: Page;
 }
 
-export default function MobileNav({ currentPage, onPageChange }: MobileNavProps) {
+export default function MobileNav({ currentPage }: MobileNavProps) {
   const primaryItems = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'add-trade', label: 'Add', icon: PlusCircle },
@@ -43,9 +44,9 @@ export default function MobileNav({ currentPage, onPageChange }: MobileNavProps)
         const Icon = item.icon;
         const isActive = currentPage === item.id;
         return (
-          <button
+          <Link
             key={item.id}
-            onClick={() => onPageChange(item.id as any)}
+            href={buildAppPath(item.id as Page)}
             className={cn(
               'flex-1 flex flex-col items-center justify-center gap-1 py-3 px-1 sm:px-2 min-w-fit transition-colors touch-none select-none',
               isActive
@@ -56,7 +57,7 @@ export default function MobileNav({ currentPage, onPageChange }: MobileNavProps)
           >
             <Icon className="w-5 h-5 flex-shrink-0" />
             <span className="text-xs font-medium text-center truncate max-w-[3.5rem]">{item.label}</span>
-          </button>
+          </Link>
         );
       })}
 
@@ -89,13 +90,10 @@ export default function MobileNav({ currentPage, onPageChange }: MobileNavProps)
               const Icon = item.icon;
               const isActive = currentPage === item.id;
               return (
-                <button
+                <Link
                   key={item.id}
-                  type="button"
-                  onClick={() => {
-                    onPageChange(item.id as any);
-                    setMoreOpen(false);
-                  }}
+                  href={buildAppPath(item.id as Page)}
+                  onClick={() => setMoreOpen(false)}
                   className={cn(
                     'flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors',
                     isActive
@@ -105,7 +103,7 @@ export default function MobileNav({ currentPage, onPageChange }: MobileNavProps)
                 >
                   <Icon className="h-4 w-4 flex-shrink-0" />
                   <span className="text-sm font-medium">{item.label}</span>
-                </button>
+                </Link>
               );
             })}
           </div>

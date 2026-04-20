@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useTrades } from '@/lib/trade-context';
 import { useSettings } from '@/lib/settings-context';
-import { CURRENCY_SYMBOLS } from '@/lib/trade-utils';
+import { formatBaseCurrencyAmount, getTradeBasePnL } from '@/lib/trade-utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trade } from '@/lib/types';
 
@@ -59,7 +59,7 @@ function getPeriodStats(trades: Trade[], periodType: ReviewPeriod): PeriodStats[
   Object.values(groupedTrades).forEach((periodTrades) => {
     const wins = periodTrades.filter((t) => t.pnl > 0).length;
     const losses = periodTrades.filter((t) => t.pnl < 0).length;
-    const totalPnL = periodTrades.reduce((sum, t) => sum + t.pnl, 0);
+    const totalPnL = periodTrades.reduce((sum, t) => sum + getTradeBasePnL(t), 0);
     const avgR = periodTrades.length > 0
       ? periodTrades.reduce((sum, t) => sum + t.rFactor, 0) / periodTrades.length
       : 0;
@@ -72,7 +72,7 @@ function getPeriodStats(trades: Trade[], periodType: ReviewPeriod): PeriodStats[
       const newCount = existing.count + 1;
       setupStats.set(trade.setupName, {
         count: newCount,
-        pnl: existing.pnl + trade.pnl,
+        pnl: existing.pnl + getTradeBasePnL(trade),
         wins: newWins,
         winRate: Math.round((newWins / newCount) * 100),
       });
@@ -126,9 +126,9 @@ function getPeriodStats(trades: Trade[], periodType: ReviewPeriod): PeriodStats[
 export default function WeeklyReview() {
   const { trades } = useTrades();
   const { baseCurrency } = useSettings();
-  const baseCurrencySymbol = CURRENCY_SYMBOLS[baseCurrency];
   const [period, setPeriod] = useState<ReviewPeriod>('weekly');
   const periodStats = useMemo(() => getPeriodStats(trades, period), [trades, period]);
+  const formatBaseAmount = (value: number, decimals: number = 2) => formatBaseCurrencyAmount(value, baseCurrency, decimals);
 
   if (trades.length === 0) {
     return (
@@ -193,7 +193,7 @@ export default function WeeklyReview() {
                     ? 'bg-green-500/20 text-green-400' 
                     : 'bg-red-500/20 text-red-400'
                 }`}>
-                  {baseCurrencySymbol}{stats.totalPnL.toFixed(2)}
+                  {formatBaseAmount(stats.totalPnL)}
                 </div>
               </div>
             </CardHeader>
@@ -232,7 +232,7 @@ export default function WeeklyReview() {
                       <p className={`text-lg font-bold mt-1 ${
                         stats.bestSetup.pnl >= 0 ? 'text-green-400' : 'text-red-400'
                       }`}>
-                        {baseCurrencySymbol}{stats.bestSetup.pnl.toFixed(2)}
+                        {formatBaseAmount(stats.bestSetup.pnl)}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {stats.bestSetup.winRate}% WR
@@ -273,7 +273,7 @@ export default function WeeklyReview() {
                             </p>
                           </div>
                           <p className={`font-bold ${data.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            {data.pnl >= 0 ? '+' : ''}{baseCurrencySymbol}{data.pnl.toFixed(2)}
+                            {data.pnl >= 0 ? '+' : ''}{formatBaseAmount(Math.abs(data.pnl))}
                           </p>
                         </div>
                       ))}

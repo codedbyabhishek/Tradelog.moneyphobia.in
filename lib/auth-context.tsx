@@ -1,7 +1,15 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { clearAuthUser, clearBootstrap, readAuthUser, storeAuthUser, storeBootstrap } from '@/lib/client-bootstrap';
+import {
+  clearAuthUser,
+  clearBootstrap,
+  consumeRecentAuth,
+  markRecentAuth,
+  readAuthUser,
+  storeAuthUser,
+  storeBootstrap,
+} from '@/lib/client-bootstrap';
 import type { AppBootstrapData } from '@/lib/bootstrap';
 import { trackEvent } from '@/lib/analytics';
 
@@ -68,8 +76,12 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs =
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(() => readAuthUser());
-  const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => readAuthUser());
+  const [hasRecentAuth] = useState(() => {
+    const cachedUser = readAuthUser();
+    return Boolean(cachedUser && consumeRecentAuth());
+  });
+  const [isLoading, setIsLoading] = useState(() => !hasRecentAuth);
   const [error, setError] = useState<string | null>(null);
 
   const refreshSession = async () => {
@@ -82,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!res.ok) {
         if (res.status === 401) {
-          setUser(null);
+          setCurrentUser(null);
           clearAuthUser();
           clearBootstrap();
         } else {
@@ -92,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const data = await res.json();
-      setUser(data.user || null);
+      setCurrentUser(data.user || null);
       storeAuthUser(data.user || null);
       storeBootstrap(data.user ? data.bootstrap || null : null);
       setError(null);
@@ -129,9 +141,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const data = (await res.json()) as AuthPayload;
-      setUser(data.user || null);
+      setCurrentUser(data.user || null);
       storeAuthUser(data.user || null);
       storeBootstrap(data.user ? data.bootstrap || null : null);
+      markRecentAuth();
       setError(null);
       trackEvent('login', {
         method: 'email',
@@ -159,9 +172,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const data = (await res.json()) as AuthPayload;
-      setUser(data.user || null);
+      setCurrentUser(data.user || null);
       storeAuthUser(data.user || null);
       storeBootstrap(data.user ? data.bootstrap || null : null);
+      markRecentAuth();
       setError(null);
       trackEvent('sign_up', {
         method: 'email',
@@ -189,9 +203,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const data = (await res.json()) as AuthPayload;
-      setUser(data.user || null);
+      setCurrentUser(data.user || null);
       storeAuthUser(data.user || null);
       storeBootstrap(data.user ? data.bootstrap || null : null);
+      markRecentAuth();
       setError(null);
       trackEvent('login', {
         method: 'google',
@@ -215,7 +230,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(message);
     }
 
-    setUser(null);
+    setCurrentUser(null);
     clearAuthUser();
     clearBootstrap();
     setError(null);
@@ -224,8 +239,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clearError = () => setError(null);
 
   const value = useMemo(
-    () => ({ user, isLoading, error, login, signup, loginWithGoogle, logout, refreshSession, clearError }),
-    [user, isLoading, error]
+    () => ({ user: currentUser, isLoading, error, login, signup, loginWithGoogle, logout, refreshSession, clearError }),
+    [currentUser, isLoading, error]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

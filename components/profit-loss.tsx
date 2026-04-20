@@ -3,7 +3,7 @@
 import { useContext, useState } from 'react';
 import { TradeContext } from '@/lib/trade-context';
 import { useSettings } from '@/lib/settings-context';
-import { getTradeBasePnL, getTradeCharges, getTradeGrossPnL, CURRENCY_SYMBOLS, formatCurrency, convertToBaseCurrency, getCapitalAdjustmentAmount, getNetCapitalAdjustments } from '@/lib/trade-utils';
+import { getTradeBasePnL, getTradeCharges, getTradeGrossPnL, formatBaseCurrencyAmount, convertToBaseCurrency, getCapitalAdjustmentAmount, getNetCapitalAdjustments } from '@/lib/trade-utils';
 import { Button } from '@/components/ui/button';
 import { Share2 } from 'lucide-react';
 import ShareCardDialog from '@/components/share-card-dialog';
@@ -18,9 +18,9 @@ export default function ProfitLoss() {
   const netCapitalAdjustments = getNetCapitalAdjustments(capitalAdjustments);
   const investedCapital = startingBalance + netCapitalAdjustments;
   const currentBalance = investedCapital + totalPnL;
+  const totalPnLPercentage = investedCapital > 0 ? (totalPnL / investedCapital) * 100 : null;
 
-  // Base currency symbol for display
-  const baseCurrencySymbol = CURRENCY_SYMBOLS[baseCurrency];
+  const formatBaseAmount = (value: number, decimals: number = 0) => formatBaseCurrencyAmount(value, baseCurrency, decimals);
 
   // Sort trades by date
   const sortedTrades = [...trades].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -214,24 +214,27 @@ export default function ProfitLoss() {
           <div className="bg-card p-4 sm:p-6 rounded-lg border border-border">
             <p className="text-xs sm:text-sm text-muted-foreground mb-2">Current Balance ({baseCurrency})</p>
             <p className={`text-2xl sm:text-3xl font-bold break-words ${currentBalance >= investedCapital ? 'text-green-400' : 'text-red-400'}`}>
-              {baseCurrencySymbol}{currentBalance.toFixed(0)}
+              {formatBaseAmount(currentBalance)}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">Capital Base: {baseCurrencySymbol}{investedCapital.toFixed(0)}</p>
+            <p className="text-xs text-muted-foreground mt-1">Capital Base: {formatBaseAmount(investedCapital)}</p>
           </div>
           <div className="bg-card p-4 sm:p-6 rounded-lg border border-border">
             <p className="text-xs sm:text-sm text-muted-foreground mb-2">Net P&L ({baseCurrency})</p>
             <p className={`text-2xl sm:text-3xl font-bold break-words ${totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {baseCurrencySymbol}{totalPnL.toFixed(0)}
+              {formatBaseAmount(totalPnL)}
+            </p>
+            <p className={`mt-1 text-xs sm:text-sm font-medium ${totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {totalPnLPercentage === null ? 'No capital base yet' : `${totalPnL >= 0 ? '+' : ''}${totalPnLPercentage.toFixed(2)}%`}
             </p>
             {totalCharges > 0 && (
               <div className="mt-2 pt-2 border-t border-border">
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Gross</span>
-                  <span className={totalGrossPnL >= 0 ? 'text-green-400' : 'text-red-400'}>{baseCurrencySymbol}{totalGrossPnL.toFixed(0)}</span>
+                  <span className={totalGrossPnL >= 0 ? 'text-green-400' : 'text-red-400'}>{formatBaseAmount(totalGrossPnL)}</span>
                 </div>
                 <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
                   <span>Charges</span>
-                  <span className="text-orange-400">-{baseCurrencySymbol}{totalCharges.toFixed(0)}</span>
+                  <span className="text-orange-400">-{formatBaseAmount(totalCharges)}</span>
                 </div>
               </div>
             )}
@@ -239,7 +242,7 @@ export default function ProfitLoss() {
           {bestDay ? (
             <div className="bg-card p-4 sm:p-6 rounded-lg border border-border">
               <p className="text-xs sm:text-sm text-muted-foreground mb-2">Best Day</p>
-              <p className="text-xl sm:text-2xl font-bold text-green-400 break-words">{baseCurrencySymbol}{bestDay.pnl.toFixed(0)}</p>
+              <p className="text-xl sm:text-2xl font-bold text-green-400 break-words">{formatBaseAmount(bestDay.pnl)}</p>
               <p className="text-xs text-muted-foreground mt-1">{bestDay.displayDate}</p>
             </div>
           ) : (
@@ -252,7 +255,7 @@ export default function ProfitLoss() {
           {worstDay ? (
             <div className="bg-card p-4 sm:p-6 rounded-lg border border-border">
               <p className="text-xs sm:text-sm text-muted-foreground mb-2">Worst Day</p>
-              <p className="text-xl sm:text-2xl font-bold text-red-400 break-words">{baseCurrencySymbol}{worstDay.pnl.toFixed(0)}</p>
+              <p className="text-xl sm:text-2xl font-bold text-red-400 break-words">{formatBaseAmount(worstDay.pnl)}</p>
               <p className="text-xs text-muted-foreground mt-1">{worstDay.displayDate}</p>
             </div>
           ) : (
@@ -265,7 +268,7 @@ export default function ProfitLoss() {
           {bestMonth ? (
             <div className="bg-card p-4 sm:p-6 rounded-lg border border-border">
               <p className="text-xs sm:text-sm text-muted-foreground mb-2">Best Month</p>
-              <p className="text-xl sm:text-2xl font-bold text-green-400 break-words">{baseCurrencySymbol}{bestMonth.pnl.toFixed(0)}</p>
+              <p className="text-xl sm:text-2xl font-bold text-green-400 break-words">{formatBaseAmount(bestMonth.pnl)}</p>
               <p className="text-xs text-muted-foreground mt-1">{bestMonth.month}</p>
             </div>
           ) : (
@@ -291,7 +294,7 @@ export default function ProfitLoss() {
                   formatter={(value: number | string | undefined, name?: string) => {
                     const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
                     const label = name === 'accountBalance' ? 'Balance' : 'Net P&L';
-                    return `${label}: ${baseCurrencySymbol}${numericValue.toFixed(0)}`;
+                    return `${label}: ${formatBaseAmount(numericValue)}`;
                   }}
                 />
                 <Legend />
@@ -321,16 +324,16 @@ export default function ProfitLoss() {
                         <p className="text-xs text-muted-foreground">{day.trades} trade(s)</p>
                       </div>
                       <p className={`text-lg font-bold ${day.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {baseCurrencySymbol}{day.pnl.toFixed(0)}
+                        {formatBaseAmount(day.pnl)}
                       </p>
                     </div>
                     {day.charges > 0 && (
                       <div className="flex gap-4 mt-1 ml-0">
                         <span className="text-xs text-muted-foreground">
-                          Gross: <span className={day.grossPnl >= 0 ? 'text-green-400' : 'text-red-400'}>{baseCurrencySymbol}{day.grossPnl.toFixed(0)}</span>
+                          Gross: <span className={day.grossPnl >= 0 ? 'text-green-400' : 'text-red-400'}>{formatBaseAmount(day.grossPnl)}</span>
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          Charges: <span className="text-orange-400">-{baseCurrencySymbol}{day.charges.toFixed(0)}</span>
+                          Charges: <span className="text-orange-400">-{formatBaseAmount(day.charges)}</span>
                         </span>
                       </div>
                     )}
@@ -351,7 +354,7 @@ export default function ProfitLoss() {
                       <p className="text-xs text-muted-foreground">{month.trades} trade(s)</p>
                     </div>
                     <p className={`text-lg font-bold ${month.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {baseCurrencySymbol}{month.pnl.toFixed(0)}
+                      {formatBaseAmount(month.pnl)}
                     </p>
                   </div>
                 ))}
@@ -385,7 +388,7 @@ export default function ProfitLoss() {
                         {((symbol.wins / symbol.count) * 100).toFixed(1)}%
                       </td>
                       <td className={`text-right py-3 px-4 font-bold ${symbol.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {baseCurrencySymbol}{symbol.pnl.toFixed(0)}
+                        {formatBaseAmount(symbol.pnl)}
                       </td>
                     </tr>
                   ))}
@@ -420,7 +423,7 @@ export default function ProfitLoss() {
                         {((setup.wins / setup.count) * 100).toFixed(1)}%
                       </td>
                       <td className={`text-right py-3 px-4 font-bold ${setup.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {baseCurrencySymbol}{setup.pnl.toFixed(0)}
+                        {formatBaseAmount(setup.pnl)}
                       </td>
                     </tr>
                   ))}

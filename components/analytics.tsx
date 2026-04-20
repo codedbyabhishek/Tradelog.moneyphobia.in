@@ -10,9 +10,8 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '
 import {
   getTradeBasePnL,
   getTradeCharges,
-  CURRENCY_SYMBOLS,
   getEquityCurveInBaseCurrency,
-  formatCurrency,
+  formatBaseCurrencyAmount,
   convertToBaseCurrency,
   getCapitalAdjustmentAmount,
   getNetCapitalAdjustments,
@@ -129,7 +128,7 @@ export default function Analytics() {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
-  const baseCurrencySymbol = CURRENCY_SYMBOLS[baseCurrency];
+  const formatBaseAmount = (value: number, decimals: number = 2) => formatBaseCurrencyAmount(value, baseCurrency, decimals);
   const netCapitalAdjustments = getNetCapitalAdjustments(capitalAdjustments);
   const investedCapital = startingBalance + netCapitalAdjustments;
 
@@ -545,9 +544,9 @@ export default function Analytics() {
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <p className={`text-2xl font-bold ${currentAccountBalance >= investedCapital ? 'text-green-400' : 'text-red-400'}`}>
-              {formatCurrency(currentAccountBalance, baseCurrency)}
+              {formatBaseAmount(currentAccountBalance)}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">Capital Base: {formatCurrency(investedCapital, baseCurrency)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Capital Base: {formatBaseAmount(investedCapital)}</p>
           </CardContent>
         </Card>
 
@@ -569,7 +568,7 @@ export default function Analytics() {
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <p className={`text-2xl font-bold ${filteredSummary.totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {formatCurrency(filteredSummary.totalPnL, baseCurrency)}
+              {formatBaseAmount(filteredSummary.totalPnL)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {filteredSummary.filteredReturnPct === null ? 'Set capital base for % view' : `${filteredSummary.filteredReturnPct.toFixed(2)}% of current contributed capital`}
@@ -584,7 +583,7 @@ export default function Analytics() {
           <CardContent className="p-4 pt-0">
             <p className="text-2xl font-bold text-foreground">{filteredSummary.winRate.toFixed(1)}%</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {filteredTrades.length} trades, avg {formatCurrency(filteredSummary.avgTrade, baseCurrency)} per trade
+              {filteredTrades.length} trades, avg {formatBaseAmount(filteredSummary.avgTrade)} per trade
             </p>
           </CardContent>
         </Card>
@@ -615,7 +614,7 @@ export default function Analytics() {
                 <CardTitle className="text-sm text-muted-foreground">Peak Balance</CardTitle>
               </CardHeader>
               <CardContent className="p-4 pt-0">
-                <p className="text-xl font-bold text-foreground">{formatCurrency(balanceMilestones.peakBalance, baseCurrency)}</p>
+                <p className="text-xl font-bold text-foreground">{formatBaseAmount(balanceMilestones.peakBalance)}</p>
               </CardContent>
             </Card>
             <Card className="bg-card border-border">
@@ -623,7 +622,7 @@ export default function Analytics() {
                 <CardTitle className="text-sm text-muted-foreground">Max Drawdown</CardTitle>
               </CardHeader>
               <CardContent className="p-4 pt-0">
-                <p className="text-xl font-bold text-red-400">{formatCurrency(balanceMilestones.maxDrawdown, baseCurrency)}</p>
+                <p className="text-xl font-bold text-red-400">{formatBaseAmount(balanceMilestones.maxDrawdown)}</p>
               </CardContent>
             </Card>
             <Card className="bg-card border-border">
@@ -631,7 +630,7 @@ export default function Analytics() {
                 <CardTitle className="text-sm text-muted-foreground">Charges</CardTitle>
               </CardHeader>
               <CardContent className="p-4 pt-0">
-                <p className="text-xl font-bold text-orange-400">{formatCurrency(filteredSummary.totalCharges, baseCurrency)}</p>
+                <p className="text-xl font-bold text-orange-400">{formatBaseAmount(filteredSummary.totalCharges)}</p>
               </CardContent>
             </Card>
             <Card className="bg-card border-border">
@@ -640,7 +639,7 @@ export default function Analytics() {
               </CardHeader>
               <CardContent className="p-4 pt-0">
                 <p className={`text-xl font-bold ${balanceMilestones.netCapitalAdjustments >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {formatCurrency(balanceMilestones.netCapitalAdjustments, baseCurrency)}
+                  {formatBaseAmount(balanceMilestones.netCapitalAdjustments)}
                 </p>
               </CardContent>
             </Card>
@@ -651,7 +650,7 @@ export default function Analytics() {
               <CardContent className="p-4 pt-0">
                 <p className="text-lg font-bold text-foreground">{topSetups.best?.name || 'N/A'}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {topSetups.best ? formatCurrency(topSetups.best.pnl, baseCurrency) : 'No setup data'}
+                  {topSetups.best ? formatBaseAmount(topSetups.best.pnl) : 'No setup data'}
                 </p>
               </CardContent>
             </Card>
@@ -677,7 +676,7 @@ export default function Analytics() {
                   <XAxis dataKey="date" stroke="var(--color-muted-foreground)" style={{ fontSize: '10px' }} />
                   <YAxis stroke="var(--color-muted-foreground)" style={{ fontSize: '10px' }} />
                   <Tooltip
-                    content={<AnalyticsTooltip formatter={(value) => formatCurrency(value, baseCurrency)} />}
+                    content={<AnalyticsTooltip formatter={(value) => formatBaseAmount(value)} />}
                   />
                   <Area type="monotone" dataKey="balance" stroke="var(--color-primary)" strokeWidth={3} fill="url(#equityFill)" />
                   <Line
@@ -750,7 +749,7 @@ export default function Analytics() {
                       <XAxis dataKey="label" stroke="var(--color-muted-foreground)" style={{ fontSize: '10px' }} />
                       <YAxis stroke="var(--color-muted-foreground)" style={{ fontSize: '10px' }} />
                       <Tooltip
-                        content={<AnalyticsTooltip formatter={(value) => formatCurrency(value, baseCurrency)} />}
+                        content={<AnalyticsTooltip formatter={(value) => formatBaseAmount(value)} />}
                       />
                       <Bar dataKey="pnl" fill="url(#brokerBar)" radius={[12, 12, 4, 4]} />
                     </BarChart>
@@ -773,7 +772,7 @@ export default function Analytics() {
                     <XAxis dataKey="name" stroke="var(--color-muted-foreground)" style={{ fontSize: '10px' }} />
                     <YAxis stroke="var(--color-muted-foreground)" style={{ fontSize: '10px' }} />
                     <Tooltip
-                      content={<AnalyticsTooltip formatter={(value) => formatCurrency(value, baseCurrency)} />}
+                      content={<AnalyticsTooltip formatter={(value) => formatBaseAmount(value)} />}
                     />
                     <Bar dataKey="pnl" radius={[12, 12, 4, 4]}>
                       {setupPerformanceData.map((entry) => (
@@ -800,7 +799,7 @@ export default function Analytics() {
                     <XAxis dataKey="day" stroke="var(--color-muted-foreground)" style={{ fontSize: '10px' }} />
                     <YAxis stroke="var(--color-muted-foreground)" style={{ fontSize: '10px' }} />
                     <Tooltip
-                      content={<AnalyticsTooltip formatter={(value) => formatCurrency(value, baseCurrency)} />}
+                      content={<AnalyticsTooltip formatter={(value) => formatBaseAmount(value)} />}
                     />
                     <Bar dataKey="pnl" radius={[12, 12, 4, 4]}>
                       {dayPerformanceData.map((entry) => (
@@ -845,7 +844,7 @@ export default function Analytics() {
                         <div>
                           <p className="text-xs text-muted-foreground">Net P&L</p>
                           <p className={`mt-1 font-semibold ${item.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {formatCurrency(item.pnl, baseCurrency)}
+                            {formatBaseAmount(item.pnl)}
                           </p>
                         </div>
                       </div>
@@ -884,13 +883,13 @@ export default function Analytics() {
                         <td className="px-4 py-3 text-foreground">{row.trades}</td>
                         <td className="px-4 py-3 text-foreground">{row.winRate.toFixed(1)}%</td>
                         <td className={`px-4 py-3 font-medium ${row.capitalChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {baseCurrencySymbol}{row.capitalChange.toFixed(2)}
+                          {formatBaseAmount(row.capitalChange)}
                         </td>
                         <td className={`px-4 py-3 font-medium ${row.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {baseCurrencySymbol}{row.pnl.toFixed(2)}
+                          {formatBaseAmount(row.pnl)}
                         </td>
-                        <td className="px-4 py-3 text-orange-400">{baseCurrencySymbol}{row.charges.toFixed(2)}</td>
-                        <td className="px-4 py-3 text-foreground">{baseCurrencySymbol}{row.endingBalance.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-orange-400">{formatBaseAmount(row.charges)}</td>
+                        <td className="px-4 py-3 text-foreground">{formatBaseAmount(row.endingBalance)}</td>
                       </tr>
                     ))}
                   </tbody>

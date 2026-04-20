@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Activity, AlertTriangle, Brain, CalendarRange, Clock3, Gauge, Layers3, Shield, TrendingDown, TrendingUp } from 'lucide-react';
 import { Trade } from '@/lib/types';
-import { getTradeBasePnL, getTradeCharges, CURRENCY_SYMBOLS, BASE_CURRENCY, formatCurrency, convertToBaseCurrency } from '@/lib/trade-utils';
+import { getTradeBasePnL, getTradeCharges, formatBaseCurrencyAmount, convertToBaseCurrency } from '@/lib/trade-utils';
 import { isProPlan } from '@/lib/subscription';
 import UpgradeBanner from '@/components/upgrade-banner';
 import { calculateExpectancy } from '@/lib/analytics-engine';
@@ -49,12 +49,12 @@ function HeroMetricCard({
         : 'text-foreground border-border/70 bg-background/80';
 
   return (
-    <div className={`min-w-0 rounded-2xl border p-3 sm:p-4 ${toneClass}`}>
-      <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.14em] sm:tracking-[0.18em] text-muted-foreground break-words">
+    <div className={`min-w-0 overflow-hidden rounded-2xl border p-3 sm:p-4 ${toneClass}`}>
+      <p className="break-words text-[10px] sm:text-[11px] uppercase tracking-[0.14em] sm:tracking-[0.18em] text-muted-foreground">
         {title}
       </p>
-      <p className="mt-2 text-xl sm:text-2xl font-semibold leading-tight break-words">{value}</p>
-      <p className="mt-2 text-[11px] sm:text-xs leading-5 text-muted-foreground break-words">{subtitle}</p>
+      <p className="mt-2 break-all text-lg font-semibold leading-tight sm:text-xl xl:text-2xl">{value}</p>
+      <p className="mt-2 break-words text-[11px] sm:text-xs leading-5 text-muted-foreground">{subtitle}</p>
     </div>
   );
 }
@@ -119,7 +119,6 @@ export default function AdvancedAnalytics() {
   const { billingState } = useSettings();
   const { baseCurrency } = useSettings();
   const proPlan = isProPlan(billingState);
-  const baseCurrencySymbol = CURRENCY_SYMBOLS[baseCurrency];
 
   // Time range in days for "Your Stats" section (default: last 30 days)
   const [statsRangeDays, setStatsRangeDays] = useState<number>(30);
@@ -432,8 +431,7 @@ export default function AdvancedAnalytics() {
 
   const formatPnl = (value: number | null | undefined): string => {
     if (value === null || value === undefined || !Number.isFinite(value)) return '—';
-    if (value === 0) return `${baseCurrencySymbol}0`;
-    return `${baseCurrencySymbol}${value.toFixed(2)}`;
+    return formatBaseCurrencyAmount(value, baseCurrency);
   };
 
   const formatPlainNumber = (value: number | null | undefined): string => {
@@ -582,7 +580,7 @@ export default function AdvancedAnalytics() {
               risk metrics, and a denser stats layer than the main analytics page.
             </p>
           </div>
-          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 lg:w-full xl:w-[460px]">
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:w-full xl:max-w-[560px] 2xl:max-w-[760px] 2xl:grid-cols-4">
             <HeroMetricCard
               title="Win Rate"
               value={formatPercent(analytics.winRate)}
@@ -633,8 +631,8 @@ export default function AdvancedAnalytics() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{analytics.profitFactor.toFixed(2)}</div>
-              <p className="text-xs text-muted-foreground mt-2">Avg Win: {baseCurrencySymbol}{analytics.avgWin.toFixed(0)}</p>
-              <p className="text-xs text-muted-foreground">Avg Loss: {baseCurrencySymbol}{analytics.avgLoss.toFixed(0)}</p>
+              <p className="text-xs text-muted-foreground mt-2">Avg Win: {formatPnl(analytics.avgWin)}</p>
+              <p className="text-xs text-muted-foreground">Avg Loss: {formatPnl(analytics.avgLoss)}</p>
             </CardContent>
           </Card>
           <Card className="border-border bg-card">
@@ -643,7 +641,7 @@ export default function AdvancedAnalytics() {
             </CardHeader>
             <CardContent>
               <div className={`text-2xl font-bold ${analytics.bestDay.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {baseCurrencySymbol}{analytics.bestDay.pnl.toFixed(0)}
+                {formatPnl(analytics.bestDay.pnl)}
               </div>
               <p className="text-xs text-muted-foreground mt-2">{analytics.bestDay.date}</p>
             </CardContent>
@@ -654,7 +652,7 @@ export default function AdvancedAnalytics() {
             </CardHeader>
             <CardContent>
               <div className={`text-2xl font-bold ${analytics.worstDay.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {baseCurrencySymbol}{analytics.worstDay.pnl.toFixed(0)}
+                {formatPnl(analytics.worstDay.pnl)}
               </div>
               <p className="text-xs text-muted-foreground mt-2">{analytics.worstDay.date}</p>
             </CardContent>
@@ -888,7 +886,7 @@ export default function AdvancedAnalytics() {
                 <Tooltip />
                 <Legend />
                 <Bar yAxisId="left" dataKey="winRate" fill="#8b5cf6" name="Win Rate %" />
-                <Bar yAxisId="right" dataKey="pnl" fill="#10b981" name={`P&L (${BASE_CURRENCY})`} />
+                <Bar yAxisId="right" dataKey="pnl" fill="#10b981" name={`P&L (${baseCurrency})`} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
