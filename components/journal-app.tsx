@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from 'next/dynamic';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { TradeProvider } from '@/lib/trade-context';
@@ -94,29 +95,73 @@ function loadPage(
   };
 }
 
-const TradeForm = dynamic(loadPage(() => import('@/components/trade-form'), 'trade form'), { loading: createPageLoader('trade form') });
-const TradeLog = dynamic(loadPage(() => import('@/components/trade-log'), 'trade log'), { loading: createPageLoader('trade log') });
-const Analytics = dynamic(loadPage(() => import('@/components/analytics'), 'analytics'), { loading: createPageLoader('analytics') });
-const ProfitLoss = dynamic(loadPage(() => import('@/components/profit-loss'), 'profit and loss'), { loading: createPageLoader('profit and loss') });
-const WeeklyReview = dynamic(loadPage(() => import('@/components/weekly-review'), 'weekly review'), { loading: createPageLoader('weekly review') });
-const DataUtilities = dynamic(loadPage(() => import('@/components/data-utilities'), 'data utilities'), { loading: createPageLoader('data utilities') });
-const IdeasList = dynamic(loadPage(() => import('@/components/ideas-list'), 'ideas'), { loading: createPageLoader('ideas') });
-const IdeaForm = dynamic(loadPage(() => import('@/components/idea-form'), 'idea form'), { loading: createPageLoader('idea form') });
-const AdvancedAnalytics = dynamic(loadPage(() => import('@/components/advanced-analytics'), 'advanced analytics'), { loading: createPageLoader('advanced analytics') });
-const GoalsTracker = dynamic(loadPage(() => import('@/components/goals-tracker'), 'goals'), { loading: createPageLoader('goals') });
-const TradeSearch = dynamic(loadPage(() => import('@/components/trade-search'), 'search'), { loading: createPageLoader('search') });
-const ReportsGenerator = dynamic(loadPage(() => import('@/components/reports-generator'), 'reports'), { loading: createPageLoader('reports') });
-const EmotionAnalyzer = dynamic(loadPage(() => import('@/components/emotion-analyzer'), 'emotion analyzer'), { loading: createPageLoader('emotion analyzer') });
+const importTradeForm = () => import('@/components/trade-form');
+const importTradeLog = () => import('@/components/trade-log');
+const importAnalytics = () => import('@/components/analytics');
+const importProfitLoss = () => import('@/components/profit-loss');
+const importWeeklyReview = () => import('@/components/weekly-review');
+const importDataUtilities = () => import('@/components/data-utilities');
+const importIdeasList = () => import('@/components/ideas-list');
+const importIdeaForm = () => import('@/components/idea-form');
+const importAdvancedAnalytics = () => import('@/components/advanced-analytics');
+const importGoalsTracker = () => import('@/components/goals-tracker');
+const importTradeSearch = () => import('@/components/trade-search');
+const importReportsGenerator = () => import('@/components/reports-generator');
+const importEmotionAnalyzer = () => import('@/components/emotion-analyzer');
+const importPreTradeChecklistWorkspace = () => import('@/components/pre-trade-checklist-workspace');
+const importScreenshotGallery = () => import('@/components/screenshot-gallery');
+const importLearningVideos = () => import('@/components/learning-videos');
+
+const TradeForm = dynamic(loadPage(importTradeForm, 'trade form'), { loading: createPageLoader('trade form') });
+const TradeLog = dynamic(loadPage(importTradeLog, 'trade log'), { loading: createPageLoader('trade log') });
+const Analytics = dynamic(loadPage(importAnalytics, 'analytics'), { loading: createPageLoader('analytics') });
+const ProfitLoss = dynamic(loadPage(importProfitLoss, 'profit and loss'), { loading: createPageLoader('profit and loss') });
+const WeeklyReview = dynamic(loadPage(importWeeklyReview, 'weekly review'), { loading: createPageLoader('weekly review') });
+const DataUtilities = dynamic(loadPage(importDataUtilities, 'data utilities'), { loading: createPageLoader('data utilities') });
+const IdeasList = dynamic(loadPage(importIdeasList, 'ideas'), { loading: createPageLoader('ideas') });
+const IdeaForm = dynamic(loadPage(importIdeaForm, 'idea form'), { loading: createPageLoader('idea form') });
+const AdvancedAnalytics = dynamic(loadPage(importAdvancedAnalytics, 'advanced analytics'), { loading: createPageLoader('advanced analytics') });
+const GoalsTracker = dynamic(loadPage(importGoalsTracker, 'goals'), { loading: createPageLoader('goals') });
+const TradeSearch = dynamic(loadPage(importTradeSearch, 'search'), { loading: createPageLoader('search') });
+const ReportsGenerator = dynamic(loadPage(importReportsGenerator, 'reports'), { loading: createPageLoader('reports') });
+const EmotionAnalyzer = dynamic(loadPage(importEmotionAnalyzer, 'emotion analyzer'), { loading: createPageLoader('emotion analyzer') });
 const PreTradeChecklistWorkspace = dynamic(
-  loadPage(() => import('@/components/pre-trade-checklist-workspace'), 'pre-trade workspace'),
+  loadPage(importPreTradeChecklistWorkspace, 'pre-trade workspace'),
   { loading: createPageLoader('pre-trade workspace') },
 );
-const ScreenshotGallery = dynamic(loadPage(() => import('@/components/screenshot-gallery'), 'gallery'), { loading: createPageLoader('gallery') });
-const LearningVideos = dynamic(loadPage(() => import('@/components/learning-videos'), 'learning videos'), { loading: createPageLoader('learning videos') });
+const ScreenshotGallery = dynamic(loadPage(importScreenshotGallery, 'gallery'), { loading: createPageLoader('gallery') });
+const LearningVideos = dynamic(loadPage(importLearningVideos, 'learning videos'), { loading: createPageLoader('learning videos') });
+
+const IDLE_PRELOAD_IMPORTERS = [
+  importTradeLog,
+  importAnalytics,
+  importProfitLoss,
+  importWeeklyReview,
+  importAdvancedAnalytics,
+  importReportsGenerator,
+  importEmotionAnalyzer,
+  importScreenshotGallery,
+];
 
 function JournalAppContent({ currentPage }: { currentPage: Page }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading || !user) return;
+
+    const preload = () => {
+      void Promise.allSettled(IDLE_PRELOAD_IMPORTERS.map((importer) => importer()));
+    };
+
+    if (typeof globalThis.requestIdleCallback === 'function') {
+      const idleId = globalThis.requestIdleCallback(preload, { timeout: 1500 });
+      return () => globalThis.cancelIdleCallback?.(idleId);
+    }
+
+    const timeoutId = globalThis.setTimeout(preload, 300);
+    return () => globalThis.clearTimeout(timeoutId);
+  }, [isLoading, user]);
 
   const renderPage = () => {
     switch (currentPage) {

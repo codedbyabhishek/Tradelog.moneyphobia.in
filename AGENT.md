@@ -15,12 +15,20 @@ Primary stack:
 ## Important app structure
 
 - `app/page.tsx`: marketing landing page
-- `app/app/page.tsx`: authenticated app entry
-- `components/journal-app.tsx`: current in-app navigation shell
+- `app/login/page.tsx`: standalone login page
+- `app/signup/page.tsx`: standalone signup page
+- `app/app/page.tsx`: compatibility entry that redirects legacy `/app#...` URLs
+- `app/app/[page]/page.tsx`: authenticated app route entry
+- `components/journal-app.tsx`: authenticated app shell and lazy page loader
 - `components/sidebar.tsx`: desktop navigation
 - `components/mobile-nav.tsx`: mobile navigation
 - `components/dashboard.tsx`: main dashboard
 - `components/advanced-analytics.tsx`: advanced analytics screen
+- `components/screenshot-gallery.tsx`: gallery view with screenshot type, day-wise, and search filtering
+- `components/trade-form.tsx`: manual trade entry, screenshots, and emotion capture
+- `components/auth-page-shell.tsx`: auth page wrapper for `/login` and `/signup`
+- `components/app-entry-redirect.tsx`: legacy hash-to-path redirect
+- `lib/app-routes.ts`: canonical app route map
 - `app/api/*`: server routes
 - `lib/server/*`: DB, auth, billing, broker, and email helpers
 
@@ -36,51 +44,74 @@ npm run build
 
 ## Current routing architecture
 
-The authenticated app currently uses client-side hash routing inside `components/journal-app.tsx`.
+The app now uses real App Router paths for authenticated screens.
 
 Examples:
 
-- `/app#dashboard`
-- `/app#analytics`
-- `/app#advanced-analytics`
+- `/login`
+- `/signup`
+- `/app/dashboard`
+- `/app/analytics`
+- `/app/advanced-analytics`
 
 How it works today:
 
-- `getInitialPage()` reads `window.location.hash`
-- `currentPage` state determines which screen component renders
-- navigation updates the URL with `window.history.replaceState(..., "#page")`
-- `hashchange` keeps the UI in sync
+- canonical app pages are defined in `lib/app-routes.ts`
+- `app/app/[page]/page.tsx` validates the route segment and renders `JournalApp`
+- `components/sidebar.tsx` and `components/mobile-nav.tsx` use real links instead of hash state
+- `components/journal-app.tsx` renders the selected page from the route param
+- `app/app/page.tsx` keeps backward compatibility by redirecting legacy `/app#...` URLs to real paths
 
-## Known architecture issue
+## Auth entry points
 
-Hash-based URLs are a known limitation and should be treated as technical debt.
+Authentication now has standalone public URLs:
 
-Problems:
+- `/login`
+- `/signup`
+- `/reset-password`
+- `/verify-email`
 
-- The server never receives the actual in-app route
-- Links are not true permalinks for sharing or bookmarking
-- SEO and analytics are weaker because path-level navigation is hidden from the server
-- Route-specific metadata, caching, and loading boundaries are harder to implement cleanly
+Notes:
 
-Preferred direction:
+- `components/auth-screen.tsx` supports route-aware login/signup toggles
+- `components/auth-page-shell.tsx` redirects authenticated users to `/app/dashboard`
+- public site CTAs should prefer `/login` or `/signup` instead of `/app`
 
-- Migrate authenticated screens from hash state to real App Router paths
-- Use routes such as `/app/dashboard`, `/app/analytics`, `/app/advanced-analytics`
-- Keep shared layout/state at the layout level instead of inside one large switch statement
-- Replace manual hash parsing with `next/navigation`
+## App loading and recovery
 
-## Recommended migration outline
+The authenticated app uses lazy-loaded page chunks inside `components/journal-app.tsx`.
 
-1. Create nested App Router pages under `app/app/...`
-2. Move each major screen to its own route segment
-3. Convert sidebar and mobile nav to use real links
-4. Preserve providers in a shared layout so page transitions do not drop app context
-5. Add redirects from legacy hash-based entry points if needed
+Important behavior:
+
+- page imports are dynamically loaded for screens like `weekly-review`, `advanced-analytics`, and others
+- heavy app pages are preloaded in the background after the authenticated shell becomes idle
+- chunk-load failures attempt a one-time auto-reload
+- if recovery still fails, the app shows an in-app fallback with a reload button
+
+## Auth/bootstrap caching
+
+The app caches auth/bootstrap data client-side to speed up the immediate post-login transition.
+
+Important behavior:
+
+- auth cookies remain the source of truth on the server
+- cached bootstrap data is used only for the immediate post-auth fast path
+- `lib/client-bootstrap.ts` has an in-memory fallback when `sessionStorage` quota is exceeded
+- do not assume cached client bootstrap is authoritative for access control
+
+## Trade and analytics notes
+
+Important behavior:
+
+- `components/trade-form.tsx` now captures `emotionEntry` and `emotionExit`
+- the emotion analyzer depends on those fields, so older trades without them will not contribute to psychology patterns
+- `components/screenshot-gallery.tsx` supports day-wise filtering in addition to screenshot type, layout, and search
+- `components/advanced-analytics.tsx` has several dense KPI cards; be careful with text wrapping and overflow when adjusting card grids or typography
 
 ## Editing guidance
 
 - Prefer small targeted changes; this repo may have unrelated local edits
 - Do not revert user changes outside the requested scope
 - Validate with `npm run lint` after UI or routing changes
+- Prefer `npm run build` too when changing auth, routing, or dynamic imports
 - Be careful with authenticated flows, billing gates, and broker sync behavior
-

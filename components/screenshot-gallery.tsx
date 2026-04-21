@@ -14,7 +14,18 @@ import { buildAppPath } from '@/lib/app-routes';
 
 type ScreenshotFilter = 'All' | 'Before Trade' | 'After Exit';
 type GalleryLayout = 'grid' | 'masonry' | 'compact';
+type DayFilter = 'All Days' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
 const GALLERY_LAYOUT_STORAGE_KEY = 'td-gallery-layout';
+const DAY_FILTER_OPTIONS: DayFilter[] = [
+  'All Days',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
 
 type ScreenshotEntry = {
   id: string;
@@ -44,6 +55,7 @@ export default function ScreenshotGallery() {
   const router = useRouter();
   const { trades } = useTrades();
   const [filter, setFilter] = useState<ScreenshotFilter>('All');
+  const [dayFilter, setDayFilter] = useState<DayFilter>('All Days');
   const [layout, setLayout] = useState<GalleryLayout>(getInitialLayout);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -93,6 +105,8 @@ export default function ScreenshotGallery() {
 
     return screenshots.filter((item) => {
       const matchesFilter = filter === 'All' || item.screenshotType === filter;
+      const tradeDay = new Date(item.date).toLocaleDateString('en-US', { weekday: 'long' }) as DayFilter;
+      const matchesDay = dayFilter === 'All Days' || tradeDay === dayFilter;
       const matchesSearch =
         normalizedSearch.length === 0 ||
         item.setupName.toLowerCase().includes(normalizedSearch) ||
@@ -100,9 +114,9 @@ export default function ScreenshotGallery() {
         item.date.toLowerCase().includes(normalizedSearch) ||
         item.tradeType.toLowerCase().includes(normalizedSearch);
 
-      return matchesFilter && matchesSearch;
+      return matchesFilter && matchesDay && matchesSearch;
     });
-  }, [filter, screenshots, searchTerm]);
+  }, [dayFilter, filter, screenshots, searchTerm]);
 
   const groupedScreenshots = useMemo(() => {
     return filteredScreenshots.reduce<Record<string, ScreenshotEntry[]>>((groups, item) => {
@@ -203,6 +217,19 @@ export default function ScreenshotGallery() {
                     onClick={() => setFilter(option)}
                   >
                     {option}
+                  </Button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {DAY_FILTER_OPTIONS.map((option) => (
+                  <Button
+                    key={option}
+                    type="button"
+                    variant={dayFilter === option ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setDayFilter(option)}
+                  >
+                    {option === 'All Days' ? option : option.slice(0, 3)}
                   </Button>
                 ))}
               </div>

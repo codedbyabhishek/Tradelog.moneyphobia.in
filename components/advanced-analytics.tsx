@@ -624,37 +624,37 @@ export default function AdvancedAnalytics() {
             </p>
           </CardContent>
         </Card>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <Card className="border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">Profit Factor</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{analytics.profitFactor.toFixed(2)}</div>
-              <p className="text-xs text-muted-foreground mt-2">Avg Win: {formatPnl(analytics.avgWin)}</p>
-              <p className="text-xs text-muted-foreground">Avg Loss: {formatPnl(analytics.avgLoss)}</p>
+            <CardContent className="min-w-0">
+              <div className="break-all text-xl font-bold sm:text-2xl">{analytics.profitFactor.toFixed(2)}</div>
+              <p className="mt-2 break-words text-xs text-muted-foreground">Avg Win: {formatPnl(analytics.avgWin)}</p>
+              <p className="break-words text-xs text-muted-foreground">Avg Loss: {formatPnl(analytics.avgLoss)}</p>
             </CardContent>
           </Card>
           <Card className="border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">Best Day</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${analytics.bestDay.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <CardContent className="min-w-0">
+              <div className={`break-all text-xl font-bold sm:text-2xl ${analytics.bestDay.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {formatPnl(analytics.bestDay.pnl)}
               </div>
-              <p className="text-xs text-muted-foreground mt-2">{analytics.bestDay.date}</p>
+              <p className="mt-2 break-words text-xs text-muted-foreground">{analytics.bestDay.date}</p>
             </CardContent>
           </Card>
           <Card className="border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">Worst Day</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${analytics.worstDay.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <CardContent className="min-w-0">
+              <div className={`break-all text-xl font-bold sm:text-2xl ${analytics.worstDay.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {formatPnl(analytics.worstDay.pnl)}
               </div>
-              <p className="text-xs text-muted-foreground mt-2">{analytics.worstDay.date}</p>
+              <p className="mt-2 break-words text-xs text-muted-foreground">{analytics.worstDay.date}</p>
             </CardContent>
           </Card>
         </div>

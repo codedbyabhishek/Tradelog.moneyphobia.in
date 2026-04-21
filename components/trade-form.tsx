@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ChevronDown, Upload, X } from 'lucide-react';
-import { TradeFormData, Currency, MISTAKE_TAG_OPTIONS } from '@/lib/types';
+import { TradeFormData, Currency, EmotionTag, MISTAKE_TAG_OPTIONS } from '@/lib/types';
 import { calculatePnL, calculateRFactor, CURRENCY_SYMBOLS, getTradeOutcome } from '@/lib/trade-utils';
 import { ScreenshotViewer } from './screenshot-viewer';
 import { useToast } from '@/hooks/use-toast';
@@ -68,6 +68,17 @@ export const FIB_LEVEL_OPTIONS = [
 ] as const;
 
 const CUSTOM_FIB_VALUE = '__custom__';
+const EMOTION_OPTIONS: EmotionTag[] = [
+  'Calm',
+  'Confident',
+  'Anxious',
+  'Fearful',
+  'Greedy',
+  'Frustrated',
+  'Revenge',
+  'FOMO',
+  'Neutral',
+];
 
 export default function TradeForm({ onSuccess }: TradeFormProps) {
   const { addTrade } = useTrades();
@@ -109,6 +120,8 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     limit: '',
     exit: '',
     ruleFollowed: true,
+    emotionEntry: undefined,
+    emotionExit: undefined,
   });
 
   // Screenshot state
@@ -320,6 +333,8 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
         limit: '',
         exit: '',
         ruleFollowed: true,
+        emotionEntry: undefined,
+        emotionExit: undefined,
       }));
       clearBeforeScreenshot();
       clearAfterScreenshot();
@@ -975,6 +990,48 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                 className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 rows={3}
               />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Entry Emotion</label>
+                <select
+                  name="emotionEntry"
+                  value={formData.emotionEntry || ''}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">Select entry emotion</option>
+                  {EMOTION_OPTIONS.map((emotion) => (
+                    <option key={emotion} value={emotion}>
+                      {emotion}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  How you felt when entering the trade.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Exit Emotion</label>
+                <select
+                  name="emotionExit"
+                  value={formData.emotionExit || ''}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">Select exit emotion</option>
+                  {EMOTION_OPTIONS.map((emotion) => (
+                    <option key={emotion} value={emotion}>
+                      {emotion}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  How you felt when closing or exiting the trade.
+                </p>
+              </div>
             </div>
 
             {/* Mistake Tag */}
