@@ -34,7 +34,7 @@ export async function sendPasswordResetEmail({
   const smtp = getSmtpConfig();
 
   if (!smtp) {
-    console.info('[password-reset] SMTP not configured. Reset link:', { to, resetUrl });
+    console.warn('[password-reset] SMTP not configured; reset email was not sent.', { to });
     return { delivered: false as const, resetUrl };
   }
 
@@ -77,7 +77,7 @@ export async function sendEmailVerificationEmail({
   const smtp = getSmtpConfig();
 
   if (!smtp) {
-    console.info('[email-verification] SMTP not configured. Verification link:', { to, verificationUrl });
+    console.warn('[email-verification] SMTP not configured; verification email was not sent.', { to });
     return { delivered: false as const, verificationUrl };
   }
 

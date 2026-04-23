@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { dbExecute, dbQuery } from '@/lib/server/db';
 import { DEFAULT_BILLING_STATE } from '@/lib/subscription';
 import type { BillingState } from '@/lib/types';
+import { assertBillingSchemaReady } from '@/lib/server/schema';
 
 type BillingCycle = 'monthly' | 'yearly';
 
@@ -80,33 +81,7 @@ function toIsoDate(timestamp?: number | null) {
 }
 
 export async function ensureBillingTables() {
-  await dbExecute(
-    `CREATE TABLE IF NOT EXISTS billing_subscriptions (
-      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-      user_id BIGINT UNSIGNED NOT NULL,
-      provider VARCHAR(32) NOT NULL,
-      plan_code VARCHAR(32) NOT NULL,
-      billing_cycle VARCHAR(16) NOT NULL,
-      subscription_id VARCHAR(64) NOT NULL,
-      customer_id VARCHAR(64) NULL,
-      status VARCHAR(32) NOT NULL,
-      payload_json LONGTEXT NULL,
-      created_at DATETIME NOT NULL,
-      updated_at DATETIME NOT NULL,
-      PRIMARY KEY (id),
-      UNIQUE KEY uniq_billing_subscription_id (subscription_id),
-      KEY idx_billing_subscriptions_user (user_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  );
-
-  await dbExecute(
-    `CREATE TABLE IF NOT EXISTS billing_webhook_events (
-      event_id VARCHAR(128) NOT NULL,
-      provider VARCHAR(32) NOT NULL,
-      created_at DATETIME NOT NULL,
-      PRIMARY KEY (event_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  );
+  await assertBillingSchemaReady();
 }
 
 export async function createRazorpaySubscription({

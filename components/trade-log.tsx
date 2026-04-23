@@ -15,6 +15,7 @@ import { FIB_LEVEL_OPTIONS, PRESET_SETUPS } from './trade-form';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { EmptyStateIllustration } from './brand-illustrations';
 import ShareCardDialog from '@/components/share-card-dialog';
+import { useTemplates, type TradeTemplate } from '@/lib/templates-context';
 
 function isBrokerSyncedTrade(trade: Trade) {
   return trade.id.startsWith('dhan:');
@@ -35,6 +36,7 @@ function isJournalEnrichedTrade(trade: Trade) {
 
 export default function TradeLog() {
   const { trades, deleteTrade, updateTrade } = useTrades();
+  const { addTemplate } = useTemplates();
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [editSetupName, setEditSetupName] = useState('');
@@ -52,6 +54,49 @@ export default function TradeLog() {
   const [filterTag, setFilterTag] = useState('All');
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const { toast } = useToast();
+
+  const createPlaybookFromTrade = (trade: Trade) => {
+    const now = new Date().toISOString();
+    const payload: TradeTemplate = {
+      id: `playbook:${Date.now()}`,
+      name: `${trade.setupName} Playbook`,
+      description: `Created from ${trade.symbol} on ${trade.date}`,
+      symbol: trade.symbol,
+      setupName: trade.setupName,
+      tradeType: trade.tradeType,
+      position: trade.position,
+      timeFrame: trade.timeFrame,
+      plannedRTarget: trade.plannedRTarget,
+      preNotes: trade.preNotes,
+      session: trade.session,
+      marketCondition: trade.marketCondition,
+      marketTrend: trade.marketTrend,
+      setupType: trade.setupType,
+      volumeProfile: trade.volumeProfile,
+      emaTouch: trade.emaTouch === undefined ? '' : trade.emaTouch ? 'Yes' : 'No',
+      riskRewardRatio: trade.riskRewardRatio !== undefined ? String(trade.riskRewardRatio) : undefined,
+      marketOpenType: trade.marketOpenType,
+      firstFiveMinuteCandleType: trade.firstFiveMinuteCandleType,
+      entryRules: trade.preNotes || undefined,
+      targetRules: trade.exit ? `Preferred exit: ${trade.exit}` : undefined,
+      idealConditions: [
+        trade.marketCondition ? `Condition: ${trade.marketCondition}` : '',
+        trade.marketTrend ? `Trend: ${trade.marketTrend}` : '',
+        trade.timeFrame ? `Time frame: ${trade.timeFrame}` : '',
+      ].filter(Boolean).join(' | ') || undefined,
+      commonMistakes: trade.mistakeTag || undefined,
+      tags: trade.tags,
+      createdAt: now,
+      updatedAt: now,
+      usageCount: 0,
+    };
+
+    addTemplate(payload);
+    toast({
+      title: 'Playbook created',
+      description: `${trade.setupName} has been saved to Playbooks.`,
+    });
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -700,6 +745,10 @@ export default function TradeLog() {
               <Button onClick={() => setIsShareDialogOpen(true)} variant="outline" className="w-full">
                 <Share2 className="mr-2 h-4 w-4" />
                 Share Trade
+              </Button>
+              <Button onClick={() => createPlaybookFromTrade(selectedTrade)} variant="outline" className="w-full">
+                <Pencil className="mr-2 h-4 w-4" />
+                Create Playbook from Trade
               </Button>
               <Button onClick={() => openEditTrade(selectedTrade)} variant="outline" className="w-full">
                 <Pencil className="mr-2 h-4 w-4" />

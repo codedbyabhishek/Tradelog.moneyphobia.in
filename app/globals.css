@@ -203,6 +203,12 @@
     overflow-y: auto;
   }
 
+  html:has([data-app-shell="true"]),
+  body:has([data-app-shell="true"]) {
+    overflow: hidden;
+    overscroll-behavior-y: none;
+  }
+
   html {
     /* Smooth theme transitions without flickering */
     transition: background-color 0.3s ease, color 0.3s ease;

@@ -293,7 +293,7 @@ export function convertFormToTrade(formData: TradeFormData): Trade {
     limit: formData.limit,
     exit: formData.exit,
     ruleFollowed: formData.ruleFollowed ?? true,
-    ruleViolations: formData.ruleViolations,
+    ruleViolations: formData.ruleFollowed ? undefined : formData.ruleViolations,
     session: formData.session,
     entryTime: formData.entryTime,
     exitTime: formData.exitTime,

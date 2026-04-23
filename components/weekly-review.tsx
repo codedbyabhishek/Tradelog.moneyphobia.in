@@ -21,8 +21,17 @@ interface PeriodStats {
   avgRFactor: number;
   setupStats: Map<string, { count: number; pnl: number; wins: number; winRate: number }>;
   mistakeStats: Map<string, number>;
+  ruleViolationStats: Map<string, number>;
   bestSetup: { name: string; pnl: number; count: number; winRate: number } | null;
   worstMistake: { name: string; count: number } | null;
+  topRuleViolation: { name: string; count: number } | null;
+}
+
+function formatRuleViolationLabel(value: string) {
+  return value
+    .split('_')
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(' ');
 }
 
 function getPeriodStats(trades: Trade[], periodType: ReviewPeriod): PeriodStats[] {
@@ -85,6 +94,13 @@ function getPeriodStats(trades: Trade[], periodType: ReviewPeriod): PeriodStats[
       }
     });
 
+    const ruleViolationStats = new Map<string, number>();
+    periodTrades.forEach((trade) => {
+      for (const violation of trade.ruleViolations || []) {
+        ruleViolationStats.set(violation, (ruleViolationStats.get(violation) || 0) + 1);
+      }
+    });
+
     let bestSetup: { name: string; pnl: number; count: number; winRate: number } | null = null;
     setupStats.forEach((setupStat, setupName) => {
       if (!bestSetup || setupStat.pnl > bestSetup.pnl) {
@@ -96,6 +112,13 @@ function getPeriodStats(trades: Trade[], periodType: ReviewPeriod): PeriodStats[
     mistakeStats.forEach((count, mistake) => {
       if (!worstMistake || count > worstMistake.count) {
         worstMistake = { name: mistake, count };
+      }
+    });
+
+    let topRuleViolation: { name: string; count: number } | null = null;
+    ruleViolationStats.forEach((count, violation) => {
+      if (!topRuleViolation || count > topRuleViolation.count) {
+        topRuleViolation = { name: violation, count };
       }
     });
 
@@ -115,8 +138,10 @@ function getPeriodStats(trades: Trade[], periodType: ReviewPeriod): PeriodStats[
       avgRFactor: parseFloat(avgR.toFixed(2)),
       setupStats,
       mistakeStats,
+      ruleViolationStats,
       bestSetup,
       worstMistake,
+      topRuleViolation,
     });
   });
 
@@ -244,16 +269,30 @@ export default function WeeklyReview() {
                 </div>
               </div>
 
-              {/* Worst Habit */}
-              {stats.worstMistake && (
-                <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-2">Most Common Mistake</p>
-                  <div className="flex items-center justify-between">
-                    <p className="font-bold text-foreground">{stats.worstMistake.name}</p>
-                    <span className="bg-destructive/30 text-destructive px-3 py-1 rounded-full text-sm font-semibold">
-                      {stats.worstMistake.count} times
-                    </span>
-                  </div>
+              {(stats.worstMistake || stats.topRuleViolation) && (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {stats.worstMistake && (
+                    <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-lg">
+                      <p className="text-sm text-muted-foreground mb-2">Most Common Mistake</p>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-bold text-foreground">{stats.worstMistake.name}</p>
+                        <span className="bg-destructive/30 text-destructive px-3 py-1 rounded-full text-sm font-semibold whitespace-nowrap">
+                          {stats.worstMistake.count} times
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {stats.topRuleViolation && (
+                    <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-lg">
+                      <p className="text-sm text-muted-foreground mb-2">Top Rule Violation</p>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-bold text-foreground">{formatRuleViolationLabel(stats.topRuleViolation.name)}</p>
+                        <span className="bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full text-sm font-semibold whitespace-nowrap">
+                          {stats.topRuleViolation.count} times
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -292,6 +331,24 @@ export default function WeeklyReview() {
                         <div key={mistake} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
                           <p className="font-medium text-foreground">{mistake}</p>
                           <span className="bg-primary/20 text-primary px-3 py-1 rounded-full text-sm font-semibold">
+                            {count}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {stats.ruleViolationStats.size > 0 && (
+                <div>
+                  <p className="text-sm font-semibold text-foreground mb-3">Rule Violation Breakdown</p>
+                  <div className="space-y-2">
+                    {Array.from(stats.ruleViolationStats.entries())
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([violation, count]) => (
+                        <div key={violation} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                          <p className="font-medium text-foreground">{formatRuleViolationLabel(violation)}</p>
+                          <span className="bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full text-sm font-semibold">
                             {count}
                           </span>
                         </div>

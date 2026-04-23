@@ -1,5 +1,6 @@
 import { randomBytes } from 'crypto';
 import { dbExecute, dbQuery } from '@/lib/server/db';
+import { assertSharedCardsSchemaReady } from '@/lib/server/schema';
 
 interface SharedCardRow {
   share_id: string;
@@ -34,61 +35,11 @@ export type SharedCardLookup =
   | { status: 'expired'; record: SharedCardRecord }
   | { status: 'missing' };
 
-let sharedCardsSchemaEnsured = false;
 const SHARED_CARD_TTL_HOURS = 24;
 const SHARED_CARD_RETENTION_DAYS = 7;
 
 export async function ensureSharedCardsSchema() {
-  if (sharedCardsSchemaEnsured) return;
-
-  await dbExecute(
-    `CREATE TABLE IF NOT EXISTS shared_cards (
-      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-      share_id VARCHAR(32) NOT NULL,
-      user_id BIGINT UNSIGNED NOT NULL,
-      share_type VARCHAR(24) NOT NULL,
-      title VARCHAR(255) NOT NULL,
-      caption TEXT NULL,
-      summary_text TEXT NULL,
-      image_data_url LONGTEXT NOT NULL,
-      payload_json LONGTEXT NULL,
-      expires_at DATETIME NOT NULL,
-      created_at DATETIME NOT NULL,
-      updated_at DATETIME NOT NULL,
-      PRIMARY KEY (id),
-      UNIQUE KEY uniq_shared_cards_share_id (share_id),
-      KEY idx_shared_cards_user (user_id),
-      KEY idx_shared_cards_expires_at (expires_at),
-      KEY idx_shared_cards_created_at (created_at),
-      CONSTRAINT fk_shared_cards_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  );
-
-  try {
-    await dbExecute('ALTER TABLE shared_cards ADD COLUMN expires_at DATETIME NOT NULL AFTER payload_json');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!message.toLowerCase().includes('duplicate column')) {
-      throw error;
-    }
-  }
-
-  try {
-    await dbExecute('ALTER TABLE shared_cards ADD KEY idx_shared_cards_expires_at (expires_at)');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!message.toLowerCase().includes('duplicate key name')) {
-      throw error;
-    }
-  }
-
-  await dbExecute(
-    `UPDATE shared_cards
-     SET expires_at = COALESCE(expires_at, DATE_ADD(created_at, INTERVAL ? HOUR))`,
-    [SHARED_CARD_TTL_HOURS],
-  );
-
-  sharedCardsSchemaEnsured = true;
+  await assertSharedCardsSchemaReady();
 }
 
 export function generateShareId() {

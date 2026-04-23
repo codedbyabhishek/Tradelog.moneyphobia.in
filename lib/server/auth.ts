@@ -2,6 +2,7 @@ import { randomBytes, createHash } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
 import { dbExecute, dbQuery } from '@/lib/server/db';
+import { assertAuthSchemaReady } from '@/lib/server/schema';
 
 const SESSION_COOKIE = 'td_session';
 const SESSION_TTL_DAYS = 30;
@@ -19,9 +20,6 @@ export interface AuthUser {
   name: string | null;
   emailVerified: boolean;
 }
-
-let googleAuthSchemaEnsured = false;
-let emailVerificationSchemaEnsured = false;
 
 function hashSessionToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -50,71 +48,11 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 export async function ensureGoogleAuthSchema() {
-  if (googleAuthSchemaEnsured) return;
-
-  await dbExecute('ALTER TABLE users MODIFY COLUMN password_hash VARCHAR(255) NULL');
-
-  try {
-    await dbExecute('ALTER TABLE users ADD COLUMN google_sub VARCHAR(255) NULL AFTER password_hash');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!message.toLowerCase().includes('duplicate column')) {
-      throw error;
-    }
-  }
-
-  try {
-    await dbExecute('ALTER TABLE users ADD UNIQUE KEY uniq_users_google_sub (google_sub)');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!message.toLowerCase().includes('duplicate key name')) {
-      throw error;
-    }
-  }
-
-  googleAuthSchemaEnsured = true;
+  await assertAuthSchemaReady();
 }
 
 export async function ensureEmailVerificationSchema() {
-  if (emailVerificationSchemaEnsured) return;
-
-  try {
-    await dbExecute('ALTER TABLE users ADD COLUMN email_verified_at DATETIME NULL AFTER google_sub');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!message.toLowerCase().includes('duplicate column')) {
-      throw error;
-    }
-  }
-
-  await dbExecute(
-    `UPDATE users
-     SET email_verified_at = COALESCE(
-       email_verified_at,
-       CASE
-         WHEN google_sub IS NOT NULL THEN NOW()
-         ELSE NULL
-       END
-     )`,
-  );
-
-  await dbExecute(
-    `CREATE TABLE IF NOT EXISTS email_verification_tokens (
-      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-      user_id BIGINT UNSIGNED NOT NULL,
-      token_hash CHAR(64) NOT NULL,
-      expires_at DATETIME NOT NULL,
-      used_at DATETIME NULL,
-      created_at DATETIME NOT NULL,
-      PRIMARY KEY (id),
-      UNIQUE KEY uniq_email_verification_token_hash (token_hash),
-      KEY idx_email_verification_user (user_id),
-      KEY idx_email_verification_expires_at (expires_at),
-      CONSTRAINT fk_email_verification_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  );
-
-  emailVerificationSchemaEnsured = true;
+  await assertAuthSchemaReady();
 }
 
 export async function createSession(userId: number): Promise<string> {

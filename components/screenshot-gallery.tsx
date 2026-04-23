@@ -15,6 +15,7 @@ import { buildAppPath } from '@/lib/app-routes';
 type ScreenshotFilter = 'All' | 'Before Trade' | 'After Exit';
 type GalleryLayout = 'grid' | 'masonry' | 'compact';
 type DayFilter = 'All Days' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+type TimeframeFilter = 'All Time' | 'Today' | 'Last 7 Days' | 'This Month' | 'Last 30 Days';
 const GALLERY_LAYOUT_STORAGE_KEY = 'td-gallery-layout';
 const DAY_FILTER_OPTIONS: DayFilter[] = [
   'All Days',
@@ -26,6 +27,7 @@ const DAY_FILTER_OPTIONS: DayFilter[] = [
   'Saturday',
   'Sunday',
 ];
+const TIMEFRAME_FILTER_OPTIONS: TimeframeFilter[] = ['All Time', 'Today', 'Last 7 Days', 'This Month', 'Last 30 Days'];
 
 type ScreenshotEntry = {
   id: string;
@@ -51,11 +53,50 @@ function getInitialLayout(): GalleryLayout {
   return 'grid';
 }
 
+function parseIsoDateLocal(dateString: string) {
+  const [year, month, day] = dateString.split('-').map(Number);
+
+  if (!year || !month || !day) {
+    return new Date(dateString);
+  }
+
+  return new Date(year, month - 1, day);
+}
+
+function isWithinTimeframe(dateString: string, timeframe: TimeframeFilter) {
+  if (timeframe === 'All Time') {
+    return true;
+  }
+
+  const tradeDate = parseIsoDateLocal(dateString);
+  if (Number.isNaN(tradeDate.getTime())) {
+    return false;
+  }
+
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+  if (timeframe === 'Today') {
+    return tradeDate.getTime() === todayStart.getTime();
+  }
+
+  if (timeframe === 'This Month') {
+    return tradeDate.getFullYear() === todayStart.getFullYear() && tradeDate.getMonth() === todayStart.getMonth();
+  }
+
+  const daysBack = timeframe === 'Last 7 Days' ? 6 : 29;
+  const rangeStart = new Date(todayStart);
+  rangeStart.setDate(todayStart.getDate() - daysBack);
+
+  return tradeDate >= rangeStart && tradeDate <= todayStart;
+}
+
 export default function ScreenshotGallery() {
   const router = useRouter();
   const { trades } = useTrades();
   const [filter, setFilter] = useState<ScreenshotFilter>('All');
   const [dayFilter, setDayFilter] = useState<DayFilter>('All Days');
+  const [timeframeFilter, setTimeframeFilter] = useState<TimeframeFilter>('All Time');
   const [layout, setLayout] = useState<GalleryLayout>(getInitialLayout);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -105,8 +146,9 @@ export default function ScreenshotGallery() {
 
     return screenshots.filter((item) => {
       const matchesFilter = filter === 'All' || item.screenshotType === filter;
-      const tradeDay = new Date(item.date).toLocaleDateString('en-US', { weekday: 'long' }) as DayFilter;
+      const tradeDay = parseIsoDateLocal(item.date).toLocaleDateString('en-US', { weekday: 'long' }) as DayFilter;
       const matchesDay = dayFilter === 'All Days' || tradeDay === dayFilter;
+      const matchesTimeframe = isWithinTimeframe(item.date, timeframeFilter);
       const matchesSearch =
         normalizedSearch.length === 0 ||
         item.setupName.toLowerCase().includes(normalizedSearch) ||
@@ -114,9 +156,9 @@ export default function ScreenshotGallery() {
         item.date.toLowerCase().includes(normalizedSearch) ||
         item.tradeType.toLowerCase().includes(normalizedSearch);
 
-      return matchesFilter && matchesDay && matchesSearch;
+      return matchesFilter && matchesDay && matchesTimeframe && matchesSearch;
     });
-  }, [dayFilter, filter, screenshots, searchTerm]);
+  }, [dayFilter, filter, screenshots, searchTerm, timeframeFilter]);
 
   const groupedScreenshots = useMemo(() => {
     return filteredScreenshots.reduce<Record<string, ScreenshotEntry[]>>((groups, item) => {
@@ -230,6 +272,19 @@ export default function ScreenshotGallery() {
                     onClick={() => setDayFilter(option)}
                   >
                     {option === 'All Days' ? option : option.slice(0, 3)}
+                  </Button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {TIMEFRAME_FILTER_OPTIONS.map((option) => (
+                  <Button
+                    key={option}
+                    type="button"
+                    variant={timeframeFilter === option ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTimeframeFilter(option)}
+                  >
+                    {option}
                   </Button>
                 ))}
               </div>

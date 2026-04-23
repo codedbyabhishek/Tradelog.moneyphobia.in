@@ -96,6 +96,7 @@ function loadPage(
 }
 
 const importTradeForm = () => import('@/components/trade-form');
+const importPlaybookBuilder = () => import('@/components/playbook-builder');
 const importTradeLog = () => import('@/components/trade-log');
 const importAnalytics = () => import('@/components/analytics');
 const importProfitLoss = () => import('@/components/profit-loss');
@@ -113,6 +114,7 @@ const importScreenshotGallery = () => import('@/components/screenshot-gallery');
 const importLearningVideos = () => import('@/components/learning-videos');
 
 const TradeForm = dynamic(loadPage(importTradeForm, 'trade form'), { loading: createPageLoader('trade form') });
+const PlaybookBuilder = dynamic(loadPage(importPlaybookBuilder, 'playbooks'), { loading: createPageLoader('playbooks') });
 const TradeLog = dynamic(loadPage(importTradeLog, 'trade log'), { loading: createPageLoader('trade log') });
 const Analytics = dynamic(loadPage(importAnalytics, 'analytics'), { loading: createPageLoader('analytics') });
 const ProfitLoss = dynamic(loadPage(importProfitLoss, 'profit and loss'), { loading: createPageLoader('profit and loss') });
@@ -136,16 +138,38 @@ const IDLE_PRELOAD_IMPORTERS = [
   importTradeLog,
   importAnalytics,
   importProfitLoss,
-  importWeeklyReview,
-  importAdvancedAnalytics,
-  importReportsGenerator,
-  importEmotionAnalyzer,
-  importScreenshotGallery,
 ];
 
 function JournalAppContent({ currentPage }: { currentPage: Page }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousHtmlOverscroll = html.style.overscrollBehaviorY;
+    const previousBodyOverflow = body.style.overflow;
+    const previousBodyOverscroll = body.style.overscrollBehaviorY;
+    const previousBodyPosition = body.style.position;
+    const previousBodyWidth = body.style.width;
+
+    html.style.overflow = 'hidden';
+    html.style.overscrollBehaviorY = 'none';
+    body.style.overflow = 'hidden';
+    body.style.overscrollBehaviorY = 'none';
+    body.style.position = 'fixed';
+    body.style.width = '100%';
+
+    return () => {
+      html.style.overflow = previousHtmlOverflow;
+      html.style.overscrollBehaviorY = previousHtmlOverscroll;
+      body.style.overflow = previousBodyOverflow;
+      body.style.overscrollBehaviorY = previousBodyOverscroll;
+      body.style.position = previousBodyPosition;
+      body.style.width = previousBodyWidth;
+    };
+  }, []);
 
   useEffect(() => {
     if (isLoading || !user) return;
@@ -155,11 +179,11 @@ function JournalAppContent({ currentPage }: { currentPage: Page }) {
     };
 
     if (typeof globalThis.requestIdleCallback === 'function') {
-      const idleId = globalThis.requestIdleCallback(preload, { timeout: 1500 });
+      const idleId = globalThis.requestIdleCallback(preload, { timeout: 2500 });
       return () => globalThis.cancelIdleCallback?.(idleId);
     }
 
-    const timeoutId = globalThis.setTimeout(preload, 300);
+    const timeoutId = globalThis.setTimeout(preload, 1200);
     return () => globalThis.clearTimeout(timeoutId);
   }, [isLoading, user]);
 
@@ -169,6 +193,8 @@ function JournalAppContent({ currentPage }: { currentPage: Page }) {
         return <Dashboard />;
       case 'pre-trade':
         return <PreTradeChecklistWorkspace onStartTrade={() => router.push(buildAppPath('add-trade'))} />;
+      case 'playbooks':
+        return <PlaybookBuilder />;
       case 'add-trade':
         return <TradeForm onSuccess={() => router.push(buildAppPath('log'))} />;
       case 'gallery':
@@ -221,12 +247,12 @@ function JournalAppContent({ currentPage }: { currentPage: Page }) {
   }
 
   return (
-    <div className="flex min-h-[100dvh] md:h-dvh flex-col md:flex-row bg-background overflow-x-hidden">
+    <div data-app-shell="true" className="fixed inset-0 flex h-[100dvh] flex-col md:flex-row bg-background overflow-hidden">
       <div className="hidden md:block">
         <Sidebar currentPage={currentPage} />
       </div>
 
-      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-[calc(84px+env(safe-area-inset-bottom))] md:pb-0">
+      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain pb-[calc(84px+env(safe-area-inset-bottom))] md:pb-0 [webkit-overflow-scrolling:touch]">
         {renderPage()}
       </main>
 

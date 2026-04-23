@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { dbExecute, dbQuery } from '@/lib/server/db';
+import { assertRateLimitSchemaReady } from '@/lib/server/schema';
 
 interface RateLimitOptions {
   prefix: string;
@@ -22,10 +23,6 @@ interface RateLimitRow {
   blocked_until: string | null;
 }
 
-declare global {
-  var __tradingDiaryRateLimitTableReady: boolean | undefined;
-}
-
 function normalizeIdentifier(value: string): string {
   return value.trim().toLowerCase() || 'unknown';
 }
@@ -39,25 +36,6 @@ function toDate(value: string | null): Date | null {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
   return parsed;
-}
-
-async function ensureRateLimitTable() {
-  if (global.__tradingDiaryRateLimitTableReady) return;
-
-  await dbExecute(
-    `CREATE TABLE IF NOT EXISTS auth_rate_limits (
-      key_name VARCHAR(191) NOT NULL,
-      requests INT UNSIGNED NOT NULL DEFAULT 0,
-      window_started_at DATETIME NOT NULL,
-      blocked_until DATETIME NULL,
-      updated_at DATETIME NOT NULL,
-      PRIMARY KEY (key_name),
-      KEY idx_auth_rate_limits_updated_at (updated_at),
-      KEY idx_auth_rate_limits_blocked_until (blocked_until)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
-  );
-
-  global.__tradingDiaryRateLimitTableReady = true;
 }
 
 async function pruneOldLimits() {
@@ -87,7 +65,7 @@ export function getClientIp(request: NextRequest): string {
 export async function consumeRateLimit(options: RateLimitOptions): Promise<RateLimitResult> {
   const { prefix, identifier, windowMs, maxRequests, blockDurationMs = windowMs } = options;
 
-  await ensureRateLimitTable();
+  await assertRateLimitSchemaReady();
   await pruneOldLimits();
 
   const now = new Date();

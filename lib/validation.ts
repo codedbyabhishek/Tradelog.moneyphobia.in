@@ -226,5 +226,13 @@ export function validateTradeForm(
     errors.exitPrice = 'Exit price must be a valid number';
   }
 
+  if (!formData.ruleFollowed && (!formData.ruleViolations || formData.ruleViolations.length === 0)) {
+    errors.ruleViolations = 'Select at least one rule violation when the trade did not follow plan';
+  }
+
+  if (formData.plannedRTarget && validatePositiveNumber(formData.plannedRTarget) === null) {
+    errors.plannedRTarget = 'Planned R target must be a positive number';
+  }
+
   return errors;
 }

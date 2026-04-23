@@ -259,6 +259,11 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
         'Volume',
         'EMA Touch',
         'Risk Reward Ratio',
+        'Planned R Target',
+        'Market Condition',
+        'Rule Followed',
+        'Rule Violations',
+        'Mistake Tag',
         'Limit',
         'Exit Level',
       ];
@@ -289,6 +294,11 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
           t.volumeProfile || '',
           t.emaTouch === undefined ? '' : t.emaTouch ? 'Yes' : 'No',
           t.riskRewardRatio ?? '',
+          t.plannedRTarget ?? '',
+          t.marketCondition || '',
+          t.ruleFollowed ? 'Yes' : 'No',
+          (t.ruleViolations || []).join(';'),
+          t.mistakeTag || '',
           t.limit || '',
           t.exit || '',
         ];

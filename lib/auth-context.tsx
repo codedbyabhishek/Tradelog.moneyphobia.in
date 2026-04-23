@@ -7,6 +7,7 @@ import {
   consumeRecentAuth,
   markRecentAuth,
   readAuthUser,
+  readBootstrap,
   storeAuthUser,
   storeBootstrap,
 } from '@/lib/client-bootstrap';
@@ -81,15 +82,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const cachedUser = readAuthUser();
     return Boolean(cachedUser && consumeRecentAuth());
   });
-  const [isLoading, setIsLoading] = useState(() => !hasRecentAuth);
+  const [isLoading, setIsLoading] = useState(() => !(hasRecentAuth || Boolean(readAuthUser())));
   const [error, setError] = useState<string | null>(null);
 
   const refreshSession = async () => {
     try {
+      const cachedUser = readAuthUser();
+      const cachedBootstrap = cachedUser ? readBootstrap(cachedUser.id) : null;
       const res = await fetchWithTimeout('/api/auth/me', {
         method: 'GET',
         credentials: 'include',
         cache: 'no-store',
+        headers: cachedUser && cachedBootstrap?.userId === cachedUser.id
+          ? { 'x-bootstrap-cache-user': String(cachedUser.id) }
+          : undefined,
       });
 
       if (!res.ok) {
@@ -106,7 +112,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json();
       setCurrentUser(data.user || null);
       storeAuthUser(data.user || null);
-      storeBootstrap(data.user ? data.bootstrap || null : null);
+      if (!data.user) {
+        storeBootstrap(null);
+      } else if ('bootstrap' in data) {
+        storeBootstrap(data.bootstrap || null);
+      }
       setError(null);
     } catch (error) {
       setError(normalizeClientError(error, 'Failed to restore your session.'));

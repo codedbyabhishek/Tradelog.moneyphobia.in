@@ -8,12 +8,13 @@ import { validateTradeForm, sanitizeString, validateImageFile } from '@/lib/vali
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ChevronDown, Upload, X } from 'lucide-react';
-import { TradeFormData, Currency, EmotionTag, MISTAKE_TAG_OPTIONS } from '@/lib/types';
+import { AlertTriangle, ChevronDown, Upload, X } from 'lucide-react';
+import { TradeFormData, Currency, EmotionTag, MISTAKE_TAG_OPTIONS, MARKET_CONDITION_OPTIONS, RULE_VIOLATION_OPTIONS, type RuleViolation } from '@/lib/types';
 import { calculatePnL, calculateRFactor, CURRENCY_SYMBOLS, getTradeOutcome } from '@/lib/trade-utils';
 import { ScreenshotViewer } from './screenshot-viewer';
 import { useToast } from '@/hooks/use-toast';
 import { clearPreTradeDraft, readPreTradeDraft } from '@/lib/pre-trade-draft';
+import { useTemplates } from '@/lib/templates-context';
 
 interface TradeFormProps {
   onSuccess?: () => void;
@@ -79,9 +80,29 @@ const EMOTION_OPTIONS: EmotionTag[] = [
   'FOMO',
   'Neutral',
 ];
+const RULE_VIOLATION_LABELS: Record<(typeof RULE_VIOLATION_OPTIONS)[number], string> = {
+  Early_Entry: 'Early entry',
+  Late_Entry: 'Late entry',
+  SL_Moved: 'Stop loss moved',
+  TP_Moved: 'Target moved',
+  Over_Risked: 'Over-risked',
+  Under_Risked: 'Under-risked',
+  Revenge_Trade: 'Revenge trade',
+  FOMO_Entry: 'FOMO entry',
+  No_Setup: 'No setup',
+};
+const MARKET_CONDITION_LABELS: Record<(typeof MARKET_CONDITION_OPTIONS)[number], string> = {
+  Trending: 'Trending',
+  Ranging: 'Ranging',
+  High_Volatility: 'High volatility',
+  Low_Volatility: 'Low volatility',
+  News_Day: 'News day',
+  Normal: 'Normal',
+};
 
 export default function TradeForm({ onSuccess }: TradeFormProps) {
-  const { addTrade } = useTrades();
+  const { addTrade, trades } = useTrades();
+  const { templates, incrementUsageCount } = useTemplates();
   const { toast } = useToast();
   const draft = readPreTradeDraft();
   const hasPreTradeDraft = Boolean(draft && Object.values(draft).some(Boolean));
@@ -119,9 +140,12 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     // isWin is now auto-derived from P&L, no longer manually set
     limit: '',
     exit: '',
+    marketCondition: 'Normal',
     ruleFollowed: true,
+    ruleViolations: [],
     emotionEntry: undefined,
     emotionExit: undefined,
+    plannedRTarget: '',
   });
 
   // Screenshot state
@@ -134,6 +158,8 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
   const [isCustomSetup, setIsCustomSetup] = useState(false);
   const [showChecklistValues, setShowChecklistValues] = useState(false);
   const [useFibonacciLevels, setUseFibonacciLevels] = useState(false);
+  const [riskGateAcknowledged, setRiskGateAcknowledged] = useState(false);
+  const [selectedPlaybookId, setSelectedPlaybookId] = useState('');
   const [isCustomLimit, setIsCustomLimit] = useState(
     Boolean(formData.limit && !FIB_LEVEL_OPTIONS.includes(formData.limit as (typeof FIB_LEVEL_OPTIONS)[number]))
   );
@@ -151,7 +177,8 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     if (textFields.includes(name)) {
       sanitizedValue = sanitizeString(value, false);
     }
-    
+
+    setRiskGateAcknowledged(false);
     setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
   };
 
@@ -180,6 +207,76 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
       ...prev,
       [field]: selected === CUSTOM_FIB_VALUE ? '' : selected,
     }));
+    setRiskGateAcknowledged(false);
+  };
+
+  const handleRuleFollowedChange = (checked: boolean) => {
+    setRiskGateAcknowledged(false);
+    setFormData((prev) => ({
+      ...prev,
+      ruleFollowed: checked,
+      ruleViolations: checked ? [] : prev.ruleViolations || [],
+    }));
+  };
+
+  const handleRuleViolationToggle = (violation: RuleViolation, checked: boolean) => {
+    setRiskGateAcknowledged(false);
+    setFormData((prev) => {
+      const nextViolations = new Set(prev.ruleViolations || []);
+      if (checked) {
+        nextViolations.add(violation);
+      } else {
+        nextViolations.delete(violation);
+      }
+
+      return {
+        ...prev,
+        ruleFollowed: nextViolations.size === 0,
+        ruleViolations: Array.from(nextViolations),
+      };
+    });
+  };
+
+  const handleApplyPlaybook = () => {
+    const playbook = templates.find((template) => template.id === selectedPlaybookId);
+    if (!playbook) return;
+
+    const playbookNotes = [
+      playbook.preNotes,
+      playbook.entryRules ? `Entry rules: ${playbook.entryRules}` : '',
+      playbook.invalidationRules ? `Invalidation: ${playbook.invalidationRules}` : '',
+      playbook.targetRules ? `Target logic: ${playbook.targetRules}` : '',
+      playbook.idealConditions ? `Ideal conditions: ${playbook.idealConditions}` : '',
+      playbook.commonMistakes ? `Avoid: ${playbook.commonMistakes}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    setRiskGateAcknowledged(false);
+    setFormData((prev) => ({
+      ...prev,
+      symbol: playbook.symbol || prev.symbol,
+      setupName: playbook.setupName || prev.setupName,
+      tradeType: playbook.tradeType || prev.tradeType,
+      position: playbook.position || prev.position,
+      timeFrame: playbook.timeFrame || prev.timeFrame,
+      plannedRTarget: playbook.plannedRTarget ? String(playbook.plannedRTarget) : prev.plannedRTarget,
+      marketCondition: (playbook.marketCondition as TradeFormData['marketCondition']) || prev.marketCondition,
+      marketTrend: (playbook.marketTrend as TradeFormData['marketTrend']) || prev.marketTrend,
+      setupType: (playbook.setupType as TradeFormData['setupType']) || prev.setupType,
+      volumeProfile: (playbook.volumeProfile as TradeFormData['volumeProfile']) || prev.volumeProfile,
+      emaTouch: playbook.emaTouch || prev.emaTouch,
+      riskRewardRatio: playbook.riskRewardRatio || prev.riskRewardRatio,
+      marketOpenType: (playbook.marketOpenType as TradeFormData['marketOpenType']) || prev.marketOpenType,
+      firstFiveMinuteCandleType: (playbook.firstFiveMinuteCandleType as TradeFormData['firstFiveMinuteCandleType']) || prev.firstFiveMinuteCandleType,
+      tags: playbook.tags?.length ? playbook.tags.join(', ') : prev.tags,
+      preNotes: playbookNotes || prev.preNotes,
+    }));
+    incrementUsageCount(playbook.id);
+    toast({
+      title: 'Playbook applied',
+      description: `${playbook.name} has been used to prefill this trade.`,
+    });
   };
 
   const handlePasteImage = (type: 'before' | 'after') => async (e: React.ClipboardEvent<HTMLDivElement>) => {
@@ -291,6 +388,16 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
       return;
     }
 
+    if (riskGateWarnings.length > 0 && !riskGateAcknowledged) {
+      toast({
+        title: 'Review the risk gate first',
+        description: 'Please acknowledge the discipline and risk warnings before saving this trade.',
+        variant: 'destructive',
+      });
+      setSubmitStatus('error');
+      return;
+    }
+
     try {
       const trade = convertFormToTrade({
         ...formData,
@@ -332,9 +439,12 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
         timeFrame: '',
         limit: '',
         exit: '',
+        marketCondition: 'Normal',
         ruleFollowed: true,
+        ruleViolations: [],
         emotionEntry: undefined,
         emotionExit: undefined,
+        plannedRTarget: '',
       }));
       clearBeforeScreenshot();
       clearAfterScreenshot();
@@ -345,6 +455,8 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
       setIsCustomLimit(false);
       setIsCustomExit(false);
       setUseFibonacciLevels(false);
+      setRiskGateAcknowledged(false);
+      setSelectedPlaybookId('');
 
       // Trigger callback and auto-clear success message
       if (onSuccess) onSuccess();
@@ -357,6 +469,99 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
 
   // Get current currency symbol
   const currentCurrencySymbol = CURRENCY_SYMBOLS[formData.currency] || '₹';
+  const selectedPlaybook = templates.find((template) => template.id === selectedPlaybookId) || null;
+  const selectedRuleViolations = formData.ruleViolations || [];
+  const brokerageValue = parseFloat(formData.brokerage || '0') || 0;
+  const exchangeChargesValue = parseFloat(formData.exchangeCharges || '0') || 0;
+  const taxesValue = parseFloat(formData.taxes || '0') || 0;
+  const totalCharges = brokerageValue + exchangeChargesValue + taxesValue;
+  const netManualPnl = formData.manualProfit ? (parseFloat(formData.manualProfit) || 0) - totalCharges : null;
+  const plannedRiskAmount =
+    formData.entryPrice && formData.quantity && formData.stopLoss
+      ? Math.abs((parseFloat(formData.entryPrice) || 0) - (parseFloat(formData.stopLoss) || 0)) * (parseFloat(formData.quantity) || 0)
+      : null;
+  const recentLossStreak = (() => {
+    const sortedTrades = [...trades].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    let streak = 0;
+
+    for (const trade of sortedTrades) {
+      if (trade.pnl < 0) {
+        streak += 1;
+        continue;
+      }
+      break;
+    }
+
+    return streak;
+  })();
+  const riskGateWarnings = (() => {
+    const warnings: string[] = [];
+    const rrValue = parseFloat(formData.riskRewardRatio || '0');
+    const confidenceValue = parseInt(formData.confidence || '0', 10);
+    const plannedRTargetValue = parseFloat(formData.plannedRTarget || '0');
+
+    if (!formData.ruleFollowed) {
+      warnings.push('This trade is marked as off-plan. Review whether it deserves to be taken or should be tagged purely as a mistake.');
+    }
+
+    if (selectedRuleViolations.length > 0) {
+      warnings.push(`Rule violations selected: ${selectedRuleViolations.map((item) => RULE_VIOLATION_LABELS[item as (typeof RULE_VIOLATION_OPTIONS)[number]] || item).join(', ')}.`);
+    }
+
+    if (Number.isFinite(rrValue) && rrValue > 0 && rrValue < 1.5) {
+      warnings.push('Risk-reward is below 1.5R. Your edge may need a tighter entry or a better target.');
+    }
+
+    if (Number.isFinite(confidenceValue) && confidenceValue > 0 && confidenceValue <= 3) {
+      warnings.push('Confidence is 3/10 or lower. This usually means the setup is not clear enough yet.');
+    }
+
+    if (recentLossStreak >= 2) {
+      warnings.push(`You are coming off ${recentLossStreak} losing trade${recentLossStreak > 1 ? 's' : ''} in a row. Consider reducing size or waiting for a cleaner setup.`);
+    }
+
+    if (formData.marketCondition === 'News_Day') {
+      warnings.push('News day selected. Volatility and slippage risk are higher than usual.');
+    }
+
+    if (Number.isFinite(plannedRTargetValue) && plannedRTargetValue > 0 && Number.isFinite(rrValue) && rrValue > 0 && plannedRTargetValue > rrValue) {
+      warnings.push('Planned R target is higher than the current risk-reward estimate. Double-check whether the target is realistic.');
+    }
+
+    if (selectedPlaybook) {
+      const mismatchChecks: Array<{ label: string; playbookValue?: string | null; currentValue?: string | null }> = [
+        { label: 'setup', playbookValue: selectedPlaybook.setupName, currentValue: formData.setupName },
+        { label: 'time frame', playbookValue: selectedPlaybook.timeFrame, currentValue: formData.timeFrame },
+        { label: 'market condition', playbookValue: selectedPlaybook.marketCondition, currentValue: formData.marketCondition },
+        { label: 'market trend', playbookValue: selectedPlaybook.marketTrend, currentValue: formData.marketTrend },
+        { label: 'setup type', playbookValue: selectedPlaybook.setupType, currentValue: formData.setupType },
+      ];
+
+      mismatchChecks.forEach(({ label, playbookValue, currentValue }) => {
+        if (playbookValue && currentValue && playbookValue !== currentValue) {
+          warnings.push(`Current ${label} differs from the selected playbook (${playbookValue}).`);
+        }
+      });
+
+      if (
+        selectedPlaybook.riskRewardRatio &&
+        formData.riskRewardRatio &&
+        selectedPlaybook.riskRewardRatio !== formData.riskRewardRatio
+      ) {
+        warnings.push(`Risk-reward ratio differs from the selected playbook (${selectedPlaybook.riskRewardRatio}).`);
+      }
+
+      if (
+        selectedPlaybook.plannedRTarget !== undefined &&
+        formData.plannedRTarget &&
+        Number(formData.plannedRTarget) !== selectedPlaybook.plannedRTarget
+      ) {
+        warnings.push(`Planned R target differs from the selected playbook (${selectedPlaybook.plannedRTarget}R).`);
+      }
+    }
+
+    return warnings;
+  })();
 
   // Calculate live P&L and R-Factor for preview (only if prices are provided)
   // Also show auto-derived W/L based on P&L
@@ -397,20 +602,44 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     return null;
   })();
 
-  // Show validation error for checkbox
-  const getCheckboxError = (fieldName: string): boolean => {
-    return fieldName in errors;
-  };
-
   return (
-    <div className="flex-1 min-h-screen p-3 sm:p-6 lg:p-8 max-w-4xl mx-auto w-full">
-      <Card className="bg-card border-border">
+    <div className="min-h-full w-full max-w-4xl mx-auto p-3 sm:p-6 lg:p-8">
+      <Card className="min-h-full bg-card border-border">
         <CardHeader className="p-4 sm:p-6">
           <CardTitle className="text-xl sm:text-2xl lg:text-3xl">Add New Trade</CardTitle>
           <CardDescription className="text-xs sm:text-sm">Record your trade details and analysis</CardDescription>
         </CardHeader>
         <CardContent className="p-3 sm:p-6">
           <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6 lg:space-y-8">
+            <Card className="border-primary/20 bg-primary/5 shadow-none">
+              <CardHeader className="p-4 sm:p-5">
+                <CardTitle className="text-lg sm:text-xl">Apply Playbook</CardTitle>
+                <CardDescription>
+                  Pull in a saved setup so your trade starts with the right structure, context, and notes.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3 p-4 pt-0 sm:flex-row sm:items-end sm:p-5 sm:pt-0">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-foreground mb-2">Saved Playbook</label>
+                  <select
+                    value={selectedPlaybookId}
+                    onChange={(e) => setSelectedPlaybookId(e.target.value)}
+                    className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Choose a playbook</option>
+                    {templates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name} • {template.setupName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Button type="button" variant="outline" onClick={handleApplyPlaybook} disabled={!selectedPlaybookId}>
+                  Apply Playbook
+                </Button>
+              </CardContent>
+            </Card>
+
             <Card className="border-primary/20 bg-primary/5 shadow-none hover:border-primary/30 hover:shadow-none focus-within:border-primary/40 focus-within:shadow-none">
               <CardHeader className="p-4 sm:p-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -853,7 +1082,10 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                 <select
                   name="currency"
                   value={formData.currency}
-                  onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value as Currency }))}
+                  onChange={(e) => {
+                    setRiskGateAcknowledged(false);
+                    setFormData(prev => ({ ...prev, currency: e.target.value as Currency }));
+                  }}
                   className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="INR">INR (₹)</option>
@@ -954,6 +1186,72 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
               </div>
             )}
 
+            {(riskGateWarnings.length > 0 || plannedRiskAmount !== null || netManualPnl !== null) && (
+              <Card className="border-amber-500/30 bg-amber-500/5 shadow-none">
+                <CardHeader className="p-4 pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <AlertTriangle className="h-4 w-4 text-amber-400" />
+                    Pre-Trade Risk Gate
+                  </CardTitle>
+                  <CardDescription>
+                    {selectedPlaybook ? `Comparing this trade against ${selectedPlaybook.name}.` : 'A quick discipline check before this trade gets saved.'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4 p-4 pt-0">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="rounded-lg border border-border/60 bg-background/70 p-3">
+                      <p className="text-xs text-muted-foreground">Planned risk</p>
+                      <p className="mt-1 text-lg font-semibold text-foreground">
+                        {plannedRiskAmount !== null ? `${currentCurrencySymbol}${plannedRiskAmount.toFixed(2)}` : 'Add entry, stop, and quantity'}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border/60 bg-background/70 p-3">
+                      <p className="text-xs text-muted-foreground">Net outcome preview</p>
+                      <p className={`mt-1 text-lg font-semibold ${netManualPnl !== null && netManualPnl < 0 ? 'text-red-400' : 'text-foreground'}`}>
+                        {netManualPnl !== null ? `${currentCurrencySymbol}${netManualPnl.toFixed(2)}` : 'Add gross P&L'}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border/60 bg-background/70 p-3">
+                      <p className="text-xs text-muted-foreground">Recent loss streak</p>
+                      <p className={`mt-1 text-lg font-semibold ${recentLossStreak >= 2 ? 'text-amber-300' : 'text-foreground'}`}>
+                        {recentLossStreak} trade{recentLossStreak === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {riskGateWarnings.length > 0 ? (
+                    <div className="space-y-2 rounded-lg border border-amber-500/20 bg-background/70 p-3">
+                      <p className="text-sm font-medium text-foreground">Warnings to review</p>
+                      <ul className="space-y-2 text-sm text-muted-foreground">
+                        {riskGateWarnings.map((warning) => (
+                          <li key={warning} className="flex gap-2">
+                            <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-400" />
+                            <span>{warning}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-200">
+                      No major discipline warnings right now. This trade looks aligned with the inputs you entered.
+                    </div>
+                  )}
+
+                  {riskGateWarnings.length > 0 && (
+                    <label className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/70 p-3">
+                      <Checkbox
+                        checked={riskGateAcknowledged}
+                        onCheckedChange={(checked) => setRiskGateAcknowledged(Boolean(checked))}
+                      />
+                      <span className="text-sm text-foreground">
+                        I reviewed these warnings and still want to save this trade.
+                      </span>
+                    </label>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Notes */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Trade Tags</label>
@@ -991,6 +1289,77 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                 rows={3}
               />
             </div>
+
+            <Card className="border-border/70 bg-card/60 shadow-none">
+              <CardHeader className="p-4 pb-3">
+                <CardTitle className="text-base">Discipline & Context Tracker</CardTitle>
+                <CardDescription>
+                  Capture whether the trade followed plan, what market environment you were in, and which execution mistakes showed up.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 p-4 pt-0">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Market Condition</label>
+                    <select
+                      name="marketCondition"
+                      value={formData.marketCondition || 'Normal'}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      {MARKET_CONDITION_OPTIONS.map((condition) => (
+                        <option key={condition} value={condition}>
+                          {MARKET_CONDITION_LABELS[condition]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Planned Target (R)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      name="plannedRTarget"
+                      value={formData.plannedRTarget || ''}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 2.0"
+                      className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.plannedRTarget ? 'border-red-500' : 'border-border'}`}
+                    />
+                    {errors.plannedRTarget && <p className="text-xs text-red-500 mt-1">{errors.plannedRTarget}</p>}
+                  </div>
+                </div>
+
+                <label className="flex items-start gap-3 rounded-lg border border-border bg-background/70 p-3">
+                  <Checkbox
+                    checked={formData.ruleFollowed}
+                    onCheckedChange={(checked) => handleRuleFollowedChange(Boolean(checked))}
+                  />
+                  <span className="text-sm text-foreground">
+                    This trade followed my planned rules and setup criteria.
+                  </span>
+                </label>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-3">Rule Violations</label>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {RULE_VIOLATION_OPTIONS.map((violation) => (
+                      <label
+                        key={violation}
+                        className="flex items-start gap-3 rounded-lg border border-border bg-background/70 p-3"
+                      >
+                        <Checkbox
+                          checked={selectedRuleViolations.includes(violation)}
+                          onCheckedChange={(checked) => handleRuleViolationToggle(violation, Boolean(checked))}
+                        />
+                        <span className="text-sm text-foreground">{RULE_VIOLATION_LABELS[violation]}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {errors.ruleViolations && <p className="text-xs text-red-500 mt-2">{errors.ruleViolations}</p>}
+                </div>
+              </CardContent>
+            </Card>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
@@ -1036,7 +1405,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
 
             {/* Mistake Tag */}
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Mistake Tag (For Losing Trades)</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Mistake Tag</label>
               <select
                 name="mistakeTag"
                 value={formData.mistakeTag || ''}
@@ -1051,7 +1420,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                 ))}
               </select>
               <p className="mt-2 text-xs text-muted-foreground">
-                Includes setup discipline, time frame change, emotional execution, and risk-management mistakes.
+                Use this even for breakeven or winning trades if the process was poor. It helps the weekly review surface repeated mistakes faster.
               </p>
             </div>
 

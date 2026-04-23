@@ -16,6 +16,14 @@ export type MarketSession = 'Asia' | 'London' | 'NewYork' | 'Overlap_London_NY' 
 
 // Market condition classification for context-aware analysis
 export type MarketCondition = 'Trending' | 'Ranging' | 'High_Volatility' | 'Low_Volatility' | 'News_Day' | 'Normal';
+export const MARKET_CONDITION_OPTIONS = [
+  'Trending',
+  'Ranging',
+  'High_Volatility',
+  'Low_Volatility',
+  'News_Day',
+  'Normal',
+] as const;
 
 // Rule violations for discipline tracking
 export type RuleViolation = 
@@ -30,6 +38,17 @@ export type RuleViolation =
   | 'FOMO_Entry' 
   | 'No_Setup'
   | 'Multiple';
+export const RULE_VIOLATION_OPTIONS = [
+  'Early_Entry',
+  'Late_Entry',
+  'SL_Moved',
+  'TP_Moved',
+  'Over_Risked',
+  'Under_Risked',
+  'Revenge_Trade',
+  'FOMO_Entry',
+  'No_Setup',
+] as const;
 
 // Emotional state during trade for psychology tracking
 export type EmotionTag = 'Calm' | 'Confident' | 'Anxious' | 'Fearful' | 'Greedy' | 'Frustrated' | 'Revenge' | 'FOMO' | 'Neutral';
@@ -260,10 +279,21 @@ export interface LearningVideo {
 // ============================================
 
 export type GoalType = 'win_rate' | 'profit_target' | 'trade_count' | 'risk_management' | 'consistency';
+export type GoalMode = 'goal' | 'challenge';
+export type ChallengeTemplate = 'discipline_30' | 'a_plus_week' | 'no_overtrading_week';
+
+export interface ChallengeConfig {
+  maxTradesPerDay?: number;
+  allowedSetups?: string[];
+  requireRuleFollowed?: boolean;
+  requireMistakeFree?: boolean;
+  minConfidence?: number;
+}
 
 export interface TradingGoal {
   id: string;
   type: GoalType;
+  mode?: GoalMode;
   title: string;
   description: string;
   targetValue: number;
@@ -273,6 +303,8 @@ export interface TradingGoal {
   endDate: string;
   status: 'active' | 'completed' | 'failed' | 'abandoned';
   progress: number; // 0-100
+  challengeTemplate?: ChallengeTemplate;
+  challengeConfig?: ChallengeConfig;
   createdAt: string;
   updatedAt: string;
 }
