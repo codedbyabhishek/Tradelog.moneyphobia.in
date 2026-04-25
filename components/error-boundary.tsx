@@ -13,6 +13,43 @@ interface State {
   error: Error | null;
 }
 
+const CHUNK_RECOVERY_KEY = 'td-chunk-recovery-once';
+
+function isChunkLoadError(input: unknown): boolean {
+  const message = String(input || '').toLowerCase();
+  return (
+    message.includes('failed to load chunk') ||
+    message.includes('loading chunk') ||
+    message.includes('chunkloaderror') ||
+    message.includes('failed to fetch dynamically imported module') ||
+    message.includes('failed to load module script')
+  );
+}
+
+async function recoverFromChunkError() {
+  try {
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+    }
+
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter((key) => key.startsWith('trading-diary'))
+          .map((key) => caches.delete(key))
+      );
+    }
+  } catch {
+    // no-op
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.set('v', String(Date.now()));
+  window.location.replace(url.toString());
+}
+
 /**
  * Error Boundary Component
  * Catches and displays errors in React component trees
@@ -30,6 +67,19 @@ export class ErrorBoundary extends React.Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('[v0] Error Boundary caught:', error);
     console.error('[v0] Error Info:', errorInfo);
+
+    if (typeof window !== 'undefined' && isChunkLoadError(error?.message)) {
+      try {
+        if (sessionStorage.getItem(CHUNK_RECOVERY_KEY) !== '1') {
+          sessionStorage.setItem(CHUNK_RECOVERY_KEY, '1');
+          void recoverFromChunkError();
+          return;
+        }
+      } catch {
+        void recoverFromChunkError();
+        return;
+      }
+    }
   }
 
   render() {

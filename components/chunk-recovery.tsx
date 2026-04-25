@@ -15,13 +15,31 @@ function isChunkLoadError(input: unknown): boolean {
   );
 }
 
-function reloadOnce() {
+async function reloadOnce() {
   try {
     if (sessionStorage.getItem(RELOAD_ONCE_KEY) === '1') return;
     sessionStorage.setItem(RELOAD_ONCE_KEY, '1');
-    window.location.reload();
+
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+    }
+
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter((key) => key.startsWith('trading-diary'))
+          .map((key) => caches.delete(key))
+      );
+    }
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('v', String(Date.now()));
+    window.location.replace(url.toString());
   } catch {
     // no-op
+    window.location.reload();
   }
 }
 
@@ -29,13 +47,17 @@ export function ChunkRecovery() {
   useEffect(() => {
     const onError = (event: ErrorEvent) => {
       const message = event.message || event.error?.message || '';
-      if (isChunkLoadError(message)) reloadOnce();
+      if (isChunkLoadError(message)) {
+        void reloadOnce();
+      }
     };
 
     const onUnhandledRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
       const message = typeof reason === 'string' ? reason : reason?.message || '';
-      if (isChunkLoadError(message)) reloadOnce();
+      if (isChunkLoadError(message)) {
+        void reloadOnce();
+      }
     };
 
     window.addEventListener('error', onError);
@@ -58,4 +80,3 @@ export function ChunkRecovery() {
 
   return null;
 }
-

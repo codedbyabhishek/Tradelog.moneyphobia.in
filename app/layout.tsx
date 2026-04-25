@@ -172,7 +172,9 @@ export default function RootLayout({
                 try {
                   if (sessionStorage.getItem(KEY) === '1') return;
                   sessionStorage.setItem(KEY, '1');
-                  location.reload();
+                  var url = new URL(location.href);
+                  url.searchParams.set('v', String(Date.now()));
+                  location.replace(url.toString());
                 } catch (_) {}
               }
               window.addEventListener('error', function (event) {
