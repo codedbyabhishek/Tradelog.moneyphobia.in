@@ -112,9 +112,49 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const pwaEnabled = process.env.NEXT_PUBLIC_ENABLE_PWA === 'true'
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {!pwaEnabled ? (
+          <Script id="sw-cleanup" strategy="beforeInteractive">
+            {`
+              (function () {
+                if (typeof window === 'undefined') return;
+
+                function clearTraderlogifyCaches() {
+                  if (!('caches' in window)) return Promise.resolve();
+                  return caches.keys().then(function (keys) {
+                    return Promise.all(
+                      keys
+                        .filter(function (key) { return key.indexOf('trading-diary') === 0; })
+                        .map(function (key) { return caches.delete(key); })
+                    );
+                  });
+                }
+
+                function cleanupServiceWorkers() {
+                  if (!('serviceWorker' in navigator)) return Promise.resolve();
+                  return navigator.serviceWorker.getRegistrations().then(function (registrations) {
+                    return Promise.all(
+                      registrations.map(function (registration) {
+                        return registration.unregister();
+                      })
+                    );
+                  });
+                }
+
+                Promise.allSettled([
+                  clearTraderlogifyCaches(),
+                  cleanupServiceWorkers()
+                ]).catch(function () {
+                  // no-op
+                });
+              })();
+            `}
+          </Script>
+        ) : null}
         <Script id="chunk-fallback" strategy="beforeInteractive">
           {`
             (function () {

@@ -3,8 +3,8 @@
  * Handles offline functionality, caching, and background sync
  */
 
-const CACHE_NAME = 'trading-diary-v3';
-const RUNTIME_CACHE = 'trading-diary-runtime-v3';
+const CACHE_NAME = 'trading-diary-v4';
+const RUNTIME_CACHE = 'trading-diary-runtime-v4';
 
 // Install event
 self.addEventListener('install', (event) => {
@@ -49,6 +49,13 @@ self.addEventListener('fetch', (event) => {
           });
         }),
     );
+    return;
+  }
+
+  // Never cache Next.js build assets. A cache-first strategy here can
+  // serve stale chunks after deploys and break the app with chunk-load errors.
+  if (request.url.includes('/_next/')) {
+    event.respondWith(fetch(request));
     return;
   }
 
