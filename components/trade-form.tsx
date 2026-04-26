@@ -668,7 +668,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Market Trend*</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">Market Trend</label>
                     <select
                       name="marketTrend"
                       value={formData.marketTrend}
@@ -683,7 +683,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                     {errors.marketTrend && <p className="text-xs text-red-500 mt-1">{errors.marketTrend}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Setup Type*</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">Setup Type</label>
                     <select
                       name="setupType"
                       value={formData.setupType}
@@ -698,7 +698,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                     {errors.setupType && <p className="text-xs text-red-500 mt-1">{errors.setupType}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Volume*</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">Volume</label>
                     <select
                       name="volumeProfile"
                       value={formData.volumeProfile}
@@ -712,7 +712,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                     {errors.volumeProfile && <p className="text-xs text-red-500 mt-1">{errors.volumeProfile}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">EMA Touch*</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">EMA Touch</label>
                     <select
                       name="emaTouch"
                       value={formData.emaTouch}
@@ -726,7 +726,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                     {errors.emaTouch && <p className="text-xs text-red-500 mt-1">{errors.emaTouch}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Risk-Reward Ratio*</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">Risk-Reward Ratio</label>
                     <input
                       type="number"
                       step="0.01"
@@ -740,7 +740,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                     {errors.riskRewardRatio && <p className="text-xs text-red-500 mt-1">{errors.riskRewardRatio}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Market Open Type*</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">Market Open Type</label>
                     <select
                       name="marketOpenType"
                       value={formData.marketOpenType}
@@ -755,7 +755,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                     {errors.marketOpenType && <p className="text-xs text-red-500 mt-1">{errors.marketOpenType}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">First 5-Min Candle*</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">First 5-Min Candle</label>
                     <select
                       name="firstFiveMinuteCandleType"
                       value={formData.firstFiveMinuteCandleType}

@@ -116,37 +116,11 @@ export function validateTradeForm(
     errors.timeFrame = 'Time frame is required';
   }
 
-  if (!formData.marketTrend) {
-    errors.marketTrend = 'Market trend is required';
-  }
-
-  if (!formData.setupType) {
-    errors.setupType = 'Setup type is required';
-  }
-
-  if (!formData.volumeProfile) {
-    errors.volumeProfile = 'Volume is required';
-  }
-
-  if (!formData.emaTouch) {
-    errors.emaTouch = 'EMA touch is required';
-  }
-
-  if (!formData.riskRewardRatio) {
-    errors.riskRewardRatio = 'Risk-reward ratio is required';
-  } else {
+  if (formData.riskRewardRatio) {
     const ratio = validatePositiveNumber(formData.riskRewardRatio);
     if (ratio === null) {
       errors.riskRewardRatio = 'Risk-reward ratio must be a positive number';
     }
-  }
-
-  if (!formData.marketOpenType) {
-    errors.marketOpenType = 'Market open type is required';
-  }
-
-  if (!formData.firstFiveMinuteCandleType) {
-    errors.firstFiveMinuteCandleType = 'First 5-minute candle type is required';
   }
 
   if (requireFibonacciLevels) {
