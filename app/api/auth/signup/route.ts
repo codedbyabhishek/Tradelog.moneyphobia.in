@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (existing.length > 0) {
-      return jsonError('Email is already registered.', 409);
+      return jsonError('Unable to create account with those details.', 409);
     }
 
     const passwordHash = await hashPassword(validated.data.password);

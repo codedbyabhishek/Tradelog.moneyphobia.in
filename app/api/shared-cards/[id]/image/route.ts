@@ -1,24 +1,11 @@
 import { NextResponse } from 'next/server';
 import { jsonError } from '@/lib/server/http';
-import { getSharedCardLookup } from '@/lib/server/shared-cards';
+import { decodeSharedCardImageDataUrl, getSharedCardLookup } from '@/lib/server/shared-cards';
 
 export const runtime = 'nodejs';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
-}
-
-function decodeDataUrl(dataUrl: string) {
-  const match = dataUrl.match(/^data:(.+);base64,(.+)$/);
-  if (!match) {
-    return null;
-  }
-
-  const [, mimeType, base64] = match;
-  return {
-    mimeType,
-    bytes: Buffer.from(base64, 'base64'),
-  };
 }
 
 export async function GET(_: Request, { params }: RouteParams) {
@@ -33,7 +20,7 @@ export async function GET(_: Request, { params }: RouteParams) {
       return jsonError('Shared card has expired.', 410);
     }
 
-    const decoded = decodeDataUrl(share.record.imageDataUrl);
+    const decoded = decodeSharedCardImageDataUrl(share.record.imageDataUrl);
     if (!decoded) {
       return jsonError('Shared card image is invalid.', 500);
     }

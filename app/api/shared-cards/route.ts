@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/server/auth';
 import { jsonError, parseJsonBody, isUnauthorizedError } from '@/lib/server/http';
-import { createSharedCard, getSharedCardById } from '@/lib/server/shared-cards';
+import {
+  createSharedCard,
+  decodeSharedCardImageDataUrl,
+  getSharedCardById,
+  MAX_SHARED_CARD_CAPTION_LENGTH,
+  MAX_SHARED_CARD_IMAGE_BYTES,
+  MAX_SHARED_CARD_PAYLOAD_BYTES,
+  MAX_SHARED_CARD_SUMMARY_LENGTH,
+  MAX_SHARED_CARD_TITLE_LENGTH,
+} from '@/lib/server/shared-cards';
 import { getSiteUrl } from '@/lib/seo';
 
 export const runtime = 'nodejs';
@@ -32,6 +41,28 @@ export async function POST(request: NextRequest) {
 
     if (!shareType || !title || !imageDataUrl.startsWith('data:image/png;base64,')) {
       return jsonError('Shared card title, type, and PNG image are required.', 400);
+    }
+    if (title.length > MAX_SHARED_CARD_TITLE_LENGTH) {
+      return jsonError(`Shared card title must be ${MAX_SHARED_CARD_TITLE_LENGTH} characters or less.`, 400);
+    }
+    if (caption.length > MAX_SHARED_CARD_CAPTION_LENGTH) {
+      return jsonError(`Shared card caption must be ${MAX_SHARED_CARD_CAPTION_LENGTH} characters or less.`, 400);
+    }
+    if (summaryText.length > MAX_SHARED_CARD_SUMMARY_LENGTH) {
+      return jsonError(`Shared card summary must be ${MAX_SHARED_CARD_SUMMARY_LENGTH} characters or less.`, 400);
+    }
+
+    const decodedImage = decodeSharedCardImageDataUrl(imageDataUrl);
+    if (!decodedImage) {
+      return jsonError('Shared card image must be a valid PNG.', 400);
+    }
+    if (decodedImage.bytes.length > MAX_SHARED_CARD_IMAGE_BYTES) {
+      return jsonError('Shared card image exceeds the 1.5 MB limit.', 413);
+    }
+
+    const payloadJson = body.payload ? JSON.stringify(body.payload) : '';
+    if (payloadJson.length > MAX_SHARED_CARD_PAYLOAD_BYTES) {
+      return jsonError('Shared card payload exceeds the allowed size.', 413);
     }
 
     const shareId = await createSharedCard({

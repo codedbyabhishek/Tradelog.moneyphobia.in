@@ -32,6 +32,7 @@ Add these variables in your hosting app environment:
 - `NODE_ENV=production`
 - `NEXT_PUBLIC_ENABLE_PWA=false`
 - `ADMIN_EMAILS`
+- `HEALTHCHECK_TOKEN`
 
 Template: [.env.example](.env.example)
 
@@ -81,8 +82,17 @@ If Hostinger asks for the app port, use the platform-managed default and do not 
 4. Add a trade.
 5. Verify DB rows in `users`, `user_sessions`, and `trades` tables.
 6. Create one idea/goal/filter/template and check their tables too.
-7. Open `/api/health` and confirm the API responds.
+7. Confirm `/api/health` responds when you send the health-check token header.
 8. Test Dhan sync with a very small date range first.
+
+Health check example:
+
+```bash
+curl -H "Authorization: Bearer $HEALTHCHECK_TOKEN" \
+  https://your-domain/api/health
+```
+
+Without the token, the route returns `404`.
 
 ## 7. Quick Troubleshooting
 If you don't see login/signup or other frontend changes:

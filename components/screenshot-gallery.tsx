@@ -16,6 +16,7 @@ type ScreenshotFilter = 'All' | 'Before Trade' | 'After Exit';
 type GalleryLayout = 'grid' | 'masonry' | 'compact';
 type DayFilter = 'All Days' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
 type TimeframeFilter = 'All Time' | 'Today' | 'Last 7 Days' | 'This Month' | 'Last 30 Days';
+type TradeTimeFrameFilter = 'All Time Frames' | string;
 const GALLERY_LAYOUT_STORAGE_KEY = 'td-gallery-layout';
 const DAY_FILTER_OPTIONS: DayFilter[] = [
   'All Days',
@@ -38,6 +39,7 @@ type ScreenshotEntry = {
   setupName: string;
   date: string;
   tradeType: string;
+  timeFrame: string;
 };
 
 function getInitialLayout(): GalleryLayout {
@@ -97,6 +99,7 @@ export default function ScreenshotGallery() {
   const [filter, setFilter] = useState<ScreenshotFilter>('All');
   const [dayFilter, setDayFilter] = useState<DayFilter>('All Days');
   const [timeframeFilter, setTimeframeFilter] = useState<TimeframeFilter>('All Time');
+  const [tradeTimeFrameFilter, setTradeTimeFrameFilter] = useState<TradeTimeFrameFilter>('All Time Frames');
   const [layout, setLayout] = useState<GalleryLayout>(getInitialLayout);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -120,6 +123,7 @@ export default function ScreenshotGallery() {
             setupName: trade.setupName,
             date: trade.date,
             tradeType: trade.tradeType,
+            timeFrame: trade.timeFrame?.trim() || 'Unspecified',
           });
         }
 
@@ -133,6 +137,7 @@ export default function ScreenshotGallery() {
             setupName: trade.setupName,
             date: trade.date,
             tradeType: trade.tradeType,
+            timeFrame: trade.timeFrame?.trim() || 'Unspecified',
           });
         }
 
@@ -140,6 +145,11 @@ export default function ScreenshotGallery() {
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [trades]);
+
+  const tradeTimeFrameOptions = useMemo<TradeTimeFrameFilter[]>(() => {
+    const options = Array.from(new Set(screenshots.map((item) => item.timeFrame))).sort((a, b) => a.localeCompare(b));
+    return ['All Time Frames', ...options];
+  }, [screenshots]);
 
   const filteredScreenshots = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -149,16 +159,18 @@ export default function ScreenshotGallery() {
       const tradeDay = parseIsoDateLocal(item.date).toLocaleDateString('en-US', { weekday: 'long' }) as DayFilter;
       const matchesDay = dayFilter === 'All Days' || tradeDay === dayFilter;
       const matchesTimeframe = isWithinTimeframe(item.date, timeframeFilter);
+      const matchesTradeTimeFrame = tradeTimeFrameFilter === 'All Time Frames' || item.timeFrame === tradeTimeFrameFilter;
       const matchesSearch =
         normalizedSearch.length === 0 ||
         item.setupName.toLowerCase().includes(normalizedSearch) ||
         item.symbol.toLowerCase().includes(normalizedSearch) ||
         item.date.toLowerCase().includes(normalizedSearch) ||
-        item.tradeType.toLowerCase().includes(normalizedSearch);
+        item.tradeType.toLowerCase().includes(normalizedSearch) ||
+        item.timeFrame.toLowerCase().includes(normalizedSearch);
 
-      return matchesFilter && matchesDay && matchesTimeframe && matchesSearch;
+      return matchesFilter && matchesDay && matchesTimeframe && matchesTradeTimeFrame && matchesSearch;
     });
-  }, [dayFilter, filter, screenshots, searchTerm, timeframeFilter]);
+  }, [dayFilter, filter, screenshots, searchTerm, timeframeFilter, tradeTimeFrameFilter]);
 
   const groupedScreenshots = useMemo(() => {
     return filteredScreenshots.reduce<Record<string, ScreenshotEntry[]>>((groups, item) => {
@@ -204,10 +216,11 @@ export default function ScreenshotGallery() {
           </div>
         </ScreenshotViewer>
 
-        <div className={cn('space-y-3', layout === 'compact' ? 'p-3' : 'p-4')}>
+          <div className={cn('space-y-3', layout === 'compact' ? 'p-3' : 'p-4')}>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline">{item.screenshotType}</Badge>
             <Badge variant="secondary">{item.tradeType}</Badge>
+            <Badge variant="secondary">{item.timeFrame}</Badge>
           </div>
 
           <div>
@@ -283,6 +296,19 @@ export default function ScreenshotGallery() {
                     variant={timeframeFilter === option ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setTimeframeFilter(option)}
+                  >
+                    {option}
+                  </Button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {tradeTimeFrameOptions.map((option) => (
+                  <Button
+                    key={option}
+                    type="button"
+                    variant={tradeTimeFrameFilter === option ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTradeTimeFrameFilter(option)}
                   >
                     {option}
                   </Button>

@@ -37,6 +37,11 @@ export type SharedCardLookup =
 
 const SHARED_CARD_TTL_HOURS = 24;
 const SHARED_CARD_RETENTION_DAYS = 7;
+export const MAX_SHARED_CARD_IMAGE_BYTES = 1_500_000;
+export const MAX_SHARED_CARD_PAYLOAD_BYTES = 50_000;
+export const MAX_SHARED_CARD_TITLE_LENGTH = 120;
+export const MAX_SHARED_CARD_CAPTION_LENGTH = 280;
+export const MAX_SHARED_CARD_SUMMARY_LENGTH = 1000;
 
 export async function ensureSharedCardsSchema() {
   await assertSharedCardsSchemaReady();
@@ -44,6 +49,22 @@ export async function ensureSharedCardsSchema() {
 
 export function generateShareId() {
   return randomBytes(9).toString('base64url');
+}
+
+export function decodeSharedCardImageDataUrl(dataUrl: string) {
+  const match = dataUrl.match(/^data:(image\/png);base64,([A-Za-z0-9+/=]+)$/);
+  if (!match) {
+    return null;
+  }
+
+  const [, mimeType, base64] = match;
+
+  try {
+    const bytes = Buffer.from(base64, 'base64');
+    return { mimeType, bytes };
+  } catch {
+    return null;
+  }
 }
 
 export async function createSharedCard(input: {

@@ -10,7 +10,24 @@ import {
 
 export const runtime = 'nodejs';
 
-export async function GET() {
+function getAuthorizedHealthResponse(request: Request) {
+  const token = process.env.HEALTHCHECK_TOKEN || '';
+  const authHeader = request.headers.get('authorization') || '';
+  const headerToken = request.headers.get('x-healthcheck-token') || '';
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+
+  if (!token) {
+    return process.env.NODE_ENV !== 'production';
+  }
+
+  return headerToken === token || bearerToken === token;
+}
+
+export async function GET(request: Request) {
+  if (!getAuthorizedHealthResponse(request)) {
+    return NextResponse.json({ error: 'Not found.' }, { status: 404 });
+  }
+
   const timestamp = new Date().toISOString();
   const requiredEnv = ['DB_HOST', 'DB_USER', 'DB_NAME'];
   const missingEnv = requiredEnv.filter((name) => !process.env[name]);
@@ -77,8 +94,6 @@ export async function GET() {
       { status: 200 }
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown health check failure';
-
     return NextResponse.json(
       {
         ok: false,
@@ -87,8 +102,8 @@ export async function GET() {
         status: 'degraded',
         checks: {
           env: { ok: true },
-          db: { ok: false, error: message },
-          schema: { ok: false, error: message },
+          db: { ok: false },
+          schema: { ok: false },
         },
         warnings,
       },

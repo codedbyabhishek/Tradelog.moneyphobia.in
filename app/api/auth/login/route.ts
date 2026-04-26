@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     const user = rows[0];
     if (!user.password_hash) {
-      return jsonError('This account uses Google sign-in. Continue with Google instead.', 401);
+      return jsonError('Invalid email or password.', 401);
     }
 
     const passwordOk = await verifyPassword(validated.data.password, user.password_hash);

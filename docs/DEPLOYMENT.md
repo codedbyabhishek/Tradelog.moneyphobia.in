@@ -23,6 +23,7 @@ NODE_ENV=production
 NEXT_PUBLIC_ENABLE_PWA=false
 NEXT_PUBLIC_SITE_URL=https://traderlogify.online
 ADMIN_EMAILS=you@example.com,team@example.com
+HEALTHCHECK_TOKEN=replace-with-a-long-random-secret
 NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxx
 RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxx
 RAZORPAY_KEY_SECRET=your_razorpay_key_secret
@@ -114,6 +115,24 @@ After deployment verify:
 8. Dhan status check works
 9. Dhan sync works with a small date range
 10. `/admin` opens only for allowlisted admin emails
+
+## Health Check Access
+
+In production, `/api/health` is not public anymore.
+
+Set `HEALTHCHECK_TOKEN` in the environment, then send it with either:
+
+- `Authorization: Bearer <token>`
+- `x-healthcheck-token: <token>`
+
+Example:
+
+```bash
+curl -H "Authorization: Bearer $HEALTHCHECK_TOKEN" \
+  https://your-domain/api/health
+```
+
+Without the token, the route returns `404`.
 
 ## Troubleshooting
 
