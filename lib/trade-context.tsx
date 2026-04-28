@@ -4,7 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { Currency, Trade } from './types';
 import { convertToBaseCurrency, getExchangeRateToBase, getTradeResultLabel } from './trade-utils';
 import { useAuth } from '@/lib/auth-context';
-import { clearBootstrap, readBootstrap } from '@/lib/client-bootstrap';
+import { clearBootstrap, readBootstrap, storeBootstrap } from '@/lib/client-bootstrap';
 import { useSettings } from '@/lib/settings-context';
 import { isProPlan, SUBSCRIPTION_LIMITS } from '@/lib/subscription';
 
@@ -24,6 +24,16 @@ interface TradeContextType {
 }
 
 export const TradeContext = createContext<TradeContextType | undefined>(undefined);
+
+function updateBootstrapTrades(userId: number, updater: (trades: Trade[]) => Trade[]) {
+  const bootstrap = readBootstrap(userId);
+  if (!bootstrap) return;
+
+  storeBootstrap({
+    ...bootstrap,
+    trades: updater(Array.isArray(bootstrap.trades) ? bootstrap.trades : []),
+  });
+}
 
 function normalizeTrade(trade: any): Trade {
   if (trade.currency && trade.pnlBase !== undefined) {
@@ -105,6 +115,7 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json();
       const loadedTrades = Array.isArray(data.trades) ? data.trades.map(normalizeTrade) : [];
       setTrades(loadedTrades);
+      updateBootstrapTrades(user.id, () => loadedTrades);
       setError(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load trades';
@@ -130,6 +141,9 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
 
       const normalized = normalizeTrade(trade);
       setTrades((prev) => [...prev, normalized]);
+      if (user) {
+        updateBootstrapTrades(user.id, (prev) => [...prev, normalized]);
+      }
 
       void apiRequest('/api/trades', {
         method: 'POST',
@@ -151,6 +165,9 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
       }
 
       setTrades((prev) => prev.filter((t) => t.id !== id));
+      if (user) {
+        updateBootstrapTrades(user.id, (prev) => prev.filter((t) => t.id !== id));
+      }
 
       void apiRequest(`/api/trades/${encodeURIComponent(id)}`, {
         method: 'DELETE',
@@ -167,6 +184,9 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
   const clearTrades = async () => {
     try {
       setTrades([]);
+      if (user) {
+        updateBootstrapTrades(user.id, () => []);
+      }
       await apiRequest('/api/trades', {
         method: 'DELETE',
       });
@@ -190,6 +210,9 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
 
       const normalized = normalizeTrade(updatedTrade);
       setTrades((prev) => prev.map((t) => (t.id === id ? normalized : t)));
+      if (user) {
+        updateBootstrapTrades(user.id, (prev) => prev.map((t) => (t.id === id ? normalized : t)));
+      }
 
       void apiRequest(`/api/trades/${encodeURIComponent(id)}`, {
         method: 'PUT',
@@ -353,6 +376,9 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
       );
 
       setTrades((prev) => [...prev, ...migratedTrades]);
+      if (user) {
+        updateBootstrapTrades(user.id, (prev) => [...prev, ...migratedTrades]);
+      }
       setError(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error during import';

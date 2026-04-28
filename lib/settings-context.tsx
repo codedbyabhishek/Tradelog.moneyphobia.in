@@ -3,7 +3,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { BillingState, CapitalAdjustment, Currency } from './types';
 import { useAuth } from '@/lib/auth-context';
-import { clearBootstrap, readBootstrap } from '@/lib/client-bootstrap';
+import { clearBootstrap, readBootstrap, storeBootstrap } from '@/lib/client-bootstrap';
+import type { AppBootstrapData } from '@/lib/bootstrap';
 import { DEFAULT_BILLING_STATE, normalizeBillingState } from '@/lib/subscription';
 
 interface SettingsContextType {
@@ -22,6 +23,35 @@ export const SettingsContext = createContext<SettingsContextType | undefined>(un
 const DEFAULT_BASE_CURRENCY: Currency = 'INR';
 const DEFAULT_STARTING_BALANCE = 0;
 const DEFAULT_CAPITAL_ADJUSTMENTS: CapitalAdjustment[] = [];
+
+function normalizeCapitalAdjustments(input: unknown): CapitalAdjustment[] {
+  if (!Array.isArray(input)) {
+    return DEFAULT_CAPITAL_ADJUSTMENTS;
+  }
+
+  return input
+    .filter((item: any) => item && item.id && item.date && Number.isFinite(Number(item.amount)))
+    .map((item: any) => ({
+      id: String(item.id),
+      date: String(item.date),
+      type: item.type === 'withdrawal' ? 'withdrawal' : 'deposit',
+      amount: Number(item.amount),
+      note: item.note ? String(item.note) : '',
+    }));
+}
+
+function updateBootstrapSettings(
+  userId: number,
+  updater: (settings: AppBootstrapData['settings']) => AppBootstrapData['settings']
+) {
+  const bootstrap = readBootstrap(userId);
+  if (!bootstrap) return;
+
+  storeBootstrap({
+    ...bootstrap,
+    settings: updater(bootstrap.settings || {}),
+  });
+}
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -46,9 +76,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       if (bootstrap) {
         const storedCurrency = bootstrap.settings?.baseCurrency;
         const storedStartingBalance = Number(bootstrap.settings?.startingBalance);
-        const storedCapitalAdjustments = Array.isArray(bootstrap.settings?.capitalAdjustments)
-          ? bootstrap.settings.capitalAdjustments
-          : DEFAULT_CAPITAL_ADJUSTMENTS;
+        const storedCapitalAdjustments = normalizeCapitalAdjustments(bootstrap.settings?.capitalAdjustments);
 
         if (storedCurrency) {
           setBaseCurrencyState(storedCurrency as Currency);
@@ -57,17 +85,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         }
 
         setStartingBalanceState(Number.isFinite(storedStartingBalance) ? storedStartingBalance : DEFAULT_STARTING_BALANCE);
-        setCapitalAdjustmentsState(
-          storedCapitalAdjustments
-            .filter((item: any) => item && item.id && item.date && Number.isFinite(Number(item.amount)))
-            .map((item: any) => ({
-              id: String(item.id),
-              date: String(item.date),
-              type: item.type === 'withdrawal' ? 'withdrawal' : 'deposit',
-              amount: Number(item.amount),
-              note: item.note ? String(item.note) : '',
-            }))
-        );
+        setCapitalAdjustmentsState(storedCapitalAdjustments);
         setBillingState(normalizeBillingState(bootstrap.settings?.billing));
         return;
       }
@@ -78,9 +96,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json();
         const storedCurrency = data?.settings?.baseCurrency;
         const storedStartingBalance = Number(data?.settings?.startingBalance);
-        const storedCapitalAdjustments = Array.isArray(data?.settings?.capitalAdjustments)
-          ? data.settings.capitalAdjustments
-          : DEFAULT_CAPITAL_ADJUSTMENTS;
+        const storedCapitalAdjustments = normalizeCapitalAdjustments(data?.settings?.capitalAdjustments);
         if (storedCurrency) {
           setBaseCurrencyState(storedCurrency as Currency);
         }
@@ -88,17 +104,17 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           setStartingBalanceState(storedStartingBalance);
         }
         setBillingState(normalizeBillingState(data?.settings?.billing));
-        setCapitalAdjustmentsState(
-          storedCapitalAdjustments
-            .filter((item: any) => item && item.id && item.date && Number.isFinite(Number(item.amount)))
-            .map((item: any) => ({
-              id: String(item.id),
-              date: String(item.date),
-              type: item.type === 'withdrawal' ? 'withdrawal' : 'deposit',
-              amount: Number(item.amount),
-              note: item.note ? String(item.note) : '',
-            }))
-        );
+        setCapitalAdjustmentsState(storedCapitalAdjustments);
+
+        if (user) {
+          updateBootstrapSettings(user.id, (settings) => ({
+            ...settings,
+            ...(storedCurrency ? { baseCurrency: storedCurrency as Currency } : {}),
+            ...(Number.isFinite(storedStartingBalance) ? { startingBalance: storedStartingBalance } : {}),
+            capitalAdjustments: storedCapitalAdjustments,
+            billing: normalizeBillingState(data?.settings?.billing),
+          }));
+        }
       } catch (error) {
         console.error('[SettingsContext] Failed to load settings:', error);
       }
@@ -110,6 +126,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const setBaseCurrency = (currency: Currency) => {
     if (currency === baseCurrency) return;
     setBaseCurrencyState(currency);
+    if (user) {
+      updateBootstrapSettings(user.id, (settings) => ({
+        ...settings,
+        baseCurrency: currency,
+      }));
+    }
 
     if (!user) return;
 
@@ -127,6 +149,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     const normalizedBalance = Number.isFinite(balance) ? balance : DEFAULT_STARTING_BALANCE;
     if (normalizedBalance === startingBalance) return;
     setStartingBalanceState(normalizedBalance);
+    if (user) {
+      updateBootstrapSettings(user.id, (settings) => ({
+        ...settings,
+        startingBalance: normalizedBalance,
+      }));
+    }
 
     if (!user) return;
 
@@ -148,6 +176,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     if (JSON.stringify(normalized) === JSON.stringify(capitalAdjustments)) return;
 
     setCapitalAdjustmentsState(normalized);
+    if (user) {
+      updateBootstrapSettings(user.id, (settings) => ({
+        ...settings,
+        capitalAdjustments: normalized,
+      }));
+    }
 
     if (!user) return;
 
@@ -165,6 +199,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     const normalized = normalizeBillingState(billing);
     if (JSON.stringify(normalized) === JSON.stringify(billingState)) return;
     setBillingState(normalized);
+    if (user) {
+      updateBootstrapSettings(user.id, (settings) => ({
+        ...settings,
+        billing: normalized,
+      }));
+    }
 
     if (!user) return;
 
