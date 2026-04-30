@@ -17,6 +17,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
+import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trade } from '@/lib/types';
 import { generatePerformanceMetrics } from '@/lib/performance-analytics';
@@ -41,6 +42,22 @@ export function PerformanceDashboard({ trades }: PerformanceDashboardProps) {
 
   const renderCurrencyTooltip = (value: number) => `$${value.toFixed(2)}`;
   const renderPercentageTooltip = (value: number) => `${value.toFixed(1)}%`;
+  const renderCurrencyTooltipValue = (value: ValueType | undefined) => {
+    if (typeof value === 'number') return renderCurrencyTooltip(value);
+    if (typeof value === 'string') {
+      const numericValue = Number(value);
+      return Number.isFinite(numericValue) ? renderCurrencyTooltip(numericValue) : value;
+    }
+    return value?.join(' / ') ?? '';
+  };
+  const renderPercentageTooltipValue = (value: ValueType | undefined) => {
+    if (typeof value === 'number') return renderPercentageTooltip(value);
+    if (typeof value === 'string') {
+      const numericValue = Number(value);
+      return Number.isFinite(numericValue) ? renderPercentageTooltip(numericValue) : value;
+    }
+    return value?.join(' / ') ?? '';
+  };
 
   // Prepare equity curve data
   const equityCurveData = useMemo(() => {
@@ -268,7 +285,7 @@ export function PerformanceDashboard({ trades }: PerformanceDashboardProps) {
               />
               <YAxis tickFormatter={renderCurrencyTooltip} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
               <Tooltip
-                formatter={(value: number) => renderCurrencyTooltip(value)}
+                formatter={(value: ValueType | undefined) => renderCurrencyTooltipValue(value)}
                 contentStyle={{
                   borderRadius: '16px',
                   border: '1px solid rgba(148, 163, 184, 0.2)',
@@ -374,11 +391,11 @@ export function PerformanceDashboard({ trades }: PerformanceDashboardProps) {
                 axisLine={false}
               />
               <Tooltip
-                formatter={(value: number, name?: string) => {
+                formatter={(value: ValueType | undefined, name: NameType | undefined) => {
                   if (name === 'pnl' || name === 'target') {
-                    return renderCurrencyTooltip(value);
+                    return renderCurrencyTooltipValue(value);
                   }
-                  return renderPercentageTooltip(value);
+                  return renderPercentageTooltipValue(value);
                 }}
                 contentStyle={{
                   borderRadius: '16px',
@@ -481,9 +498,9 @@ export function PerformanceDashboard({ trades }: PerformanceDashboardProps) {
               />
               <YAxis tickFormatter={renderCurrencyTooltip} tick={{ fontSize: 12 }} />
               <Tooltip
-                formatter={(value: number, name?: string) => {
+                formatter={(value: ValueType | undefined, name: NameType | undefined) => {
                   if (name === 'drawdown') {
-                    return renderCurrencyTooltip(value);
+                    return renderCurrencyTooltipValue(value);
                   }
                   return value;
                 }}
@@ -584,7 +601,7 @@ export function PerformanceDashboard({ trades }: PerformanceDashboardProps) {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="hour" tick={{ fontSize: 12 }} />
                 <YAxis tickFormatter={renderCurrencyTooltip} tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(value: any) => renderCurrencyTooltip(value)} />
+                <Tooltip formatter={(value: ValueType | undefined) => renderCurrencyTooltipValue(value)} />
                 <Bar dataKey="pnl" fill="#3b82f6" radius={[8, 8, 0, 0]}>
                   {bestHoursData.map((entry, index) => (
                     <Cell
@@ -610,7 +627,7 @@ export function PerformanceDashboard({ trades }: PerformanceDashboardProps) {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="day" tick={{ fontSize: 12 }} />
                 <YAxis tickFormatter={renderCurrencyTooltip} tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(value: any) => renderCurrencyTooltip(value)} />
+                <Tooltip formatter={(value: ValueType | undefined) => renderCurrencyTooltipValue(value)} />
                 <Bar dataKey="pnl" fill="#8b5cf6" radius={[8, 8, 0, 0]}>
                   {bestDaysData.map((entry, index) => (
                     <Cell
@@ -642,12 +659,12 @@ export function PerformanceDashboard({ trades }: PerformanceDashboardProps) {
                 tick={{ fontSize: 12 }}
               />
               <Tooltip
-                formatter={(value: number, name?: string) => {
+                formatter={(value: ValueType | undefined, name: NameType | undefined) => {
                   if (name === 'pnl') {
-                    return renderCurrencyTooltip(value);
+                    return renderCurrencyTooltipValue(value);
                   }
                   if (name === 'winRate') {
-                    return renderPercentageTooltip(value);
+                    return renderPercentageTooltipValue(value);
                   }
                   return value;
                 }}
