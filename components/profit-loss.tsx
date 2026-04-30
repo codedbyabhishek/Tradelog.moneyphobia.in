@@ -5,9 +5,13 @@ import { TradeContext } from '@/lib/trade-context';
 import { useSettings } from '@/lib/settings-context';
 import { getTradeBasePnL, getTradeCharges, getTradeGrossPnL, formatBaseCurrencyAmount, convertToBaseCurrency, getCapitalAdjustmentAmount, getNetCapitalAdjustments } from '@/lib/trade-utils';
 import { Button } from '@/components/ui/button';
-import { Share2 } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, CalendarRange, Share2, Target, Wallet } from 'lucide-react';
 import ShareCardDialog from '@/components/share-card-dialog';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+
+function sortedDateKeys(dates: string[]) {
+  return [...dates].sort((a, b) => a.localeCompare(b));
+}
 
 export default function ProfitLoss() {
   const { baseCurrency, startingBalance, capitalAdjustments } = useSettings();
@@ -19,6 +23,10 @@ export default function ProfitLoss() {
   const investedCapital = startingBalance + netCapitalAdjustments;
   const currentBalance = investedCapital + totalPnL;
   const totalPnLPercentage = investedCapital > 0 ? (totalPnL / investedCapital) * 100 : null;
+  const winningTrades = trades.filter((trade) => trade.pnl > 0).length;
+  const losingTrades = trades.filter((trade) => trade.pnl < 0).length;
+  const activeDaysCount = new Set(sortedDateKeys(trades.map((trade) => trade.date))).size;
+  const winRate = trades.length > 0 ? (winningTrades / trades.length) * 100 : 0;
 
   const formatBaseAmount = (value: number, decimals: number = 0) => formatBaseCurrencyAmount(value, baseCurrency, decimals);
 
@@ -32,6 +40,7 @@ export default function ProfitLoss() {
       amount: getTradeBasePnL(trade),
       kind: 'trade' as const,
       symbol: trade.symbol,
+      label: trade.symbol,
       order: 1,
     })),
     ...capitalAdjustments.map((adjustment) => ({
@@ -39,6 +48,7 @@ export default function ProfitLoss() {
       amount: getCapitalAdjustmentAmount(adjustment),
       kind: 'capital' as const,
       symbol: adjustment.type === 'withdrawal' ? 'Withdrawal' : 'Deposit',
+      label: adjustment.type === 'withdrawal' ? 'Withdrawal' : 'Deposit',
       order: 0,
     })),
   ]
@@ -57,10 +67,14 @@ export default function ProfitLoss() {
         ...acc,
         {
           date: new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          fullDate: new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
           pnl: event.kind === 'trade' ? event.amount : 0,
           cumulativePnL,
           accountBalance,
           symbol: event.symbol,
+          eventLabel: event.label,
+          eventType: event.kind,
+          capitalFlow: event.kind === 'capital' ? event.amount : 0,
         },
       ];
     }, []);
@@ -165,6 +179,56 @@ export default function ProfitLoss() {
     return sum + (trade.currency ? convertToBaseCurrency(charges, trade.currency, trade.exchangeRate) : charges);
   }, 0);
   const totalGrossPnL = totalPnL + totalCharges;
+  const averageTrade = trades.length > 0 ? totalPnL / trades.length : 0;
+  const largestWin = sortedTrades.reduce((max, trade) => Math.max(max, getTradeBasePnL(trade)), Number.NEGATIVE_INFINITY);
+  const largestLoss = sortedTrades.reduce((min, trade) => Math.min(min, getTradeBasePnL(trade)), Number.POSITIVE_INFINITY);
+  const balanceRange = cumulativeData.length > 0
+    ? cumulativeData.reduce(
+        (range, point) => ({
+          low: Math.min(range.low, point.accountBalance),
+          high: Math.max(range.high, point.accountBalance),
+        }),
+        { low: cumulativeData[0].accountBalance, high: cumulativeData[0].accountBalance }
+      )
+    : null;
+  const latestPoint = cumulativeData.length > 0 ? cumulativeData[cumulativeData.length - 1] : null;
+  const balanceChange = latestPoint ? latestPoint.accountBalance - startingBalance : 0;
+  const summaryStats = [
+    {
+      label: 'Win Rate',
+      value: trades.length > 0 ? `${winRate.toFixed(1)}%` : '—',
+      subtext: `${winningTrades} wins / ${losingTrades} losses`,
+      icon: Target,
+      tone: winRate >= 50 ? 'positive' : 'negative',
+    },
+    {
+      label: 'Average Trade',
+      value: trades.length > 0 ? formatBaseAmount(averageTrade) : '—',
+      subtext: `${trades.length} closed trades`,
+      icon: CalendarRange,
+      tone: averageTrade >= 0 ? 'positive' : 'negative',
+    },
+    {
+      label: 'Largest Win',
+      value: Number.isFinite(largestWin) && largestWin > 0 ? formatBaseAmount(largestWin) : '—',
+      subtext: 'Best single trade',
+      icon: ArrowUpRight,
+      tone: 'positive',
+    },
+    {
+      label: 'Largest Loss',
+      value: Number.isFinite(largestLoss) && largestLoss < 0 ? formatBaseAmount(largestLoss) : '—',
+      subtext: 'Worst single trade',
+      icon: ArrowDownRight,
+      tone: 'negative',
+    },
+  ];
+
+  const getToneClass = (tone: 'positive' | 'negative' | 'neutral') => {
+    if (tone === 'positive') return 'text-emerald-400';
+    if (tone === 'negative') return 'text-rose-400';
+    return 'text-foreground';
+  };
   
   // FIXED: Best Day = highest POSITIVE daily P&L only
   const positiveDays = dailyPnL.filter((day: any) => day.pnl > 0);
@@ -210,103 +274,193 @@ export default function ProfitLoss() {
         </div>
 
         {/* Overall Summary - All values in base currency */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
-          <div className="bg-card p-4 sm:p-6 rounded-lg border border-border">
-            <p className="text-xs sm:text-sm text-muted-foreground mb-2">Current Balance ({baseCurrency})</p>
-            <p className={`text-2xl sm:text-3xl font-bold break-words ${currentBalance >= investedCapital ? 'text-green-400' : 'text-red-400'}`}>
-              {formatBaseAmount(currentBalance)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">Capital Base: {formatBaseAmount(investedCapital)}</p>
-          </div>
-          <div className="bg-card p-4 sm:p-6 rounded-lg border border-border">
-            <p className="text-xs sm:text-sm text-muted-foreground mb-2">Net P&L ({baseCurrency})</p>
-            <p className={`text-2xl sm:text-3xl font-bold break-words ${totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {formatBaseAmount(totalPnL)}
-            </p>
-            <p className={`mt-1 text-xs sm:text-sm font-medium ${totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {totalPnLPercentage === null ? 'No capital base yet' : `${totalPnL >= 0 ? '+' : ''}${totalPnLPercentage.toFixed(2)}%`}
-            </p>
-            {totalCharges > 0 && (
-              <div className="mt-2 pt-2 border-t border-border">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Gross</span>
-                  <span className={totalGrossPnL >= 0 ? 'text-green-400' : 'text-red-400'}>{formatBaseAmount(totalGrossPnL)}</span>
+        <div className="mb-6 sm:mb-8 space-y-4">
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_30%)] p-4 sm:p-6 lg:p-7">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                <div className="max-w-2xl">
+                  <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
+                    <Wallet className="h-3.5 w-3.5" />
+                    Performance snapshot in {baseCurrency}
+                  </div>
+                  <p className="text-sm text-muted-foreground">Current account balance</p>
+                  <p className={`mt-2 text-3xl font-bold tracking-tight sm:text-4xl ${currentBalance >= investedCapital ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {formatBaseAmount(currentBalance)}
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 font-medium ${totalPnL >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                      {totalPnL >= 0 ? '+' : ''}{formatBaseAmount(totalPnL)} net P&amp;L
+                    </span>
+                    <span className="inline-flex items-center rounded-full bg-secondary px-2.5 py-1 text-muted-foreground">
+                      Capital base {formatBaseAmount(investedCapital)}
+                    </span>
+                    {totalPnLPercentage !== null && (
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 font-medium ${totalPnL >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                        {totalPnL >= 0 ? '+' : ''}{totalPnLPercentage.toFixed(2)}%
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
-                  <span>Charges</span>
-                  <span className="text-orange-400">-{formatBaseAmount(totalCharges)}</span>
+
+                <div className="grid grid-cols-2 gap-3 sm:min-w-[340px]">
+                  <div className="rounded-xl border border-border/70 bg-background/80 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Gross P&amp;L</p>
+                    <p className={`mt-2 text-xl font-semibold ${totalGrossPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{formatBaseAmount(totalGrossPnL)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Before fees and charges</p>
+                  </div>
+                  <div className="rounded-xl border border-border/70 bg-background/80 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Charges</p>
+                    <p className="mt-2 text-xl font-semibold text-amber-400">-{formatBaseAmount(totalCharges)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Brokerage, taxes, and fees</p>
+                  </div>
+                  <div className="rounded-xl border border-border/70 bg-background/80 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Best Day</p>
+                    <p className="mt-2 text-xl font-semibold text-emerald-400">{bestDay ? formatBaseAmount(bestDay.pnl) : '—'}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{bestDay ? bestDay.displayDate : 'No profitable days yet'}</p>
+                  </div>
+                  <div className="rounded-xl border border-border/70 bg-background/80 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Worst Day</p>
+                    <p className="mt-2 text-xl font-semibold text-rose-400">{worstDay ? formatBaseAmount(worstDay.pnl) : '—'}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{worstDay ? worstDay.displayDate : 'No losing days yet'}</p>
+                  </div>
                 </div>
               </div>
-            )}
+            </div>
           </div>
-          {bestDay ? (
-            <div className="bg-card p-4 sm:p-6 rounded-lg border border-border">
-              <p className="text-xs sm:text-sm text-muted-foreground mb-2">Best Day</p>
-              <p className="text-xl sm:text-2xl font-bold text-green-400 break-words">{formatBaseAmount(bestDay.pnl)}</p>
-              <p className="text-xs text-muted-foreground mt-1">{bestDay.displayDate}</p>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {summaryStats.map((stat) => {
+              const Icon = stat.icon;
+              return (
+                <div key={stat.label} className="rounded-xl border border-border bg-card p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{stat.label}</p>
+                      <p className={`mt-2 text-xl font-semibold ${getToneClass(stat.tone as 'positive' | 'negative' | 'neutral')}`}>{stat.value}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{stat.subtext}</p>
+                    </div>
+                    <div className="rounded-lg bg-secondary p-2 text-muted-foreground">
+                      <Icon className="h-4 w-4" />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div className="rounded-xl border border-border bg-card p-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Active Trading Days</p>
+              <p className="mt-2 text-2xl font-semibold text-foreground">{activeDaysCount}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Days with at least one closed trade</p>
             </div>
-          ) : (
-            <div className="bg-card p-4 sm:p-6 rounded-lg border border-border">
-              <p className="text-xs sm:text-sm text-muted-foreground mb-2">Best Day</p>
-              <p className="text-xl sm:text-2xl font-bold text-muted-foreground break-words">N/A</p>
-              <p className="text-xs text-muted-foreground mt-1">No profitable days yet</p>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Best Month</p>
+              <p className="mt-2 text-2xl font-semibold text-emerald-400">{bestMonth ? formatBaseAmount(bestMonth.pnl) : '—'}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{bestMonth ? bestMonth.month : 'No profitable months yet'}</p>
             </div>
-          )}
-          {worstDay ? (
-            <div className="bg-card p-4 sm:p-6 rounded-lg border border-border">
-              <p className="text-xs sm:text-sm text-muted-foreground mb-2">Worst Day</p>
-              <p className="text-xl sm:text-2xl font-bold text-red-400 break-words">{formatBaseAmount(worstDay.pnl)}</p>
-              <p className="text-xs text-muted-foreground mt-1">{worstDay.displayDate}</p>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Capital Adjustments</p>
+              <p className={`mt-2 text-2xl font-semibold ${netCapitalAdjustments >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {netCapitalAdjustments >= 0 ? '+' : ''}{formatBaseAmount(netCapitalAdjustments)}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">Deposits and withdrawals applied</p>
             </div>
-          ) : (
-            <div className="bg-card p-4 sm:p-6 rounded-lg border border-border">
-              <p className="text-xs sm:text-sm text-muted-foreground mb-2">Worst Day</p>
-              <p className="text-xl sm:text-2xl font-bold text-muted-foreground break-words">N/A</p>
-              <p className="text-xs text-muted-foreground mt-1">No losing days yet</p>
-            </div>
-          )}
-          {bestMonth ? (
-            <div className="bg-card p-4 sm:p-6 rounded-lg border border-border">
-              <p className="text-xs sm:text-sm text-muted-foreground mb-2">Best Month</p>
-              <p className="text-xl sm:text-2xl font-bold text-green-400 break-words">{formatBaseAmount(bestMonth.pnl)}</p>
-              <p className="text-xs text-muted-foreground mt-1">{bestMonth.month}</p>
-            </div>
-          ) : (
-            <div className="bg-card p-4 sm:p-6 rounded-lg border border-border">
-              <p className="text-xs sm:text-sm text-muted-foreground mb-2">Best Month</p>
-              <p className="text-xl sm:text-2xl font-bold text-muted-foreground break-words">N/A</p>
-              <p className="text-xs text-muted-foreground mt-1">No profitable months yet</p>
-            </div>
-          )}
+          </div>
         </div>
 
         {/* Cumulative P&L Chart */}
         {cumulativeData.length > 0 && (
-          <div className="bg-card p-4 sm:p-6 rounded-lg border border-border mb-6 sm:mb-8">
-            <h3 className="text-base sm:text-lg font-semibold text-foreground mb-4">Account Balance Over Time</h3>
-            <ResponsiveContainer width="100%" height={250} minHeight={200}>
-              <LineChart data={cumulativeData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="date" stroke="#666" />
-                <YAxis stroke="#666" />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }}
-                  formatter={(value: number | string | undefined, name?: string) => {
-                    const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
-                    const label = name === 'accountBalance' ? 'Balance' : 'Net P&L';
-                    return `${label}: ${formatBaseAmount(numericValue)}`;
-                  }}
-                />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="accountBalance" 
-                  stroke="#a78bfa" 
-                  dot={false}
-                  name="Account Balance"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="mb-6 overflow-hidden rounded-2xl border border-border bg-card sm:mb-8">
+            <div className="border-b border-border px-4 py-4 sm:px-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-foreground sm:text-lg">Account Balance Over Time</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    A cleaner equity curve showing how closed-trade P&amp;L and capital flows shaped the account.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Latest</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">{latestPoint ? formatBaseAmount(latestPoint.accountBalance) : '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">High</p>
+                    <p className="mt-1 text-sm font-semibold text-emerald-400">{balanceRange ? formatBaseAmount(balanceRange.high) : '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Low</p>
+                    <p className="mt-1 text-sm font-semibold text-rose-400">{balanceRange ? formatBaseAmount(balanceRange.low) : '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">From Start</p>
+                    <p className={`mt-1 text-sm font-semibold ${balanceChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {balanceChange >= 0 ? '+' : ''}{formatBaseAmount(balanceChange)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 sm:p-6">
+              <ResponsiveContainer width="100%" height={320} minHeight={240}>
+                <AreaChart data={cumulativeData} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="balanceFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity={0.38} />
+                      <stop offset="60%" stopColor="#10b981" stopOpacity={0.12} />
+                      <stop offset="100%" stopColor="#10b981" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="4 4" stroke="rgba(148,163,184,0.14)" vertical={false} />
+                  <XAxis dataKey="date" stroke="#94a3b8" tickLine={false} axisLine={false} minTickGap={28} />
+                  <YAxis
+                    stroke="#94a3b8"
+                    tickLine={false}
+                    axisLine={false}
+                    width={88}
+                    tickFormatter={(value) => formatBaseAmount(Number(value))}
+                  />
+                  <Tooltip
+                    cursor={{ stroke: 'rgba(16,185,129,0.35)', strokeWidth: 1 }}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '14px',
+                      boxShadow: '0 18px 50px rgba(15, 23, 42, 0.18)',
+                    }}
+                    labelFormatter={(_, payload) => payload?.[0]?.payload?.fullDate || ''}
+                    formatter={(value: number | string | undefined, name?: string, item?: any) => {
+                      const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
+                      if (name === 'accountBalance') return [formatBaseAmount(numericValue), 'Balance'];
+                      if (name === 'capitalFlow') {
+                        if (!numericValue) return null;
+                        return [`${numericValue >= 0 ? '+' : ''}${formatBaseAmount(numericValue)}`, item?.payload?.eventLabel || 'Capital Flow'];
+                      }
+                      return [`${numericValue >= 0 ? '+' : ''}${formatBaseAmount(numericValue)}`, 'Trade P&L'];
+                    }}
+                  />
+                  <ReferenceLine
+                    y={investedCapital}
+                    stroke="rgba(148,163,184,0.6)"
+                    strokeDasharray="6 6"
+                    ifOverflow="extendDomain"
+                    label={{ value: 'Capital base', position: 'insideTopLeft', fill: '#94a3b8', fontSize: 12 }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="accountBalance"
+                    stroke="#10b981"
+                    strokeWidth={3}
+                    fill="url(#balanceFill)"
+                    activeDot={{ r: 5, strokeWidth: 0, fill: '#10b981' }}
+                    dot={false}
+                    name="accountBalance"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         )}
 

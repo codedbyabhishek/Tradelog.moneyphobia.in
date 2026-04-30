@@ -39,6 +39,9 @@ function applyTheme(resolved: AppliedTheme, preference: Theme) {
 
   html.classList.remove('light', 'dark', 'cyberpunk', 'prism');
   html.classList.add(resolved);
+  if (resolved !== 'light') {
+    html.classList.add('dark');
+  }
   html.setAttribute('data-theme', resolved);
 
   const metaThemeColor = document.querySelector('meta[name="theme-color"]');

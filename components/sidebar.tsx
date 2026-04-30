@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { BarChart3, PlusCircle, Table, LineChart, Settings, Calendar, TrendingUp, Lightbulb, Target, Search, Zap, FileText, Brain, Sparkles, Images, Youtube, BookOpen } from 'lucide-react';
+import { BarChart3, PlusCircle, Table, LineChart, Activity, Settings, Calendar, TrendingUp, Lightbulb, Target, Search, Zap, FileText, Brain, Sparkles, Images, Youtube, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useAuth } from '@/lib/auth-context';
@@ -16,6 +16,7 @@ export default function Sidebar({ currentPage }: SidebarProps) {
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+    { id: 'performance', label: 'Performance', icon: Activity },
     { id: 'pre-trade', label: 'Pre-Trade', icon: Sparkles },
     { id: 'playbooks', label: 'Playbooks', icon: BookOpen },
     { id: 'add-trade', label: 'Add Trade', icon: PlusCircle },

@@ -98,6 +98,7 @@ function loadPage(
 const importTradeForm = () => import('@/components/trade-form');
 const importPlaybookBuilder = () => import('@/components/playbook-builder');
 const importTradeLog = () => import('@/components/trade-log');
+const importPerformance = () => import('@/components/performance');
 const importAnalytics = () => import('@/components/analytics');
 const importProfitLoss = () => import('@/components/profit-loss');
 const importWeeklyReview = () => import('@/components/weekly-review');
@@ -116,6 +117,7 @@ const importLearningVideos = () => import('@/components/learning-videos');
 const TradeForm = dynamic(loadPage(importTradeForm, 'trade form'), { loading: createPageLoader('trade form') });
 const PlaybookBuilder = dynamic(loadPage(importPlaybookBuilder, 'playbooks'), { loading: createPageLoader('playbooks') });
 const TradeLog = dynamic(loadPage(importTradeLog, 'trade log'), { loading: createPageLoader('trade log') });
+const Performance = dynamic(loadPage(importPerformance, 'performance'), { loading: createPageLoader('performance') });
 const Analytics = dynamic(loadPage(importAnalytics, 'analytics'), { loading: createPageLoader('analytics') });
 const ProfitLoss = dynamic(loadPage(importProfitLoss, 'profit and loss'), { loading: createPageLoader('profit and loss') });
 const WeeklyReview = dynamic(loadPage(importWeeklyReview, 'weekly review'), { loading: createPageLoader('weekly review') });
@@ -191,6 +193,8 @@ function JournalAppContent({ currentPage }: { currentPage: Page }) {
     switch (currentPage) {
       case 'dashboard':
         return <Dashboard />;
+      case 'performance':
+        return <Performance />;
       case 'pre-trade':
         return <PreTradeChecklistWorkspace onStartTrade={() => router.push(buildAppPath('add-trade'))} />;
       case 'playbooks':
