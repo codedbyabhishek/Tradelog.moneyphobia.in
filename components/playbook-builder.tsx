@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useTemplates, type TradeTemplate } from '@/lib/templates-context';
@@ -103,12 +103,21 @@ function getPlaybookMatches(template: TradeTemplate, trades: ReturnType<typeof u
   });
 }
 
+function isPresetSetup(setupName: string) {
+  return PRESET_SETUPS.includes(setupName as (typeof PRESET_SETUPS)[number]);
+}
+
+function isCustomSetup(setupName?: string) {
+  return Boolean(setupName && !isPresetSetup(setupName));
+}
+
 export default function PlaybookBuilder() {
   const { templates, addTemplate, updateTemplate, deleteTemplate } = useTemplates();
   const { trades } = useTrades();
   const { baseCurrency } = useSettings();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState<PlaybookFormState>(EMPTY_PLAYBOOK);
+  const [isCustomSetupName, setIsCustomSetupName] = useState(false);
 
   const selectedTemplate = useMemo(
     () => templates.find((template) => template.id === selectedId) || null,
@@ -166,17 +175,34 @@ export default function PlaybookBuilder() {
   }, [templates, trades]);
   const selectedTemplateStats = selectedTemplate ? playbookStats.get(selectedTemplate.id) : null;
 
-  useEffect(() => {
-    setForm(toFormState(selectedTemplate));
-  }, [selectedTemplate]);
-
   const handleChange = (field: keyof PlaybookFormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSetupNameChange = (value: string) => {
+    if (value === '__custom__') {
+      setIsCustomSetupName(true);
+      setForm((prev) => ({
+        ...prev,
+        setupName: isPresetSetup(prev.setupName) ? '' : prev.setupName,
+      }));
+      return;
+    }
+
+    setIsCustomSetupName(false);
+    handleChange('setupName', value);
   };
 
   const handleNewPlaybook = () => {
     setSelectedId(null);
     setForm(EMPTY_PLAYBOOK);
+    setIsCustomSetupName(false);
+  };
+
+  const handleSelectPlaybook = (template: TradeTemplate) => {
+    setSelectedId(template.id);
+    setForm(toFormState(template));
+    setIsCustomSetupName(isCustomSetup(template.setupName));
   };
 
   const handleSave = () => {
@@ -270,7 +296,7 @@ export default function PlaybookBuilder() {
                   <button
                     key={template.id}
                     type="button"
-                    onClick={() => setSelectedId(template.id)}
+                    onClick={() => handleSelectPlaybook(template)}
                     className={`w-full rounded-xl border p-4 text-left transition-colors ${
                       isActive ? 'border-primary bg-primary/10' : 'border-border bg-background/40 hover:bg-secondary/60'
                     }`}
@@ -312,7 +338,14 @@ export default function PlaybookBuilder() {
               </div>
               {selectedTemplate ? (
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={() => setForm(toFormState(selectedTemplate))}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setForm(toFormState(selectedTemplate));
+                      setIsCustomSetupName(isCustomSetup(selectedTemplate.setupName));
+                    }}
+                  >
                     <PencilLine className="w-4 h-4 mr-2" />
                     Reset
                   </Button>
@@ -372,12 +405,34 @@ export default function PlaybookBuilder() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Setup Name*</label>
-                <select value={form.setupName} onChange={(e) => handleChange('setupName', e.target.value)} className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground">
-                  <option value="">Select setup</option>
-                  {PRESET_SETUPS.map((setup) => (
-                    <option key={setup} value={setup}>{setup}</option>
-                  ))}
-                </select>
+                <div className="space-y-2">
+                  <select
+                    value={
+                      isCustomSetupName
+                        ? '__custom__'
+                        : isPresetSetup(form.setupName)
+                          ? form.setupName
+                          : ''
+                    }
+                    onChange={(e) => handleSetupNameChange(e.target.value)}
+                    className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground"
+                  >
+                    <option value="">Select setup</option>
+                    {PRESET_SETUPS.map((setup) => (
+                      <option key={setup} value={setup}>{setup}</option>
+                    ))}
+                    <option value="__custom__">Custom setup...</option>
+                  </select>
+                  {isCustomSetupName ? (
+                    <input
+                      type="text"
+                      value={form.setupName}
+                      onChange={(e) => handleChange('setupName', e.target.value)}
+                      className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground"
+                      placeholder="Type your custom setup name"
+                    />
+                  ) : null}
+                </div>
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-foreground mb-2">Description</label>
