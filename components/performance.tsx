@@ -4,10 +4,12 @@ import { useMemo } from 'react';
 import { useTrades } from '@/lib/trade-context';
 import { PerformanceDashboard } from '@/components/performance-dashboard';
 import { generatePerformanceMetrics } from '@/lib/performance-analytics';
-import { getTradeBasePnL } from '@/lib/trade-utils';
+import { useSettings } from '@/lib/settings-context';
+import { formatBaseCurrencyAmount, getTradeBasePnL } from '@/lib/trade-utils';
 
 export default function Performance() {
   const { trades } = useTrades();
+  const { baseCurrency } = useSettings();
   const metrics = useMemo(() => generatePerformanceMetrics(trades), [trades]);
 
   const overview = useMemo(() => {
@@ -33,7 +35,7 @@ export default function Performance() {
     };
   }, [metrics, trades]);
 
-  const formatCurrency = (value: number) => `$${value.toFixed(2)}`;
+  const formatCurrency = (value: number) => formatBaseCurrencyAmount(value, baseCurrency);
   const formatPercent = (value: number) => `${value.toFixed(1)}%`;
 
   return (

@@ -19,9 +19,10 @@ import {
 } from 'recharts';
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useSettings } from '@/lib/settings-context';
 import { Trade } from '@/lib/types';
 import { generatePerformanceMetrics } from '@/lib/performance-analytics';
-import { getTradeBasePnL } from '@/lib/trade-utils';
+import { formatBaseCurrencyAmount, getTradeBasePnL } from '@/lib/trade-utils';
 import {
   eachDayOfInterval,
   endOfMonth,
@@ -38,9 +39,10 @@ interface PerformanceDashboardProps {
 }
 
 export function PerformanceDashboard({ trades }: PerformanceDashboardProps) {
+  const { baseCurrency } = useSettings();
   const metrics = useMemo(() => generatePerformanceMetrics(trades), [trades]);
 
-  const renderCurrencyTooltip = (value: number) => `$${value.toFixed(2)}`;
+  const renderCurrencyTooltip = (value: number) => formatBaseCurrencyAmount(value, baseCurrency);
   const renderPercentageTooltip = (value: number) => `${value.toFixed(1)}%`;
   const renderCurrencyTooltipValue = (value: ValueType | undefined) => {
     if (typeof value === 'number') return renderCurrencyTooltip(value);
@@ -107,17 +109,25 @@ export function PerformanceDashboard({ trades }: PerformanceDashboardProps) {
 
   // Prepare monthly data
   const monthlyData = useMemo(() => {
-    return Object.entries(metrics.monthlyPnL).map(([month, pnl]) => {
-      const winRate = metrics.monthlyWinRate[month] || 0;
-      const target = metrics.monthlyReturnTargets.find(m => m.month === month)?.target || 1000;
-      return {
-        month: format(new Date(month + '-01'), 'MMM yyyy'),
-        pnl: parseFloat(pnl.toFixed(2)),
-        winRate: parseFloat(winRate.toFixed(1)),
-        target: parseFloat(target.toFixed(2)),
-        status: pnl >= 0 ? 'positive' : 'negative',
-      };
-    });
+    return Object.entries(metrics.monthlyPnL)
+      .sort(([monthA], [monthB]) => monthA.localeCompare(monthB))
+      .map(([month, pnl]) => {
+        const winRate = metrics.monthlyWinRate[month] || 0;
+        const target = metrics.monthlyReturnTargets.find((m) => m.month === month)?.target || 1000;
+        const pnlRounded = parseFloat(pnl.toFixed(2));
+        const targetRounded = parseFloat(target.toFixed(2));
+
+        return {
+          monthKey: month,
+          month: format(new Date(`${month}-01`), 'MMM yyyy'),
+          pnl: pnlRounded,
+          winRate: parseFloat(winRate.toFixed(1)),
+          target: targetRounded,
+          targetGap: parseFloat((pnlRounded - targetRounded).toFixed(2)),
+          targetHit: pnlRounded >= targetRounded,
+          status: pnlRounded >= 0 ? 'positive' : 'negative',
+        };
+      });
   }, [metrics.monthlyPnL, metrics.monthlyWinRate, metrics.monthlyReturnTargets]);
 
   const monthlySummary = useMemo(() => {
@@ -134,6 +144,7 @@ export function PerformanceDashboard({ trades }: PerformanceDashboardProps) {
       profitableMonths,
       strongestMonth,
       averageWinRate,
+      targetHitMonths: monthlyData.filter((item) => item.targetHit).length,
     };
   }, [monthlyData]);
 
@@ -349,6 +360,9 @@ export function PerformanceDashboard({ trades }: PerformanceDashboardProps) {
                 <p className="mt-2 text-xl font-semibold text-amber-950 dark:text-amber-100">
                   {monthlySummary.profitableMonths}/{monthlyData.length || 0}
                 </p>
+                <p className="mt-1 text-xs text-amber-800/80 dark:text-amber-200/80">
+                  {monthlySummary.targetHitMonths} target hits
+                </p>
               </div>
               <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-emerald-700">Best Month</p>
@@ -392,7 +406,7 @@ export function PerformanceDashboard({ trades }: PerformanceDashboardProps) {
               />
               <Tooltip
                 formatter={(value: ValueType | undefined, name: NameType | undefined) => {
-                  if (name === 'pnl' || name === 'target') {
+                  if (name === 'P&L' || name === 'Target') {
                     return renderCurrencyTooltipValue(value);
                   }
                   return renderPercentageTooltipValue(value);
@@ -440,7 +454,12 @@ export function PerformanceDashboard({ trades }: PerformanceDashboardProps) {
                     {renderCurrencyTooltip(item.pnl)}
                   </span>
                 </div>
-                <p className="mt-3 text-xs text-muted-foreground">Win rate: {renderPercentageTooltip(item.winRate)}</p>
+                <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                  <span>Win rate: {renderPercentageTooltip(item.winRate)}</span>
+                  <span className={item.targetHit ? 'text-green-600' : 'text-amber-600'}>
+                    {item.targetHit ? 'Target hit' : `${renderCurrencyTooltip(item.targetGap)} vs target`}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
