@@ -61,3 +61,16 @@ export async function POST(request: NextRequest) {
     return jsonError('Failed to save idea.', 500);
   }
 }
+
+export async function DELETE() {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return jsonError('Unauthorized', 401);
+
+    await dbExecute('DELETE FROM ideas WHERE user_id = ?', [user.id]);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error('[ideas/delete-all] error', error);
+    return jsonError('Failed to clear ideas.', 500);
+  }
+}

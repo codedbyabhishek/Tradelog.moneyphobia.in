@@ -1,15 +1,18 @@
 {
   "name": "my-v0-project",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "engines": {
     "node": "22.x"
   },
   "scripts": {
+    "check:prod": "node scripts/check-production-readiness.mjs",
     "build": "node scripts/suppress-baseline-warning.js && BROWSERSLIST_IGNORE_OLD_DATA=true BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA=true next build",
     "dev": "node scripts/suppress-baseline-warning.js && BROWSERSLIST_IGNORE_OLD_DATA=true BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA=true next dev",
     "lint": "node scripts/suppress-baseline-warning.js && BROWSERSLIST_IGNORE_OLD_DATA=true BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA=true eslint .",
-    "start": "node scripts/suppress-baseline-warning.js && BROWSERSLIST_IGNORE_OLD_DATA=true BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA=true next start"
+    "start": "node scripts/suppress-baseline-warning.js && BROWSERSLIST_IGNORE_OLD_DATA=true BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA=true next start",
+    "typecheck": "tsc --noEmit",
+    "validate": "npm run lint && npm run typecheck && npm run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

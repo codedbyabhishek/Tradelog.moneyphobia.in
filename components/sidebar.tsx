@@ -16,13 +16,13 @@ export default function Sidebar({ currentPage }: SidebarProps) {
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+    { id: 'add-trade', label: 'Add Trade', icon: PlusCircle },
+    { id: 'log', label: 'Trade Log', icon: Table },
     { id: 'performance', label: 'Performance', icon: Activity },
     { id: 'pre-trade', label: 'Pre-Trade', icon: Sparkles },
     { id: 'playbooks', label: 'Playbooks', icon: BookOpen },
-    { id: 'add-trade', label: 'Add Trade', icon: PlusCircle },
     { id: 'gallery', label: 'Gallery', icon: Images },
     { id: 'learning-videos', label: 'Learning Videos', icon: Youtube },
-    { id: 'log', label: 'Trade Log', icon: Table },
     { id: 'analytics', label: 'Analytics', icon: LineChart },
     { id: 'advanced-analytics', label: 'Advanced Analytics', icon: Zap },
     { id: 'profit-loss', label: 'P&L Summary', icon: TrendingUp },

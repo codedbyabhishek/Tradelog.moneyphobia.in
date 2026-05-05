@@ -14,7 +14,7 @@ interface IdeasContextType {
   updateIdea: (id: string, idea: TradeIdea) => void;
   exportJSON: () => void;
   exportCSV: () => void;
-  importJSON: (file: Blob) => Promise<void>;
+  importJSON: (file: Blob, options?: { mode?: 'merge' | 'replace' }) => Promise<{ importedCount: number; duplicateCount: number; totalCount: number }>;
   error: string | null;
   clearError: () => void;
 }
@@ -216,10 +216,11 @@ export function IdeasProvider({ children }: { children: React.ReactNode }) {
 
   const clearError = () => setError(null);
 
-  const importJSON = async (file: Blob) => {
+  const importJSON = async (file: Blob, options?: { mode?: 'merge' | 'replace' }) => {
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
+      const mode = options?.mode === 'replace' ? 'replace' : 'merge';
 
       if (!Array.isArray(parsed)) {
         throw new Error('Invalid file format: expected an array of ideas');
@@ -234,10 +235,27 @@ export function IdeasProvider({ children }: { children: React.ReactNode }) {
       }
 
       const existingIds = new Set(ideas.map((i) => i.id));
-      const newIdeas = parsed.filter((idea: TradeIdea) => !existingIds.has(idea.id));
+      const dedupedIdeas = parsed.filter((idea: TradeIdea) => !existingIds.has(idea.id));
+      const ideasToImport = mode === 'replace' ? parsed : dedupedIdeas;
+      const duplicateCount = mode === 'replace' ? 0 : parsed.length - dedupedIdeas.length;
+
+      if (ideasToImport.length === 0) {
+        setError(null);
+        return {
+          importedCount: 0,
+          duplicateCount,
+          totalCount: parsed.length,
+        };
+      }
+
+      if (mode === 'replace') {
+        await ideasRequest('/api/ideas', {
+          method: 'DELETE',
+        });
+      }
 
       await Promise.all(
-        newIdeas.map((idea: TradeIdea) =>
+        ideasToImport.map((idea: TradeIdea) =>
           ideasRequest('/api/ideas', {
             method: 'POST',
             body: JSON.stringify({ idea }),
@@ -245,8 +263,18 @@ export function IdeasProvider({ children }: { children: React.ReactNode }) {
         )
       );
 
-      setIdeas((prev) => [...prev, ...newIdeas]);
+      setIdeas((prev) =>
+        (mode === 'replace' ? ideasToImport : [...prev, ...ideasToImport]).map((idea) => ({
+          ...idea,
+          isFavorite: Boolean(idea.isFavorite),
+        }))
+      );
       setError(null);
+      return {
+        importedCount: ideasToImport.length,
+        duplicateCount,
+        totalCount: parsed.length,
+      };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to import ideas';
       setError(message);

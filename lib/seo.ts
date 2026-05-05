@@ -1,15 +1,7 @@
 import type { Metadata } from 'next';
+import { getSiteUrl } from '@/lib/env';
 
-const DEFAULT_SITE_URL = 'https://traderlogify.online';
-
-export function getSiteUrl() {
-  const value =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.SITE_URL ||
-    DEFAULT_SITE_URL;
-
-  return value.replace(/\/$/, '');
-}
+export { getSiteUrl } from '@/lib/env';
 
 export function createPublicMetadata({
   title,

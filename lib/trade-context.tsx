@@ -17,7 +17,7 @@ interface TradeContextType {
   refreshTrades: () => Promise<void>;
   exportJSON: () => void;
   exportCSV: () => void;
-  importJSON: (file: File) => Promise<void>;
+  importJSON: (file: Blob, options?: { mode?: 'merge' | 'replace' }) => Promise<{ importedCount: number; duplicateCount: number; totalCount: number }>;
   error: string | null;
   clearError: () => void;
   storagePercentage: number;
@@ -347,10 +347,11 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const importJSON = async (file: File) => {
+  const importJSON = async (file: Blob, options?: { mode?: 'merge' | 'replace' }) => {
     try {
       const text = await file.text();
       const imported = JSON.parse(text);
+      const mode = options?.mode === 'replace' ? 'replace' : 'merge';
 
       if (!Array.isArray(imported)) {
         throw new Error('Invalid JSON format: Expected an array of trades');
@@ -365,9 +366,28 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
       }
 
       const migratedTrades = validTrades.map(normalizeTrade);
+      const existingIds = new Set(trades.map((trade) => trade.id));
+      const dedupedTrades = migratedTrades.filter((trade) => !existingIds.has(trade.id));
+      const tradesToImport = mode === 'replace' ? migratedTrades : dedupedTrades;
+      const duplicateCount = mode === 'replace' ? 0 : migratedTrades.length - dedupedTrades.length;
+
+      if (tradesToImport.length === 0) {
+        setError(null);
+        return {
+          importedCount: 0,
+          duplicateCount,
+          totalCount: migratedTrades.length,
+        };
+      }
+
+      if (mode === 'replace') {
+        await apiRequest('/api/trades', {
+          method: 'DELETE',
+        });
+      }
 
       await Promise.all(
-        migratedTrades.map((trade: Trade) =>
+        tradesToImport.map((trade: Trade) =>
           apiRequest('/api/trades', {
             method: 'POST',
             body: JSON.stringify({ trade }),
@@ -375,14 +395,20 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
         )
       );
 
-      setTrades((prev) => [...prev, ...migratedTrades]);
+      setTrades((prev) => (mode === 'replace' ? tradesToImport : [...prev, ...tradesToImport]));
       if (user) {
-        updateBootstrapTrades(user.id, (prev) => [...prev, ...migratedTrades]);
+        updateBootstrapTrades(user.id, (prev) => (mode === 'replace' ? tradesToImport : [...prev, ...tradesToImport]));
       }
       setError(null);
+      return {
+        importedCount: tradesToImport.length,
+        duplicateCount,
+        totalCount: migratedTrades.length,
+      };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error during import';
       setError(message);
+      await refreshTrades();
       throw err;
     }
   };

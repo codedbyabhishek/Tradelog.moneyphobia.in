@@ -7,6 +7,7 @@ import { useSettings } from '@/lib/settings-context';
 import { CURRENCY_SYMBOLS, getNetCapitalAdjustments } from '@/lib/trade-utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 export default function CapitalAdjustmentsSettings() {
   const { baseCurrency, capitalAdjustments, saveCapitalAdjustments } = useSettings();
@@ -14,6 +15,8 @@ export default function CapitalAdjustmentsSettings() {
   const [type, setType] = useState<'deposit' | 'withdrawal'>('deposit');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const { toast } = useToast();
 
   const sortedAdjustments = useMemo(() => {
     return [...capitalAdjustments].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -21,9 +24,14 @@ export default function CapitalAdjustmentsSettings() {
 
   const totalNetAdjustment = getNetCapitalAdjustments(capitalAdjustments);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     const parsedAmount = Number(amount);
     if (!date || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      toast({
+        title: 'Adjustment not added',
+        description: 'Choose a date and enter an amount greater than zero.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -35,21 +43,50 @@ export default function CapitalAdjustmentsSettings() {
       note: note.trim(),
     };
 
-    saveCapitalAdjustments([...capitalAdjustments, next]);
-    setDate('');
-    setType('deposit');
-    setAmount('');
-    setNote('');
+    setSaveState('saving');
+    try {
+      await saveCapitalAdjustments([...capitalAdjustments, next]);
+      setDate('');
+      setType('deposit');
+      setAmount('');
+      setNote('');
+      setSaveState('saved');
+      window.setTimeout(() => setSaveState('idle'), 1800);
+    } catch (error) {
+      setSaveState('idle');
+      toast({
+        title: 'Adjustment not saved',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleDelete = (id: string) => {
-    saveCapitalAdjustments(capitalAdjustments.filter((item) => item.id !== id));
+  const handleDelete = async (id: string) => {
+    setSaveState('saving');
+    try {
+      await saveCapitalAdjustments(capitalAdjustments.filter((item) => item.id !== id));
+      setSaveState('saved');
+      window.setTimeout(() => setSaveState('idle'), 1800);
+    } catch (error) {
+      setSaveState('idle');
+      toast({
+        title: 'Adjustment not removed',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
     <Card className="bg-card border-border">
       <CardHeader className="p-4 sm:p-6">
-        <CardTitle className="text-base sm:text-lg">Deposits & Withdrawals</CardTitle>
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle className="text-base sm:text-lg">Deposits & Withdrawals</CardTitle>
+          <span className="text-xs text-muted-foreground">
+            {saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : 'Manual save'}
+          </span>
+        </div>
         <CardDescription className="text-xs sm:text-sm">
           Track capital added to or removed from the account so balance charts reflect real account movement
         </CardDescription>
@@ -97,8 +134,8 @@ export default function CapitalAdjustmentsSettings() {
               {CURRENCY_SYMBOLS[baseCurrency]}{totalNetAdjustment.toFixed(2)}
             </span>
           </p>
-          <Button type="button" onClick={handleAdd}>
-            Add Entry
+          <Button type="button" onClick={() => void handleAdd()} disabled={saveState === 'saving'}>
+            {saveState === 'saving' ? 'Saving...' : 'Add Entry'}
           </Button>
         </div>
 
@@ -121,7 +158,13 @@ export default function CapitalAdjustmentsSettings() {
                     <p className="mt-1 text-xs text-muted-foreground">{adjustment.note}</p>
                   ) : null}
                 </div>
-                <Button type="button" variant="ghost" size="icon-sm" onClick={() => handleDelete(adjustment.id)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => void handleDelete(adjustment.id)}
+                  disabled={saveState === 'saving'}
+                >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>

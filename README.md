@@ -144,6 +144,12 @@ npm run dev
 
 # production build
 npm run build
+
+# full release validation
+npm run validate
+
+# production env readiness
+npm run check:prod
 ```
 
 ## Notes

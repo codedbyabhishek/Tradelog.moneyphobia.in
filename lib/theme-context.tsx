@@ -3,9 +3,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 /**
- * Theme type - supports light, dark, system preference, cyberpunk, and prism
+ * Theme type - supports light, dark, system preference, cyberpunk, prism, pink, and purple
  */
-export type Theme = 'light' | 'dark' | 'system' | 'cyberpunk' | 'prism';
+export type Theme = 'light' | 'dark' | 'system' | 'cyberpunk' | 'prism' | 'pink' | 'purple';
 
 /**
  * Theme context type definition
@@ -16,7 +16,7 @@ interface ThemeContextType {
   resolvedTheme: 'light' | 'dark';
 }
 
-type AppliedTheme = 'light' | 'dark' | 'cyberpunk' | 'prism';
+type AppliedTheme = 'light' | 'dark' | 'cyberpunk' | 'prism' | 'pink' | 'purple';
 
 function getStoredThemePreference(): Theme {
   if (typeof window === 'undefined') {
@@ -37,9 +37,9 @@ function getSystemResolvedTheme(): 'light' | 'dark' {
 function applyTheme(resolved: AppliedTheme, preference: Theme) {
   const html = document.documentElement;
 
-  html.classList.remove('light', 'dark', 'cyberpunk', 'prism');
+  html.classList.remove('light', 'dark', 'cyberpunk', 'prism', 'pink', 'purple');
   html.classList.add(resolved);
-  if (resolved !== 'light') {
+  if (resolved === 'dark' || resolved === 'cyberpunk' || resolved === 'prism' || resolved === 'purple') {
     html.classList.add('dark');
   }
   html.setAttribute('data-theme', resolved);
@@ -51,6 +51,8 @@ function applyTheme(resolved: AppliedTheme, preference: Theme) {
       dark: '#161616',
       cyberpunk: '#0a0e27',
       prism: '#070b16',
+      pink: '#fff1f7',
+      purple: '#140f24',
     };
     metaThemeColor.setAttribute('content', colorMap[resolved]);
   }
@@ -82,14 +84,18 @@ export function useTheme() {
 
 /**
  * ThemeProvider - Manages theme state and persistence
- * Supports light, dark, system, cyberpunk, and prism preferences with localStorage persistence
+ * Supports light, dark, system, cyberpunk, prism, pink, and purple preferences with localStorage persistence
  * @param children - React components to wrap
  */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(getStoredThemePreference);
   const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>(getSystemResolvedTheme);
   const resolvedTheme =
-    theme === 'system' ? systemTheme : theme === 'cyberpunk' || theme === 'prism' ? 'dark' : theme;
+    theme === 'system'
+      ? systemTheme
+      : theme === 'cyberpunk' || theme === 'prism' || theme === 'purple'
+        ? 'dark'
+        : 'light';
 
   /**
    * Initialize theme from localStorage and system preference
@@ -117,7 +123,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * Update theme and persist to localStorage
-   * @param newTheme - Theme to set ('light', 'dark', 'cyberpunk', 'prism', or 'system')
+   * @param newTheme - Theme to set ('light', 'dark', 'cyberpunk', 'prism', 'pink', 'purple', or 'system')
    */
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);

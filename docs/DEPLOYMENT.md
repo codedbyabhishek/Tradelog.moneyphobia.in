@@ -22,6 +22,7 @@ DB_NAME=your_db_name
 NODE_ENV=production
 NEXT_PUBLIC_ENABLE_PWA=false
 NEXT_PUBLIC_SITE_URL=https://traderlogify.online
+SITE_URL=https://traderlogify.online
 ADMIN_EMAILS=you@example.com,team@example.com
 HEALTHCHECK_TOKEN=replace-with-a-long-random-secret
 NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxx
@@ -75,6 +76,13 @@ Use Vercel when:
 - Install command: `npm install`
 - Build command: `npm run build`
 - Output: default Next.js output
+
+Before your first production deploy, run:
+
+```bash
+npm run validate
+npm run check:prod
+```
 
 ## Hostinger deployment
 

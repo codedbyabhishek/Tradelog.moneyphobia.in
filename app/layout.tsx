@@ -11,6 +11,7 @@ import { ServiceWorkerRegister } from '@/components/service-worker-register'
 import { ThemeProvider } from '@/lib/theme-context'
 import { HydrationBoundary } from '@/components/hydration-boundary'
 import { getSiteUrl } from '@/lib/seo'
+import { Toaster } from '@/components/ui/toaster'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -201,6 +202,7 @@ export default function RootLayout({
               <GoogleAnalytics />
               <ServiceWorkerRegister />
               {children}
+              <Toaster />
               <CookieConsentBanner />
             </ErrorBoundary>
             <Analytics />

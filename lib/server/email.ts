@@ -1,8 +1,5 @@
 import nodemailer from 'nodemailer';
-
-function getSiteUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-}
+import { getRequiredSiteUrl } from '@/lib/env';
 
 function getSmtpConfig() {
   const host = process.env.SMTP_HOST || '';
@@ -30,7 +27,7 @@ export async function sendPasswordResetEmail({
   to: string;
   resetToken: string;
 }) {
-  const resetUrl = `${getSiteUrl().replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(resetToken)}`;
+  const resetUrl = `${getRequiredSiteUrl()}/reset-password?token=${encodeURIComponent(resetToken)}`;
   const smtp = getSmtpConfig();
 
   if (!smtp) {
@@ -73,7 +70,7 @@ export async function sendEmailVerificationEmail({
   to: string;
   verificationToken: string;
 }) {
-  const verificationUrl = `${getSiteUrl().replace(/\/$/, '')}/verify-email?token=${encodeURIComponent(verificationToken)}`;
+  const verificationUrl = `${getRequiredSiteUrl()}/verify-email?token=${encodeURIComponent(verificationToken)}`;
   const smtp = getSmtpConfig();
 
   if (!smtp) {

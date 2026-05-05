@@ -1,4 +1,15 @@
 import Link from 'next/link';
+import type { LucideIcon } from 'lucide-react';
+import {
+  BarChart3,
+  ClipboardCheck,
+  DatabaseZap,
+  Layers3,
+  ShieldCheck,
+  Sparkles,
+  Smartphone,
+  Target,
+} from 'lucide-react';
 import { createPublicMetadata } from '@/lib/seo';
 import { Button } from '@/components/ui/button';
 import SiteFooter from '@/components/site-footer';
@@ -6,6 +17,7 @@ import { HeroBoardIllustration } from '@/components/brand-illustrations';
 import PricingCards from '@/components/pricing-cards';
 import PublicSiteHeader from '@/components/public-site-header';
 import TrackedLink from '@/components/tracked-link';
+import HomeHeroSmoke from '@/components/home-hero-smoke';
 
 export const metadata = createPublicMetadata({
   title: 'Trading Journal for Dhan Sync, Screenshots, and Trade Review',
@@ -15,27 +27,39 @@ export const metadata = createPublicMetadata({
 
 const featureGroups = [
   {
+    icon: DatabaseZap,
     title: 'Broker Sync',
+    eyebrow: 'Capture',
     description: 'Import read-only Dhan history into your journal without disturbing manual entries or your review workflow.',
   },
   {
+    icon: Layers3,
     title: 'Screenshot Review',
+    eyebrow: 'Context',
     description: 'Attach before-and-after trade screenshots, zoom them on the dashboard, and keep visual context with each trade.',
   },
   {
+    icon: Target,
     title: 'Setup Tracking',
+    eyebrow: 'Structure',
     description: 'Tag setup names, fib levels, notes, emotions, and outcomes so your review process stays structured.',
   },
   {
+    icon: Sparkles,
     title: 'Favorites Board',
+    eyebrow: 'Recall',
     description: 'Pin the trades and ideas that matter most into a visual favorites wall for quick recall.',
   },
   {
+    icon: BarChart3,
     title: 'Analytics',
+    eyebrow: 'Insight',
     description: 'Review P&L, weekly patterns, reports, and advanced analysis from one place instead of scattered notes.',
   },
   {
+    icon: Smartphone,
     title: 'Mobile Ready',
+    eyebrow: 'Access',
     description: 'Use the journal comfortably on phones and tablets with working bottom navigation, theme controls, and modals.',
   },
 ];
@@ -44,6 +68,58 @@ const workflow = [
   'Sync trades from Dhan or add them manually.',
   'Enrich each trade with setups, fib levels, notes, and screenshots.',
   'Review favorites, reports, and weekly patterns to improve execution.',
+];
+
+const reviewPillars: {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+}[] = [
+  {
+    title: 'Capture the full trade',
+    description: 'Import broker fills, keep manual entries, and add the exact context you were trading from.',
+    icon: ClipboardCheck,
+  },
+  {
+    title: 'Review with evidence',
+    description: 'Screenshots, emotions, setup tags, and notes stay attached to the trade instead of floating in chats or folders.',
+    icon: ShieldCheck,
+  },
+  {
+    title: 'Refine your playbook',
+    description: 'Use reports, favorites, and analytics to find what deserves repetition and what needs to stop.',
+    icon: BarChart3,
+  },
+];
+
+const spotlightStats = [
+  {
+    value: '1 journal',
+    label: 'for manual trades, synced broker history, and review notes',
+  },
+  {
+    value: '3-step loop',
+    label: 'capture, annotate, and review without leaving the product',
+  },
+  {
+    value: 'Free to start',
+    label: 'with room to upgrade when your process needs deeper tooling',
+  },
+];
+
+const insightSnapshots = [
+  {
+    title: 'Before and after screenshots',
+    description: 'Keep the visual story of the trade beside the numbers so your review stays concrete.',
+  },
+  {
+    title: 'Emotion and setup notes',
+    description: 'See whether your best outcomes come from discipline, timing, or specific playbook conditions.',
+  },
+  {
+    title: 'Favorites and weekly review',
+    description: 'Build a repeatable study habit around the trades worth revisiting, not endless scrolling.',
+  },
 ];
 
 const comparisonRows = [
@@ -150,6 +226,7 @@ export default function HomePage() {
       <PublicSiteHeader />
 
       <section data-hero-shell className="relative overflow-hidden border-b border-border/70">
+        <HomeHeroSmoke />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(234,179,8,0.16),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.12),transparent_32%)]" />
         <div className="absolute inset-x-0 top-0 h-40 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),transparent)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent)]" />
         <div className="absolute left-[12%] top-28 h-44 w-44 rounded-full bg-sky-400/15 blur-3xl" />
@@ -164,6 +241,25 @@ export default function HomePage() {
             <h1 data-hero-title className="mt-4 text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">
               Review trades with structure, screenshots, and Dhan sync.
             </h1>
+            <div
+              aria-hidden="true"
+              className="hero-drawing-wordmark mt-5 max-w-[20rem] sm:max-w-[26rem] lg:max-w-[30rem]"
+            >
+              <svg
+                viewBox="0 0 760 130"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-auto w-full"
+              >
+                <text
+                  x="10"
+                  y="92"
+                  className="hero-drawing-wordmark__text"
+                >
+                  Trade. Review. Refine.
+                </text>
+              </svg>
+            </div>
             <p className="mt-5 max-w-2xl text-base text-muted-foreground sm:text-lg">
               Traderlogify gives you one place to import broker history, document trade ideas,
               track setups and fib levels, and study what actually improves your execution.
@@ -244,6 +340,47 @@ export default function HomePage() {
       </section>
 
       <section className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 lg:px-8">
+        <div className="homepage-storyband overflow-hidden rounded-[32px] border border-border/70">
+          <div className="grid gap-6 p-6 md:grid-cols-[1.05fr_0.95fr] md:p-8 lg:p-10">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Review Loop</p>
+              <h2 className="mt-3 max-w-xl text-3xl font-bold sm:text-4xl">
+                Your edge usually lives in the notes, screenshots, and repeated mistakes.
+              </h2>
+              <p className="mt-4 max-w-2xl text-muted-foreground">
+                Traderlogify is designed for traders who want a usable review system, not just a place to dump numbers.
+                It helps you connect execution, context, and follow-up inside one routine.
+              </p>
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                {spotlightStats.map((stat) => (
+                  <div key={stat.value} className="rounded-2xl border border-white/10 bg-background/75 p-4 backdrop-blur">
+                    <p className="text-lg font-semibold">{stat.value}</p>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">{stat.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-3">
+              {reviewPillars.map((pillar) => (
+                <div key={pillar.title} className="rounded-2xl border border-white/10 bg-background/75 p-4 backdrop-blur">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+                      <pillar.icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">{pillar.title}</h3>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">{pillar.description}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-6xl px-4 pb-14 sm:px-6 lg:px-8">
         <div className="max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Why It Works</p>
           <h2 className="mt-3 text-3xl font-bold sm:text-4xl">A journal designed around review, not just data entry.</h2>
@@ -254,11 +391,54 @@ export default function HomePage() {
         </div>
         <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {featureGroups.map((feature) => (
-            <div key={feature.title} className="rounded-2xl border border-border/70 bg-card p-5 shadow-lg shadow-black/5 transition-transform duration-200 hover:-translate-y-1">
-              <h3 className="text-lg font-semibold">{feature.title}</h3>
+            <div key={feature.title} className="homepage-feature-card rounded-[28px] border border-border/70 bg-card p-5 shadow-lg shadow-black/5 transition-transform duration-200 hover:-translate-y-1">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">{feature.eyebrow}</p>
+                  <h3 className="mt-2 text-lg font-semibold">{feature.title}</h3>
+                </div>
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+                  <feature.icon className="h-5 w-5" />
+                </div>
+              </div>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">{feature.description}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="border-y border-border/70 bg-background/70">
+        <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-14 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
+          <div className="max-w-xl">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">What You See</p>
+            <h2 className="mt-3 text-3xl font-bold sm:text-4xl">A homepage promise that matches the actual workflow inside the app.</h2>
+            <p className="mt-4 text-muted-foreground">
+              The experience is built around concrete review artifacts: trade screenshots, setup tags, favorites,
+              performance reports, and a private app workspace that keeps your journaling habit organized.
+            </p>
+            <div className="mt-6 rounded-3xl border border-border/70 bg-card/80 p-5">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Inside The Product</p>
+              <p className="mt-3 text-base font-semibold">You are not forced into a broker-only or notes-only workflow.</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Manual entries and synced trades can live together, which makes the review layer more useful for discretionary traders.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            {insightSnapshots.map((item, index) => (
+              <div
+                key={item.title}
+                className="homepage-snapshot-card rounded-[28px] border border-border/70 p-5 shadow-lg shadow-black/5"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                  0{index + 1}
+                </p>
+                <h3 className="mt-3 text-lg font-semibold">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.description}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -371,7 +551,7 @@ export default function HomePage() {
       <section className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Pricing</p>
-          <h2 className="mt-3 text-3xl font-bold sm:text-4xl">Start free, upgrade when your review workflow gets serious.</h2>
+          <h2 className="mt-3 text-3xl font-bold sm:text-4xl">Start free, then unlock the deeper review stack when you need it.</h2>
           <p className="mt-4 text-muted-foreground">
             Traderlogify starts with a generous free plan and scales into Pro for active traders who need sync,
             exports, and deeper analytics.
@@ -383,6 +563,45 @@ export default function HomePage() {
       </section>
 
       <section className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 lg:px-8">
+        <div className="homepage-final-cta rounded-[32px] border border-border/70 p-6 sm:p-8 lg:p-10">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Start Reviewing Better</p>
+              <h2 className="mt-3 text-3xl font-bold sm:text-4xl">Build a cleaner trading routine without rebuilding your entire process.</h2>
+              <p className="mt-4 text-muted-foreground">
+                Start with the free version, bring your existing manual workflow, and add sync, exports,
+                and deeper analytics when you are ready.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button asChild size="lg">
+                <TrackedLink
+                  href="/signup"
+                  eventParams={{
+                    content_type: 'cta',
+                    content_id: 'final_cta_signup',
+                  }}
+                >
+                  Create Free Account
+                </TrackedLink>
+              </Button>
+              <Button asChild variant="outline" size="lg">
+                <TrackedLink
+                  href="/pricing"
+                  eventParams={{
+                    content_type: 'cta',
+                    content_id: 'final_cta_pricing',
+                  }}
+                >
+                  Compare Plans
+                </TrackedLink>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-6xl px-4 pb-14 sm:px-6 lg:px-8">
         <div className="max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Questions</p>
           <h2 className="mt-3 text-3xl font-bold sm:text-4xl">Common questions from traders evaluating the journal.</h2>

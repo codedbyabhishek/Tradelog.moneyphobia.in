@@ -55,6 +55,30 @@ export function ThemeToggle() {
         </svg>
       );
     }
+    if (theme === 'pink') {
+      return (
+        <svg
+          className="w-4 h-4"
+          fill="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path d="M12 21s-6.716-4.35-9.192-8.038C.54 9.59 1.31 5.188 4.714 3.486c2.071-1.035 4.683-.65 6.286 1.2 1.603-1.85 4.215-2.235 6.286-1.2 3.403 1.702 4.174 6.105 1.906 9.476C18.716 16.65 12 21 12 21z" />
+        </svg>
+      );
+    }
+    if (theme === 'purple') {
+      return (
+        <svg
+          className="w-4 h-4"
+          fill="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path d="M12 3l7 4v5c0 5.25-3.438 8.938-7 10-3.562-1.062-7-4.75-7-10V7l7-4zm0 2.2L7 8v4c0 3.93 2.448 6.842 5 7.862 2.552-1.02 5-3.932 5-7.862V8l-5-2.8zm-2.25 3.55h4.5a2.75 2.75 0 0 1 .53 5.448L16.5 17h-2.473l-1.49-2.5H12V17H9.75V8.75zm2.25 1.85V12.7h2.02a1.05 1.05 0 1 0 0-2.1H12z" />
+        </svg>
+      );
+    }
     switch (resolvedTheme) {
       case 'dark':
         return (
@@ -99,6 +123,10 @@ export function ThemeToggle() {
         return 'Cyberpunk';
       case 'prism':
         return 'Prism Glass';
+      case 'pink':
+        return 'Pink Bloom';
+      case 'purple':
+        return 'Purple Night';
       default:
         return 'Theme';
     }
@@ -143,7 +171,7 @@ export function ThemeToggle() {
       </DropdownMenuTrigger>
 
       {/* Theme selection menu */}
-      <DropdownMenuContent align="end" className="w-40">
+      <DropdownMenuContent align="end" className="w-44">
         {/* Light theme option */}
         <DropdownMenuItem
           onClick={() => handleThemeSelect('light')}
@@ -221,6 +249,60 @@ export function ThemeToggle() {
               fill="currentColor"
               viewBox="0 0 24 24"
               aria-hidden="true"
+            >
+              <path d="M20.285 2l-11.285 11.567-5.556-5.558L0 9.99l8.744 8.744L24 4.41z" />
+            </svg>
+          )}
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={() => handleThemeSelect('pink')}
+          className="cursor-pointer flex items-center gap-2"
+          aria-label="Switch to pink theme"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path d="M12 21s-6.716-4.35-9.192-8.038C.54 9.59 1.31 5.188 4.714 3.486c2.071-1.035 4.683-.65 6.286 1.2 1.603-1.85 4.215-2.235 6.286-1.2 3.403 1.702 4.174 6.105 1.906 9.476C18.716 16.65 12 21 12 21z" />
+          </svg>
+          <span>Pink Bloom</span>
+          {theme === 'pink' && (
+            <svg
+              className="ml-auto w-4 h-4"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              style={{ color: '#db2777' }}
+            >
+              <path d="M20.285 2l-11.285 11.567-5.556-5.558L0 9.99l8.744 8.744L24 4.41z" />
+            </svg>
+          )}
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={() => handleThemeSelect('purple')}
+          className="cursor-pointer flex items-center gap-2"
+          aria-label="Switch to purple theme"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path d="M12 3l7 4v5c0 5.25-3.438 8.938-7 10-3.562-1.062-7-4.75-7-10V7l7-4zm0 2.2L7 8v4c0 3.93 2.448 6.842 5 7.862 2.552-1.02 5-3.932 5-7.862V8l-5-2.8zm-2.25 3.55h4.5a2.75 2.75 0 0 1 .53 5.448L16.5 17h-2.473l-1.49-2.5H12V17H9.75V8.75zm2.25 1.85V12.7h2.02a1.05 1.05 0 1 0 0-2.1H12z" />
+          </svg>
+          <span>Purple Night</span>
+          {theme === 'purple' && (
+            <svg
+              className="ml-auto w-4 h-4"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              style={{ color: '#a855f7' }}
             >
               <path d="M20.285 2l-11.285 11.567-5.556-5.558L0 9.99l8.744 8.744L24 4.41z" />
             </svg>

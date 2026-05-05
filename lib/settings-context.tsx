@@ -9,13 +9,13 @@ import { DEFAULT_BILLING_STATE, normalizeBillingState } from '@/lib/subscription
 
 interface SettingsContextType {
   baseCurrency: Currency;
-  setBaseCurrency: (currency: Currency) => void;
+  setBaseCurrency: (currency: Currency) => Promise<void>;
   startingBalance: number;
-  setStartingBalance: (balance: number) => void;
+  setStartingBalance: (balance: number) => Promise<void>;
   capitalAdjustments: CapitalAdjustment[];
-  saveCapitalAdjustments: (adjustments: CapitalAdjustment[]) => void;
+  saveCapitalAdjustments: (adjustments: CapitalAdjustment[]) => Promise<void>;
   billingState: BillingState;
-  saveBillingState: (billing: BillingState) => void;
+  saveBillingState: (billing: BillingState) => Promise<void>;
 }
 
 export const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -51,6 +51,26 @@ function updateBootstrapSettings(
     ...bootstrap,
     settings: updater(bootstrap.settings || {}),
   });
+}
+
+async function persistSetting(key: string, value: unknown) {
+  const res = await fetch('/api/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ key, value }),
+  });
+
+  if (!res.ok) {
+    let message = 'Failed to save settings';
+    try {
+      const body = await res.json();
+      message = body?.error || message;
+    } catch {
+      // no-op
+    }
+    throw new Error(message);
+  }
 }
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
@@ -123,8 +143,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     void load();
   }, [user, isAuthLoading]);
 
-  const setBaseCurrency = (currency: Currency) => {
+  const setBaseCurrency = async (currency: Currency) => {
     if (currency === baseCurrency) return;
+    const previousCurrency = baseCurrency;
     setBaseCurrencyState(currency);
     if (user) {
       updateBootstrapSettings(user.id, (settings) => ({
@@ -135,19 +156,22 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
     if (!user) return;
 
-    void fetch('/api/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ key: 'baseCurrency', value: currency }),
-    }).catch((err) => {
-      console.error('[SettingsContext] Failed to save settings:', err);
-    });
+    try {
+      await persistSetting('baseCurrency', currency);
+    } catch (err) {
+      setBaseCurrencyState(previousCurrency);
+      updateBootstrapSettings(user.id, (settings) => ({
+        ...settings,
+        baseCurrency: previousCurrency,
+      }));
+      throw err;
+    }
   };
 
-  const setStartingBalance = (balance: number) => {
+  const setStartingBalance = async (balance: number) => {
     const normalizedBalance = Number.isFinite(balance) ? balance : DEFAULT_STARTING_BALANCE;
     if (normalizedBalance === startingBalance) return;
+    const previousBalance = startingBalance;
     setStartingBalanceState(normalizedBalance);
     if (user) {
       updateBootstrapSettings(user.id, (settings) => ({
@@ -158,23 +182,26 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
     if (!user) return;
 
-    void fetch('/api/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ key: 'startingBalance', value: normalizedBalance }),
-    }).catch((err) => {
-      console.error('[SettingsContext] Failed to save settings:', err);
-    });
+    try {
+      await persistSetting('startingBalance', normalizedBalance);
+    } catch (err) {
+      setStartingBalanceState(previousBalance);
+      updateBootstrapSettings(user.id, (settings) => ({
+        ...settings,
+        startingBalance: previousBalance,
+      }));
+      throw err;
+    }
   };
 
-  const saveCapitalAdjustments = (adjustments: CapitalAdjustment[]) => {
+  const saveCapitalAdjustments = async (adjustments: CapitalAdjustment[]) => {
     const normalized = [...adjustments]
       .filter((item) => item.id && item.date && Number.isFinite(item.amount))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     if (JSON.stringify(normalized) === JSON.stringify(capitalAdjustments)) return;
 
+    const previousAdjustments = capitalAdjustments;
     setCapitalAdjustmentsState(normalized);
     if (user) {
       updateBootstrapSettings(user.id, (settings) => ({
@@ -185,19 +212,22 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
     if (!user) return;
 
-    void fetch('/api/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ key: 'capitalAdjustments', value: normalized }),
-    }).catch((err) => {
-      console.error('[SettingsContext] Failed to save settings:', err);
-    });
+    try {
+      await persistSetting('capitalAdjustments', normalized);
+    } catch (err) {
+      setCapitalAdjustmentsState(previousAdjustments);
+      updateBootstrapSettings(user.id, (settings) => ({
+        ...settings,
+        capitalAdjustments: previousAdjustments,
+      }));
+      throw err;
+    }
   };
 
-  const saveBillingState = (billing: BillingState) => {
+  const saveBillingState = async (billing: BillingState) => {
     const normalized = normalizeBillingState(billing);
     if (JSON.stringify(normalized) === JSON.stringify(billingState)) return;
+    const previousBilling = billingState;
     setBillingState(normalized);
     if (user) {
       updateBootstrapSettings(user.id, (settings) => ({
@@ -208,14 +238,16 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
     if (!user) return;
 
-    void fetch('/api/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ key: 'billing', value: normalized }),
-    }).catch((err) => {
-      console.error('[SettingsContext] Failed to save billing settings:', err);
-    });
+    try {
+      await persistSetting('billing', normalized);
+    } catch (err) {
+      setBillingState(previousBilling);
+      updateBootstrapSettings(user.id, (settings) => ({
+        ...settings,
+        billing: previousBilling,
+      }));
+      throw err;
+    }
   };
 
   return (

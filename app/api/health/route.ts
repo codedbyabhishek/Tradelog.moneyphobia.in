@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { dbQuery } from '@/lib/server/db';
+import { getEnvValidationReport } from '@/lib/env';
 import {
   assertAuthSchemaReady,
   assertBillingSchemaReady,
@@ -29,27 +30,9 @@ export async function GET(request: Request) {
   }
 
   const timestamp = new Date().toISOString();
-  const requiredEnv = ['DB_HOST', 'DB_USER', 'DB_NAME'];
-  const missingEnv = requiredEnv.filter((name) => !process.env[name]);
-  const warnings: string[] = [];
+  const envReport = getEnvValidationReport();
 
-  if (!process.env.NEXT_PUBLIC_SITE_URL) {
-    warnings.push('NEXT_PUBLIC_SITE_URL is not configured.');
-  }
-
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    warnings.push('SMTP is not fully configured; password reset and email verification delivery will fail.');
-  }
-
-  if (
-    !process.env.RAZORPAY_KEY_ID ||
-    !process.env.RAZORPAY_KEY_SECRET ||
-    !process.env.RAZORPAY_WEBHOOK_SECRET
-  ) {
-    warnings.push('Razorpay is not fully configured; billing features may be unavailable.');
-  }
-
-  if (missingEnv.length > 0) {
+  if (!envReport.ok) {
     return NextResponse.json(
       {
         ok: false,
@@ -59,10 +42,12 @@ export async function GET(request: Request) {
         checks: {
           env: {
             ok: false,
-            missing: missingEnv,
+            required: envReport.required,
+            optional: envReport.optional,
           },
         },
-        warnings,
+        warnings: envReport.warnings,
+        errors: envReport.errors,
       },
       { status: 503 }
     );
@@ -83,13 +68,18 @@ export async function GET(request: Request) {
         ok: true,
         service: 'trading-journal',
         timestamp,
-        status: warnings.length > 0 ? 'warning' : 'healthy',
+        status: envReport.warnings.length > 0 ? 'warning' : 'healthy',
         checks: {
-          env: { ok: true },
+          env: {
+            ok: true,
+            required: envReport.required,
+            optional: envReport.optional,
+          },
           db: { ok: true },
           schema: { ok: true },
         },
-        warnings,
+        warnings: envReport.warnings,
+        siteUrl: envReport.siteUrl,
       },
       { status: 200 }
     );
@@ -101,11 +91,16 @@ export async function GET(request: Request) {
         timestamp,
         status: 'degraded',
         checks: {
-          env: { ok: true },
+          env: {
+            ok: true,
+            required: envReport.required,
+            optional: envReport.optional,
+          },
           db: { ok: false },
           schema: { ok: false },
         },
-        warnings,
+        warnings: envReport.warnings,
+        errors: ['Database or schema validation failed.'],
       },
       { status: 503 }
     );
