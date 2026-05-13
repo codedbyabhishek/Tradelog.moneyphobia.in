@@ -116,7 +116,8 @@ export default function BrokerSyncHub() {
   const broker = useMemo(() => getBrokerDefinition(selectedBroker), [selectedBroker]);
   const isDhan = selectedBroker === 'dhan';
   const isUpstox = selectedBroker === 'upstox';
-  const isZerodha = selectedBroker === 'zerodha';
+  const supportsZerodhaGroundwork = false;
+  const isZerodha = selectedBroker === 'zerodha' && supportsZerodhaGroundwork;
   const isLiveBroker = isDhan || isUpstox;
 
   useEffect(() => {

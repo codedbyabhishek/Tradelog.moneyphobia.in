@@ -92,10 +92,11 @@ export function validateGitHubCredentials(
  */
 export function validateTradeForm(
   formData: TradeFormData,
-  options?: { requireFibonacciLevels?: boolean }
+  options?: { requireFibonacciLevels?: boolean; resultMode?: 'manual' | 'execution' }
 ): Record<string, string> {
   const errors: Record<string, string> = {};
   const requireFibonacciLevels = options?.requireFibonacciLevels ?? true;
+  const resultMode = options?.resultMode ?? 'manual';
 
   // Symbol validation
   if (!formData.symbol) {
@@ -159,23 +160,53 @@ export function validateTradeForm(
     }
   }
 
-  // P&L validation
-  if (!formData.manualProfit) {
-    errors.manualProfit = 'P&L is required';
-  } else {
-    const pnl = validateNumber(formData.manualProfit);
-    if (pnl === null) {
-      errors.manualProfit = 'P&L must be a valid number';
-    }
+  // Entry / Exit validation for execution-based logging
+  if (formData.entryPrice && validateNumber(formData.entryPrice) === null) {
+    errors.entryPrice = 'Entry price must be a valid number';
   }
 
-  // R Factor validation
-  if (formData.exitRFactor === undefined || formData.exitRFactor === '') {
-    errors.exitRFactor = 'R Factor is required';
+  if (formData.exitPrice && validateNumber(formData.exitPrice) === null) {
+    errors.exitPrice = 'Exit price must be a valid number';
+  }
+
+  if (resultMode === 'manual') {
+    if (!formData.manualProfit) {
+      errors.manualProfit = 'P&L is required';
+    } else {
+      const pnl = validateNumber(formData.manualProfit);
+      if (pnl === null) {
+        errors.manualProfit = 'P&L must be a valid number';
+      }
+    }
+
+    if (formData.exitRFactor === undefined || formData.exitRFactor === '') {
+      errors.exitRFactor = 'R Factor is required';
+    } else {
+      const rFactor = validateNumber(formData.exitRFactor);
+      if (rFactor === null) {
+        errors.exitRFactor = 'R Factor must be a valid number';
+      }
+    }
   } else {
-    const rFactor = validateNumber(formData.exitRFactor);
-    if (rFactor === null) {
-      errors.exitRFactor = 'R Factor must be a valid number';
+    if (!formData.entryPrice) {
+      errors.entryPrice = 'Entry price is required in execution mode';
+    }
+    if (!formData.exitPrice) {
+      errors.exitPrice = 'Exit price is required in execution mode';
+    }
+
+    if (formData.manualProfit) {
+      const pnl = validateNumber(formData.manualProfit);
+      if (pnl === null) {
+        errors.manualProfit = 'P&L must be a valid number';
+      }
+    }
+
+    if (formData.exitRFactor !== undefined && formData.exitRFactor !== '') {
+      const rFactor = validateNumber(formData.exitRFactor);
+      if (rFactor === null) {
+        errors.exitRFactor = 'R Factor must be a valid number';
+      }
     }
   }
 
@@ -190,14 +221,11 @@ export function validateTradeForm(
     errors.fees = 'Taxes must be a valid number';
   }
 
-  // Optional entry price validation
-  if (formData.entryPrice && validateNumber(formData.entryPrice) === null) {
-    errors.entryPrice = 'Entry price must be a valid number';
-  }
-
-  // Optional exit price validation
-  if (formData.exitPrice && validateNumber(formData.exitPrice) === null) {
-    errors.exitPrice = 'Exit price must be a valid number';
+  if (resultMode === 'manual' && formData.manualProfit) {
+    const pnl = validateNumber(formData.manualProfit);
+    if (pnl === null) {
+      errors.manualProfit = 'P&L must be a valid number';
+    }
   }
 
   if (!formData.ruleFollowed && (!formData.ruleViolations || formData.ruleViolations.length === 0)) {

@@ -214,23 +214,36 @@ export function convertFormToTrade(formData: TradeFormData): Trade {
   const exchangeCharges = parseFloat(formData.exchangeCharges || '0') || 0;
   const taxes = parseFloat(formData.taxes || '0') || 0;
   const fees = brokerage + exchangeCharges + taxes;
-  // User enters gross P&L; net P&L = gross - brokerage/charges
-  const grossPnl = parseFloat(formData.manualProfit || '0');
-  const pnl = grossPnl - fees;
   const currency = formData.currency || 'INR';
-  
-  // Parse R-Factor and ensure it has correct sign based on P&L
-  let rFactor = parseFloat(formData.exitRFactor || '0');
+  const hasExecutionInputs = Boolean(formData.entryPrice && formData.exitPrice && formData.quantity && formData.stopLoss);
+
+  // Only parse prices if they are provided
+  const entryPrice = formData.entryPrice ? parseFloat(formData.entryPrice) : undefined;
+  const exitPrice = formData.exitPrice ? parseFloat(formData.exitPrice) : undefined;
+
+  // User enters gross P&L in manual mode; execution mode derives net P&L from prices and charges
+  const grossPnl = formData.manualProfit ? parseFloat(formData.manualProfit) : null;
+  const pnl =
+    grossPnl !== null
+      ? grossPnl - fees
+      : hasExecutionInputs && entryPrice !== undefined && exitPrice !== undefined
+      ? calculatePnL(entryPrice, exitPrice, quantity, formData.position, fees)
+      : 0;
+
+  // Parse R-Factor and ensure it has correct sign based on P&L. If omitted, derive from execution inputs.
+  let rFactor = formData.exitRFactor ? parseFloat(formData.exitRFactor) : NaN;
+  if (!Number.isFinite(rFactor) && hasExecutionInputs && entryPrice !== undefined) {
+    rFactor = calculateRFactor(pnl, stopLoss, entryPrice, formData.position, quantity);
+  }
+  if (!Number.isFinite(rFactor)) {
+    rFactor = 0;
+  }
   // Ensure R-multiple sign matches P&L sign (loss should be negative R)
   if (pnl < 0 && rFactor > 0) {
     rFactor = -Math.abs(rFactor);
   } else if (pnl > 0 && rFactor < 0) {
     rFactor = Math.abs(rFactor);
   }
-
-  // Only parse prices if they are provided
-  const entryPrice = formData.entryPrice ? parseFloat(formData.entryPrice) : undefined;
-  const exitPrice = formData.exitPrice ? parseFloat(formData.exitPrice) : undefined;
 
   // Get exchange rate at trade close time and convert to base currency
   const exchangeRate = getExchangeRateToBase(currency);
@@ -274,7 +287,7 @@ export function convertFormToTrade(formData: TradeFormData): Trade {
     exchangeRate,
     tradeResult,
     rFactor,
-    exitRFactor: formData.exitRFactor ? parseFloat(formData.exitRFactor) : undefined,
+    exitRFactor: Number.isFinite(rFactor) ? rFactor : undefined,
     isWin, // Auto-derived from P&L
     confidence: parseInt(formData.confidence),
     preNotes: formData.preNotes,

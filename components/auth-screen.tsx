@@ -1,8 +1,10 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { Mail, X } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { forgetRememberedAccount, readRememberedAccounts, type RememberedAccount } from '@/lib/client-bootstrap';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import SiteFooter from '@/components/site-footer';
@@ -23,6 +25,12 @@ export default function AuthScreen({ initialMode = 'login' }: { initialMode?: Au
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
+  const [rememberedAccounts, setRememberedAccounts] = useState<RememberedAccount[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
+
+  useEffect(() => {
+    setRememberedAccounts(readRememberedAccounts());
+  }, []);
 
   const switchMode = (nextMode: AuthMode) => {
     clearError();
@@ -35,6 +43,31 @@ export default function AuthScreen({ initialMode = 'login' }: { initialMode?: Au
       } else if (nextMode !== 'signup' && pathname !== '/login') {
         router.replace('/login');
       }
+    }
+  };
+
+  const selectRememberedAccount = (account: RememberedAccount) => {
+    clearError();
+    setNotice(null);
+    setMode('login');
+    setSelectedAccountId(account.id);
+    setEmail(account.email);
+    setPassword('');
+  };
+
+  const chooseAnotherAccount = () => {
+    clearError();
+    setNotice(null);
+    setSelectedAccountId(null);
+    setEmail('');
+    setPassword('');
+  };
+
+  const removeRememberedAccount = (accountId: number) => {
+    forgetRememberedAccount(accountId);
+    setRememberedAccounts(readRememberedAccounts());
+    if (selectedAccountId === accountId) {
+      chooseAnotherAccount();
     }
   };
 
@@ -182,6 +215,56 @@ export default function AuthScreen({ initialMode = 'login' }: { initialMode?: Au
               </div>
             ) : null}
 
+            {mode === 'login' && rememberedAccounts.length > 0 ? (
+              <div className="mb-4 space-y-2">
+                <p className="text-sm font-medium text-foreground">Saved accounts</p>
+                <div className="space-y-2">
+                  {rememberedAccounts.map((account) => (
+                    <div
+                      key={`${account.id}-${account.email}`}
+                      className="flex items-center gap-2 rounded-lg border border-border bg-background/80 p-2"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => selectRememberedAccount(account)}
+                        className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                          <Mail className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-foreground">
+                            {account.name || account.email}
+                          </span>
+                          {account.name ? (
+                            <span className="block truncate text-xs text-muted-foreground">{account.email}</span>
+                          ) : null}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeRememberedAccount(account.id)}
+                        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        aria-label={`Remove ${account.email}`}
+                        title="Remove saved account"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {selectedAccountId ? (
+                  <button
+                    type="button"
+                    className="text-sm text-primary underline underline-offset-4"
+                    onClick={chooseAnotherAccount}
+                  >
+                    Use another account
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+
             <form className="space-y-4" onSubmit={onSubmit}>
               {mode === 'signup' && (
                 <div>
@@ -203,7 +286,10 @@ export default function AuthScreen({ initialMode = 'login' }: { initialMode?: Au
                   required
                   className="w-full px-3 py-2 bg-input border border-border rounded-lg"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setSelectedAccountId(null);
+                  }}
                   placeholder="you@example.com"
                 />
               </div>

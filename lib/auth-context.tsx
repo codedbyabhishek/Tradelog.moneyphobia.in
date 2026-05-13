@@ -6,6 +6,7 @@ import {
   clearBootstrap,
   consumeRecentAuth,
   markRecentAuth,
+  rememberAuthUser,
   readAuthUser,
   readBootstrap,
   storeAuthUser,
@@ -153,6 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = (await res.json()) as AuthPayload;
       setCurrentUser(data.user || null);
       storeAuthUser(data.user || null);
+      rememberAuthUser(data.user || null);
       storeBootstrap(data.user ? data.bootstrap || null : null);
       markRecentAuth();
       setError(null);
@@ -184,6 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = (await res.json()) as AuthPayload;
       setCurrentUser(data.user || null);
       storeAuthUser(data.user || null);
+      rememberAuthUser(data.user || null);
       storeBootstrap(data.user ? data.bootstrap || null : null);
       markRecentAuth();
       setError(null);
@@ -215,6 +218,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = (await res.json()) as AuthPayload;
       setCurrentUser(data.user || null);
       storeAuthUser(data.user || null);
+      rememberAuthUser(data.user || null);
       storeBootstrap(data.user ? data.bootstrap || null : null);
       markRecentAuth();
       setError(null);

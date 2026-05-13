@@ -5,6 +5,8 @@ import type { AppBootstrapData } from '@/lib/bootstrap';
 const BOOTSTRAP_STORAGE_KEY = 'td-auth-bootstrap';
 const AUTH_USER_STORAGE_KEY = 'td-auth-user';
 const RECENT_AUTH_STORAGE_KEY = 'td-recent-auth';
+const REMEMBERED_ACCOUNTS_STORAGE_KEY = 'td-remembered-accounts';
+const MAX_REMEMBERED_ACCOUNTS = 6;
 let inMemoryBootstrap: AppBootstrapData | null = null;
 
 export interface CachedAuthUser {
@@ -12,6 +14,13 @@ export interface CachedAuthUser {
   email: string;
   name: string | null;
   emailVerified: boolean;
+}
+
+export interface RememberedAccount {
+  id: number;
+  email: string;
+  name: string | null;
+  lastUsedAt: number;
 }
 
 function isBrowser() {
@@ -109,4 +118,59 @@ export function clearAuthUser() {
   if (!isBrowser()) return;
   window.sessionStorage.removeItem(AUTH_USER_STORAGE_KEY);
   window.sessionStorage.removeItem(RECENT_AUTH_STORAGE_KEY);
+}
+
+export function readRememberedAccounts(): RememberedAccount[] {
+  if (!isBrowser()) return [];
+
+  const raw = window.localStorage.getItem(REMEMBERED_ACCOUNTS_STORAGE_KEY);
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter((account): account is RememberedAccount => (
+        account &&
+        typeof account.id === 'number' &&
+        typeof account.email === 'string' &&
+        (typeof account.name === 'string' || account.name === null) &&
+        typeof account.lastUsedAt === 'number'
+      ))
+      .sort((a, b) => b.lastUsedAt - a.lastUsedAt)
+      .slice(0, MAX_REMEMBERED_ACCOUNTS);
+  } catch {
+    return [];
+  }
+}
+
+export function rememberAuthUser(user: CachedAuthUser | null) {
+  if (!isBrowser() || !user) return;
+
+  const nextAccount: RememberedAccount = {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    lastUsedAt: Date.now(),
+  };
+
+  const nextAccounts = [
+    nextAccount,
+    ...readRememberedAccounts().filter((account) => account.id !== user.id && account.email !== user.email),
+  ].slice(0, MAX_REMEMBERED_ACCOUNTS);
+
+  window.localStorage.setItem(REMEMBERED_ACCOUNTS_STORAGE_KEY, JSON.stringify(nextAccounts));
+}
+
+export function forgetRememberedAccount(accountId: number) {
+  if (!isBrowser()) return;
+
+  const nextAccounts = readRememberedAccounts().filter((account) => account.id !== accountId);
+  if (nextAccounts.length === 0) {
+    window.localStorage.removeItem(REMEMBERED_ACCOUNTS_STORAGE_KEY);
+    return;
+  }
+
+  window.localStorage.setItem(REMEMBERED_ACCOUNTS_STORAGE_KEY, JSON.stringify(nextAccounts));
 }

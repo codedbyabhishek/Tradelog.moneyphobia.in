@@ -15,6 +15,7 @@ import {
   convertToBaseCurrency,
   getCapitalAdjustmentAmount,
   getNetCapitalAdjustments,
+  calculateRFactor,
 } from '@/lib/trade-utils';
 import { BROKER_DEFINITIONS, getBrokerDefinition, getBrokerIdFromTrade, type BrokerId } from '@/lib/brokers';
 import {
@@ -35,15 +36,20 @@ import {
   Legend,
 } from 'recharts';
 import { EmptyStateIllustration } from './brand-illustrations';
+import { Badge } from '@/components/ui/badge';
+import { CheckCircle2, X } from 'lucide-react';
 
-type DateRangeKey = 'all' | '7d' | '30d' | 'month' | 'custom';
+type DateRangeKey = 'today' | '7d' | '30d' | '90d' | '1y' | 'all' | 'custom';
 type BrokerFilter = 'all' | BrokerId;
+type OutcomeFilter = 'all' | 'winners' | 'losers';
 
 const DATE_RANGE_OPTIONS: Array<{ key: DateRangeKey; label: string }> = [
-  { key: 'all', label: 'All Time' },
+  { key: 'today', label: 'Today' },
   { key: '7d', label: '7D' },
   { key: '30d', label: '30D' },
-  { key: 'month', label: 'This Month' },
+  { key: '90d', label: '3 Months' },
+  { key: '1y', label: '1 Year' },
+  { key: 'all', label: 'All Time' },
   { key: 'custom', label: 'Custom' },
 ];
 
@@ -100,6 +106,10 @@ function getLocalDateString(date: Date) {
 function getRangeStart(range: DateRangeKey, now: Date) {
   const start = new Date(now);
 
+  if (range === 'today') {
+    return getLocalDateString(start);
+  }
+
   if (range === '7d') {
     start.setDate(start.getDate() - 6);
     return getLocalDateString(start);
@@ -110,8 +120,14 @@ function getRangeStart(range: DateRangeKey, now: Date) {
     return getLocalDateString(start);
   }
 
-  if (range === 'month') {
-    start.setDate(1);
+  if (range === '90d') {
+    start.setDate(start.getDate() - 89);
+    return getLocalDateString(start);
+  }
+
+  if (range === '1y') {
+    start.setFullYear(start.getFullYear() - 1);
+    start.setDate(start.getDate() + 1);
     return getLocalDateString(start);
   }
 
@@ -125,6 +141,7 @@ export default function Analytics() {
   const [setupFilter, setSetupFilter] = useState<string>('all');
   const [tagFilter, setTagFilter] = useState<string>('all');
   const [brokerFilter, setBrokerFilter] = useState<BrokerFilter>('all');
+  const [outcomeFilter, setOutcomeFilter] = useState<OutcomeFilter>('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
@@ -165,12 +182,14 @@ export default function Analytics() {
       if (setupFilter !== 'all' && trade.setupName !== setupFilter) return false;
       if (tagFilter !== 'all' && !(trade.tags || []).includes(tagFilter)) return false;
       if (brokerFilter !== 'all' && getBrokerIdFromTrade(trade) !== brokerFilter) return false;
+      if (outcomeFilter === 'winners' && getTradeBasePnL(trade) <= 0) return false;
+      if (outcomeFilter === 'losers' && getTradeBasePnL(trade) >= 0) return false;
 
       if (dateBounds.start && trade.date < dateBounds.start) return false;
       if (dateBounds.end && trade.date > dateBounds.end) return false;
       return true;
     });
-  }, [sortedTrades, setupFilter, tagFilter, brokerFilter, dateBounds]);
+  }, [sortedTrades, setupFilter, tagFilter, brokerFilter, outcomeFilter, dateBounds]);
 
   const capitalAdjustmentsBeforeWindow = useMemo(() => {
     if (!dateBounds.start) return [];
@@ -256,6 +275,24 @@ export default function Analytics() {
     ].filter((item) => item.value > 0);
   }, [filteredSummary]);
 
+  const longShortData = useMemo(() => {
+    const longTrades = filteredTrades.filter((trade) => trade.position === 'Buy');
+    const shortTrades = filteredTrades.filter((trade) => trade.position === 'Sell');
+
+    return [
+      {
+        name: 'Long',
+        value: longTrades.length,
+        pnl: longTrades.reduce((sum, trade) => sum + getTradeBasePnL(trade), 0),
+      },
+      {
+        name: 'Short',
+        value: shortTrades.length,
+        pnl: shortTrades.reduce((sum, trade) => sum + getTradeBasePnL(trade), 0),
+      },
+    ].filter((item) => item.value > 0);
+  }, [filteredTrades]);
+
   const setupPerformanceData = useMemo(() => {
     const setupMap = new Map<string, { pnl: number; trades: number }>();
 
@@ -338,6 +375,91 @@ export default function Analytics() {
       }));
   }, [filteredTrades]);
 
+  const recentTrades = useMemo(() => {
+    return [...filteredTrades]
+      .sort((a, b) => {
+        const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+        if (dateDiff !== 0) return dateDiff;
+        return (b.exitTime || b.entryTime || '').localeCompare(a.exitTime || a.entryTime || '');
+      })
+      .slice(0, 6);
+  }, [filteredTrades]);
+
+  const quickStats = useMemo(() => {
+    const winningTrades = filteredTrades.filter((trade) => getTradeBasePnL(trade) > 0);
+    const losingTrades = filteredTrades.filter((trade) => getTradeBasePnL(trade) < 0);
+    const sortedTrades = [...filteredTrades].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    const averageWinner =
+      winningTrades.length > 0
+        ? winningTrades.reduce((sum, trade) => sum + getTradeBasePnL(trade), 0) / winningTrades.length
+        : 0;
+    const averageLoser =
+      losingTrades.length > 0
+        ? losingTrades.reduce((sum, trade) => sum + getTradeBasePnL(trade), 0) / losingTrades.length
+        : 0;
+
+    const bestTrade = sortedTrades.reduce<(typeof sortedTrades)[number] | null>(
+      (best, trade) => (!best || getTradeBasePnL(trade) > getTradeBasePnL(best) ? trade : best),
+      null,
+    );
+    const worstTrade = sortedTrades.reduce<(typeof sortedTrades)[number] | null>(
+      (worst, trade) => (!worst || getTradeBasePnL(trade) < getTradeBasePnL(worst) ? trade : worst),
+      null,
+    );
+
+    let currentWinStreak = 0;
+    let currentLossStreak = 0;
+    let maxWinStreak = 0;
+    let maxLossStreak = 0;
+
+    sortedTrades.forEach((trade) => {
+      const pnl = getTradeBasePnL(trade);
+
+      if (pnl > 0) {
+        currentWinStreak += 1;
+        currentLossStreak = 0;
+      } else if (pnl < 0) {
+        currentLossStreak += 1;
+        currentWinStreak = 0;
+      } else {
+        currentWinStreak = 0;
+        currentLossStreak = 0;
+      }
+
+      maxWinStreak = Math.max(maxWinStreak, currentWinStreak);
+      maxLossStreak = Math.max(maxLossStreak, currentLossStreak);
+    });
+
+    const averageRiskReward =
+      filteredTrades.length > 0
+        ? filteredTrades.reduce((sum, trade) => {
+            if (typeof trade.riskRewardRatio === 'number' && Number.isFinite(trade.riskRewardRatio)) {
+              return sum + trade.riskRewardRatio;
+            }
+
+            if (trade.entryPrice !== undefined && trade.stopLoss !== undefined) {
+              return sum + Math.abs(calculateRFactor(trade));
+            }
+
+            return sum;
+          }, 0) / filteredTrades.length
+        : 0;
+
+    const openTrades = filteredTrades.filter((trade) => trade.exitPrice === undefined || trade.exitPrice === null).length;
+
+    return {
+      averageWinner,
+      averageLoser,
+      bestTrade,
+      worstTrade,
+      maxWinStreak,
+      maxLossStreak,
+      averageRiskReward,
+      openTrades,
+    };
+  }, [filteredTrades]);
+
   const monthlyTable = useMemo(() => {
     const monthlyMap = new Map<string, { month: string; trades: number; wins: number; pnl: number; charges: number }>();
 
@@ -411,6 +533,49 @@ export default function Analytics() {
 
   const outcomeTotal = winLossData.reduce((sum, item) => sum + item.value, 0);
 
+  const quickStatsCards = [
+    {
+      label: 'Avg Winner',
+      value: formatBaseAmount(quickStats.averageWinner),
+      tone: 'text-emerald-400',
+    },
+    {
+      label: 'Avg Loser',
+      value: formatBaseAmount(quickStats.averageLoser),
+      tone: 'text-red-400',
+    },
+    {
+      label: 'Best Trade',
+      value: quickStats.bestTrade ? formatBaseAmount(getTradeBasePnL(quickStats.bestTrade)) : 'N/A',
+      tone: 'text-emerald-400',
+    },
+    {
+      label: 'Worst Trade',
+      value: quickStats.worstTrade ? formatBaseAmount(getTradeBasePnL(quickStats.worstTrade)) : 'N/A',
+      tone: 'text-red-400',
+    },
+    {
+      label: 'Win Streak',
+      value: `${quickStats.maxWinStreak}`,
+      tone: 'text-foreground',
+    },
+    {
+      label: 'Loss Streak',
+      value: `${quickStats.maxLossStreak}`,
+      tone: 'text-foreground',
+    },
+    {
+      label: 'Risk:Reward',
+      value: quickStats.averageRiskReward > 0 ? `1:${quickStats.averageRiskReward.toFixed(2)}` : 'N/A',
+      tone: 'text-foreground',
+    },
+    {
+      label: 'Open Trades',
+      value: `${quickStats.openTrades}`,
+      tone: 'text-foreground',
+    },
+  ];
+
   return (
     <div className="w-full min-h-screen flex flex-col gap-3 sm:gap-4 lg:gap-6 p-2 sm:p-4 lg:p-6 overflow-hidden">
       <div className="space-y-1">
@@ -420,120 +585,120 @@ export default function Analytics() {
         </p>
       </div>
 
-      <Card className="bg-card border-border">
-        <CardHeader className="p-4 sm:p-6 pb-3">
-          <CardTitle className="text-base sm:text-lg">Filters</CardTitle>
-          <CardDescription className="text-xs sm:text-sm">
-            Date range, broker source, and setup filters update the analytics cards and charts below
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6 pt-0 space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {DATE_RANGE_OPTIONS.map((option) => (
-              <Button
-                key={option.key}
-                type="button"
-                variant={dateRange === option.key ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setDateRange(option.key)}
-              >
-                {option.label}
-              </Button>
-            ))}
+      <Card className="overflow-hidden border-border bg-[#0d0d11] text-white">
+        <CardContent className="space-y-4 p-4 sm:p-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Time Period</p>
+              <div className="flex flex-wrap gap-2">
+                {DATE_RANGE_OPTIONS.map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => setDateRange(option.key)}
+                    className={`min-h-11 rounded-2xl border px-5 text-sm font-semibold transition-colors ${
+                      dateRange === option.key
+                        ? 'border-[#1f6fff] bg-[#1668ff] text-white shadow-[0_0_0_1px_rgba(22,104,255,0.25)]'
+                        : 'border-white/10 bg-white/[0.06] text-white/55 hover:bg-white/[0.09] hover:text-white/80'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Filter By</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { key: 'all', label: 'All Trades' },
+                  { key: 'winners', label: 'Winners', icon: CheckCircle2 },
+                  { key: 'losers', label: 'Losers', icon: X },
+                ].map((option) => {
+                  const Icon = option.icon;
+                  const isActive = outcomeFilter === option.key;
+
+                  return (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => setOutcomeFilter(option.key as OutcomeFilter)}
+                      className={`inline-flex min-h-11 items-center gap-2 rounded-2xl border px-5 text-sm font-semibold transition-colors ${
+                        isActive
+                          ? 'border-[#1f6fff] bg-[#1668ff] text-white shadow-[0_0_0_1px_rgba(22,104,255,0.25)]'
+                          : 'border-white/10 bg-white/[0.06] text-white/55 hover:bg-white/[0.09] hover:text-white/80'
+                      }`}
+                    >
+                      {Icon ? <Icon className="h-4 w-4" /> : null}
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           {dateRange === 'custom' && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Start Date</label>
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">End Date</label>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                />
-              </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:max-w-2xl">
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="h-11 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-sm text-white"
+              />
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="h-11 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-sm text-white"
+              />
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Broker Filter</label>
-              <Select value={brokerFilter} onValueChange={(value) => setBrokerFilter(value as BrokerFilter)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Trades</SelectItem>
-                  {BROKER_DEFINITIONS.map((broker) => (
-                    <SelectItem key={broker.id} value={broker.id}>
-                      {broker.status === 'live' ? broker.label : `${broker.label} (Coming Soon)`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Setup Filter</label>
-              <Select value={setupFilter} onValueChange={setSetupFilter}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Setups</SelectItem>
-                  {setupOptions.map((setup) => (
-                    <SelectItem key={setup} value={setup}>
-                      {setup}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Tag Filter</label>
-              <Select value={tagFilter} onValueChange={setTagFilter}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Tags</SelectItem>
-                  {tagOptions.map((tag) => (
-                    <SelectItem key={tag} value={tag}>
-                      {tag}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+            <Select value={brokerFilter} onValueChange={(value) => setBrokerFilter(value as BrokerFilter)}>
+              <SelectTrigger className="h-11 rounded-xl border-white/10 bg-white/[0.06] text-white">
+                <SelectValue placeholder="Broker" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Brokers</SelectItem>
+                {BROKER_DEFINITIONS.map((broker) => (
+                  <SelectItem key={broker.id} value={broker.id}>
+                    {broker.status === 'live' ? broker.label : `${broker.label} (Coming Soon)`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={setupFilter} onValueChange={setSetupFilter}>
+              <SelectTrigger className="h-11 rounded-xl border-white/10 bg-white/[0.06] text-white">
+                <SelectValue placeholder="Setup" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Setups</SelectItem>
+                {setupOptions.map((setup) => (
+                  <SelectItem key={setup} value={setup}>
+                    {setup}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={tagFilter} onValueChange={setTagFilter}>
+              <SelectTrigger className="h-11 rounded-xl border-white/10 bg-white/[0.06] text-white">
+                <SelectValue placeholder="Tag" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Tags</SelectItem>
+                {tagOptions.map((tag) => (
+                  <SelectItem key={tag} value={tag}>
+                    {tag}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-
-          {tagOptions.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {tagOptions.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => setTagFilter((current) => (current === tag ? 'all' : tag))}
-                  className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-                    tagFilter === tag
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border bg-background text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  #{tag}
-                </button>
-              ))}
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -656,6 +821,60 @@ export default function Analytics() {
             </Card>
           </div>
 
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.2fr_0.8fr]">
+            <Card className="flex h-full flex-col bg-card border-border">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-base sm:text-lg">Quick Stats</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  Fast read on winners, losers, streaks, risk profile, and open positions
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid flex-1 grid-cols-2 gap-3 p-4 pt-0 sm:grid-cols-4 sm:p-6 sm:pt-0">
+                {quickStatsCards.map((item) => (
+                  <div key={item.label} className="flex min-h-[96px] flex-col justify-between rounded-2xl border border-border bg-background/50 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{item.label}</p>
+                    <p className={`mt-2 text-lg font-semibold ${item.tone}`}>{item.value}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="flex h-full flex-col bg-card border-border">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-base sm:text-lg">Recent Trades</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  Latest trades inside the current filter selection
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-1 flex-col gap-3 p-4 pt-0 sm:p-6 sm:pt-0">
+                {recentTrades.map((trade) => {
+                  const pnl = getTradeBasePnL(trade);
+                  return (
+                    <div key={trade.id} className="flex min-h-[76px] items-center justify-between gap-3 rounded-2xl border border-border bg-background/50 p-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-semibold text-foreground">{trade.symbol}</p>
+                          <Badge variant="outline" className="text-[10px] uppercase tracking-[0.14em]">
+                            {trade.position}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {trade.date} • {trade.setupName || 'No setup'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-sm font-semibold ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {formatBaseAmount(pnl)}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">{trade.quantity} qty</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          </div>
+
           <Card className="bg-card border-border">
             <CardHeader className="p-4 sm:p-6">
               <CardTitle className="text-base sm:text-lg lg:text-xl">Equity Curve</CardTitle>
@@ -692,14 +911,14 @@ export default function Analytics() {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            <Card className="bg-card border-border">
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+            <Card className="flex h-full flex-col bg-card border-border">
               <CardHeader className="p-4 sm:p-6">
-                <CardTitle className="text-base sm:text-lg">Win vs Loss</CardTitle>
+                <CardTitle className="text-base sm:text-lg">Win/Loss Distribution</CardTitle>
                 <CardDescription className="text-xs sm:text-sm">Outcome split for the current view</CardDescription>
               </CardHeader>
-              <CardContent className="p-3 sm:p-6">
-                <ResponsiveContainer width="100%" height={240} minHeight={200}>
+              <CardContent className="flex flex-1 items-center p-3 sm:p-6">
+                <ResponsiveContainer width="100%" height={290} minHeight={240}>
                   <PieChart>
                     <Pie
                       data={winLossData}
@@ -728,16 +947,65 @@ export default function Analytics() {
               </CardContent>
             </Card>
 
-            <Card className="bg-card border-border">
+            <Card className="flex h-full flex-col bg-card border-border">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-base sm:text-lg">Long vs Short</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">Position mix for the current filtered trades</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-1 flex-col gap-4 p-3 sm:p-6">
+                <div className="flex flex-1 items-center">
+                  <ResponsiveContainer width="100%" height={290} minHeight={240}>
+                    <PieChart>
+                      <Pie
+                        data={longShortData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={58}
+                        outerRadius={86}
+                        paddingAngle={4}
+                        labelLine={false}
+                        dataKey="value"
+                      >
+                        {longShortData.map((entry, index) => (
+                          <Cell key={entry.name} fill={CHART_COLORS[(index + 2) % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <text x="50%" y="48%" textAnchor="middle" dominantBaseline="middle" className="fill-foreground text-sm font-semibold">
+                        Positions
+                      </text>
+                      <text x="50%" y="58%" textAnchor="middle" dominantBaseline="middle" className="fill-muted-foreground text-[12px]">
+                        {longShortData.reduce((sum, item) => sum + item.value, 0)} trades
+                      </text>
+                      <Tooltip content={<AnalyticsTooltip formatter={(value) => `${value}`} />} />
+                      <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {longShortData.map((item) => (
+                    <div key={item.name} className="flex min-h-[88px] flex-col justify-between rounded-2xl border border-border bg-background/50 p-3">
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{item.name}</p>
+                      <p className="mt-2 text-lg font-semibold text-foreground">{item.value} trades</p>
+                      <p className={`mt-1 text-xs font-medium ${item.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {formatBaseAmount(item.pnl)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="flex h-full flex-col bg-card border-border">
               <CardHeader className="p-4 sm:p-6">
                 <CardTitle className="text-base sm:text-lg">Broker Comparison</CardTitle>
                 <CardDescription className="text-xs sm:text-sm">Manual and broker-synced performance inside the current date range</CardDescription>
               </CardHeader>
-              <CardContent className="p-3 sm:p-6">
+              <CardContent className="flex flex-1 items-center p-3 sm:p-6">
                 {brokerPerformanceData.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No broker data available for this view.</p>
                 ) : (
-                  <ResponsiveContainer width="100%" height={240} minHeight={200}>
+                  <ResponsiveContainer width="100%" height={290} minHeight={240}>
                     <BarChart data={brokerPerformanceData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
                       <defs>
                         <linearGradient id="brokerBar" x1="0" y1="0" x2="1" y2="1">
@@ -792,7 +1060,29 @@ export default function Analytics() {
                 <CardTitle className="text-base sm:text-lg">Day-wise Performance</CardTitle>
                 <CardDescription className="text-xs sm:text-sm">See which weekdays are helping or hurting performance</CardDescription>
               </CardHeader>
-              <CardContent className="p-3 sm:p-6">
+              <CardContent className="space-y-4 p-3 sm:p-6">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-2xl border border-border bg-background/50 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Best Day</p>
+                    <p className="mt-2 text-sm font-semibold text-emerald-400">
+                      {dayPerformanceData.length > 0
+                        ? dayPerformanceData.reduce((best, item) => (item.pnl > best.pnl ? item : best)).day
+                        : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-background/50 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Worst Day</p>
+                    <p className="mt-2 text-sm font-semibold text-red-400">
+                      {dayPerformanceData.length > 0
+                        ? dayPerformanceData.reduce((worst, item) => (item.pnl < worst.pnl ? item : worst)).day
+                        : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-background/50 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Active Days</p>
+                    <p className="mt-2 text-sm font-semibold text-foreground">{dayPerformanceData.length}</p>
+                  </div>
+                </div>
                 <ResponsiveContainer width="100%" height={260} minHeight={220}>
                   <BarChart data={dayPerformanceData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="2 10" stroke="var(--color-border)" vertical={false} />

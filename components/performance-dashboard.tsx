@@ -834,9 +834,9 @@ export function PerformanceDashboard({ trades }: PerformanceDashboardProps) {
             {metrics.monthlyReturnTargets.slice(-6).map((target) => (
               <div key={target.month} className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="font-medium">{target.month}</span>
+                  <span className="font-medium">{format(new Date(`${target.month}-01`), 'MMM yyyy')}</span>
                   <span className={target.actual >= target.target ? 'text-green-600' : 'text-red-600'}>
-                    ${target.actual.toFixed(2)} / ${target.target.toFixed(2)}
+                    {renderCurrencyTooltip(target.actual)} / {renderCurrencyTooltip(target.target)}
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
@@ -845,7 +845,7 @@ export function PerformanceDashboard({ trades }: PerformanceDashboardProps) {
                       target.actual >= target.target ? 'bg-green-500' : 'bg-yellow-500'
                     }`}
                     style={{
-                      width: `${Math.min(target.percentage, 100)}%`,
+                      width: `${Math.max(0, Math.min(target.percentage, 100))}%`,
                     }}
                   />
                 </div>

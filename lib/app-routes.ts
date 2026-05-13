@@ -1,6 +1,8 @@
 export type Page =
   | 'dashboard'
+  | 'calendar'
   | 'performance'
+  | 'import-analysis'
   | 'pre-trade'
   | 'playbooks'
   | 'add-trade'
@@ -21,7 +23,9 @@ export type Page =
 
 export const APP_PAGES: Page[] = [
   'dashboard',
+  'calendar',
   'performance',
+  'import-analysis',
   'pre-trade',
   'playbooks',
   'add-trade',

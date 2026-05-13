@@ -1,7 +1,7 @@
 'use client';
 
 import React from "react"
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTrades } from '@/lib/trade-context';
 import { convertFormToTrade } from '@/lib/trade-utils';
 import { validateTradeForm, sanitizeString, validateImageFile } from '@/lib/validation';
@@ -100,6 +100,9 @@ const MARKET_CONDITION_LABELS: Record<(typeof MARKET_CONDITION_OPTIONS)[number],
   Normal: 'Normal',
 };
 
+const TRADE_FORM_DEFAULTS_KEY = 'journal.tradeFormDefaults.v1';
+type ResultEntryMode = 'manual' | 'execution';
+
 export default function TradeForm({ onSuccess }: TradeFormProps) {
   const { addTrade, trades } = useTrades();
   const { templates, incrementUsageCount } = useTemplates();
@@ -107,45 +110,57 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
   const draft = readPreTradeDraft();
   const hasPreTradeDraft = Boolean(draft && Object.values(draft).some(Boolean));
   // Form data state
-  const [formData, setFormData] = useState<TradeFormData>({
-    date: new Date().toISOString().split('T')[0],
-    tags: '',
-    symbol: '',
-    tradeType: 'Intraday',
-    setupName: '',
-    position: 'Buy',
-    entryPrice: '',
-    exitPrice: '',
-    stopLoss: '',
-    quantity: '',
-    fees: '0',
-    brokerage: '0',
-    exchangeCharges: '0',
-    taxes: '0',
-    manualProfit: '',
-    currency: 'INR', // Default currency
-    marketTrend: draft?.marketTrend || '',
-    setupType: draft?.setupType || '',
-    volumeProfile: draft?.volumeProfile || '',
-    emaTouch: draft?.emaTouch || '',
-    riskRewardRatio: draft?.riskRewardRatio || '',
-    marketOpenType: draft?.marketOpenType || '',
-    firstFiveMinuteCandleType: draft?.firstFiveMinuteCandleType || '',
-    confidence: '5',
-    preNotes: '',
-    postNotes: '',
-    mistakeTag: undefined,
-    exitRFactor: '',
-    timeFrame: draft?.timeFrame || '',
-    // isWin is now auto-derived from P&L, no longer manually set
-    limit: '',
-    exit: '',
-    marketCondition: 'Normal',
-    ruleFollowed: true,
-    ruleViolations: [],
-    emotionEntry: undefined,
-    emotionExit: undefined,
-    plannedRTarget: '',
+  const [formData, setFormData] = useState<TradeFormData>(() => {
+    let storedDefaults: Partial<TradeFormData> = {};
+
+    if (typeof window !== 'undefined') {
+      try {
+        storedDefaults = JSON.parse(window.localStorage.getItem(TRADE_FORM_DEFAULTS_KEY) || '{}') as Partial<TradeFormData>;
+      } catch (error) {
+        console.warn('[v0] Unable to restore trade form defaults', error);
+      }
+    }
+
+    return {
+      date: new Date().toISOString().split('T')[0],
+      tags: '',
+      symbol: storedDefaults.symbol || '',
+      tradeType: storedDefaults.tradeType || 'Intraday',
+      setupName: storedDefaults.setupName || '',
+      position: storedDefaults.position || 'Buy',
+      entryPrice: '',
+      exitPrice: '',
+      stopLoss: '',
+      quantity: '',
+      fees: '0',
+      brokerage: '0',
+      exchangeCharges: '0',
+      taxes: '0',
+      manualProfit: '',
+      currency: 'INR', // Default currency
+      marketTrend: draft?.marketTrend || '',
+      setupType: draft?.setupType || '',
+      volumeProfile: draft?.volumeProfile || '',
+      emaTouch: draft?.emaTouch || '',
+      riskRewardRatio: draft?.riskRewardRatio || '',
+      marketOpenType: draft?.marketOpenType || '',
+      firstFiveMinuteCandleType: draft?.firstFiveMinuteCandleType || '',
+      confidence: '5',
+      preNotes: '',
+      postNotes: '',
+      mistakeTag: undefined,
+      exitRFactor: '',
+      timeFrame: draft?.timeFrame || storedDefaults.timeFrame || '',
+      // isWin is now auto-derived from P&L, no longer manually set
+      limit: '',
+      exit: '',
+      marketCondition: 'Normal',
+      ruleFollowed: true,
+      ruleViolations: [],
+      emotionEntry: undefined,
+      emotionExit: undefined,
+      plannedRTarget: '',
+    };
   });
 
   // Screenshot state
@@ -155,11 +170,16 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
   // Validation state for enhanced error handling
   const [errors, setErrors] = useState<Partial<Record<keyof TradeFormData, string>>>({});
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [isCustomSetup, setIsCustomSetup] = useState(false);
+  const [isCustomSetup, setIsCustomSetup] = useState(
+    Boolean(formData.setupName && !PRESET_SETUPS.includes(formData.setupName as (typeof PRESET_SETUPS)[number]))
+  );
   const [showChecklistValues, setShowChecklistValues] = useState(false);
+  const [showReviewSections, setShowReviewSections] = useState(false);
+  const [showAttachments, setShowAttachments] = useState(false);
   const [useFibonacciLevels, setUseFibonacciLevels] = useState(false);
   const [riskGateAcknowledged, setRiskGateAcknowledged] = useState(false);
   const [selectedPlaybookId, setSelectedPlaybookId] = useState('');
+  const [resultEntryMode, setResultEntryMode] = useState<ResultEntryMode>('manual');
   const [isCustomLimit, setIsCustomLimit] = useState(
     Boolean(formData.limit && !FIB_LEVEL_OPTIONS.includes(formData.limit as (typeof FIB_LEVEL_OPTIONS)[number]))
   );
@@ -181,6 +201,20 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     setRiskGateAcknowledged(false);
     setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const defaultsToPersist = {
+      tradeType: formData.tradeType,
+      position: formData.position,
+      timeFrame: formData.timeFrame,
+      symbol: formData.symbol,
+      setupName: formData.setupName,
+    };
+
+    window.localStorage.setItem(TRADE_FORM_DEFAULTS_KEY, JSON.stringify(defaultsToPersist));
+  }, [formData.position, formData.setupName, formData.symbol, formData.timeFrame, formData.tradeType]);
 
   const handleSetupPresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selected = e.target.value;
@@ -373,6 +407,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
   const validateForm = (): boolean => {
     const validationErrors = validateTradeForm(formData, {
       requireFibonacciLevels: useFibonacciLevels,
+      resultMode: resultEntryMode,
     });
     setErrors(validationErrors);
     return Object.keys(validationErrors).length === 0;
@@ -457,6 +492,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
       setUseFibonacciLevels(false);
       setRiskGateAcknowledged(false);
       setSelectedPlaybookId('');
+      setResultEntryMode('manual');
 
       // Trigger callback and auto-clear success message
       if (onSuccess) onSuccess();
@@ -469,6 +505,18 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
 
   // Get current currency symbol
   const currentCurrencySymbol = CURRENCY_SYMBOLS[formData.currency] || '₹';
+  const recentSymbols = useMemo(
+    () =>
+      Array.from(new Set(trades.map((trade) => trade.symbol).filter(Boolean)))
+        .slice(0, 5),
+    [trades]
+  );
+  const recentSetups = useMemo(
+    () =>
+      Array.from(new Set(trades.map((trade) => trade.setupName).filter(Boolean)))
+        .slice(0, 5),
+    [trades]
+  );
   const selectedPlaybook = templates.find((template) => template.id === selectedPlaybookId) || null;
   const selectedRuleViolations = formData.ruleViolations || [];
   const brokerageValue = parseFloat(formData.brokerage || '0') || 0;
@@ -567,13 +615,13 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
   // Also show auto-derived W/L based on P&L
   const livePreviewValues = (() => {
     try {
-      if (formData.entryPrice && formData.exitPrice && formData.quantity && formData.stopLoss) {
+      if (resultEntryMode === 'execution' && formData.entryPrice && formData.exitPrice && formData.quantity && formData.stopLoss) {
         const pnl = calculatePnL(
           parseFloat(formData.entryPrice),
           parseFloat(formData.exitPrice),
           parseFloat(formData.quantity),
           formData.position,
-          parseFloat(formData.fees) || 0
+          totalCharges
         );
         const rFactor = calculateRFactor(
           pnl,
@@ -601,6 +649,12 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     }
     return null;
   })();
+  const quickStats = [
+    { label: 'Trade type', value: formData.tradeType },
+    { label: 'Position', value: formData.position },
+    { label: 'Time frame', value: formData.timeFrame || 'Add timeframe' },
+    { label: 'Result mode', value: resultEntryMode === 'manual' ? 'Manual P&L' : 'Execution-derived' },
+  ];
 
   return (
     <div className="min-h-full w-full max-w-4xl mx-auto p-3 sm:p-6 lg:p-8">
@@ -608,6 +662,14 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
         <CardHeader className="p-4 sm:p-6">
           <CardTitle className="text-xl sm:text-2xl lg:text-3xl">Add New Trade</CardTitle>
           <CardDescription className="text-xs sm:text-sm">Record your trade details and analysis</CardDescription>
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {quickStats.map((item) => (
+              <div key={item.label} className="rounded-lg border border-border/60 bg-background/70 p-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{item.label}</p>
+                <p className="mt-1 text-sm font-medium text-foreground">{item.value}</p>
+              </div>
+            ))}
+          </div>
         </CardHeader>
         <CardContent className="p-3 sm:p-6">
           <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6 lg:space-y-8">
@@ -639,6 +701,14 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                 </Button>
               </CardContent>
             </Card>
+
+            <section className="space-y-4">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Core Trade Details</h2>
+                <p className="text-sm text-muted-foreground">
+                  Keep the main trade facts up top so the first save path stays quick.
+                </p>
+              </div>
 
             <Card className="border-primary/20 bg-primary/5 shadow-none hover:border-primary/30 hover:shadow-none focus-within:border-primary/40 focus-within:shadow-none">
               <CardHeader className="p-4 sm:p-5">
@@ -815,6 +885,23 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                   placeholder="e.g., AAPL, EURUSD"
                   className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 />
+                {recentSymbols.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {recentSymbols.map((symbol) => (
+                      <button
+                        key={symbol}
+                        type="button"
+                        onClick={() => {
+                          setRiskGateAcknowledged(false);
+                          setFormData((prev) => ({ ...prev, symbol }));
+                        }}
+                        className="rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                      >
+                        {symbol}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Setup Name*</label>
@@ -850,6 +937,24 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                   )}
                 </div>
                 {errors.setupName && <p className="text-xs text-red-500 mt-1">{errors.setupName}</p>}
+                {recentSetups.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {recentSetups.map((setup) => (
+                      <button
+                        key={setup}
+                        type="button"
+                        onClick={() => {
+                          setRiskGateAcknowledged(false);
+                          setIsCustomSetup(!PRESET_SETUPS.includes(setup as (typeof PRESET_SETUPS)[number]));
+                          setFormData((prev) => ({ ...prev, setupName: setup }));
+                        }}
+                        className="rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                      >
+                        {setup}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -880,11 +985,69 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                 {errors.timeFrame && <p className="text-xs text-red-500 mt-1">{errors.timeFrame}</p>}
               </div>
             </div>
+            </section>
+
+            <section className="space-y-4">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Execution & Result</h2>
+                <p className="text-sm text-muted-foreground">
+                  Use manual P&amp;L for quick journaling, or switch to execution-derived mode to calculate the result from prices.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-border bg-background/60 p-4">
+                <label className="block text-sm font-medium text-foreground mb-3">Result Entry Mode</label>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setResultEntryMode('manual')}
+                    className={`rounded-lg border p-3 text-left transition-colors ${
+                      resultEntryMode === 'manual'
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border bg-background hover:border-primary/40'
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-foreground">Manual P&amp;L</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Best when you already know the gross P&amp;L and R result.
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResultEntryMode('execution');
+                      setFormData((prev) => ({
+                        ...prev,
+                        manualProfit: '',
+                        exitRFactor: '',
+                      }));
+                      setErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.manualProfit;
+                        delete next.exitRFactor;
+                        return next;
+                      });
+                    }}
+                    className={`rounded-lg border p-3 text-left transition-colors ${
+                      resultEntryMode === 'execution'
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border bg-background hover:border-primary/40'
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-foreground">Execution-derived</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Requires entry and exit prices, then computes net P&amp;L and R automatically.
+                    </p>
+                  </button>
+                </div>
+              </div>
 
             {/* Entry Price (Optional) and Exit Price (Optional) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Entry Price (Optional)</label>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Entry Price {resultEntryMode === 'execution' ? '*' : '(Optional)'}
+                </label>
                 <input
                   type="number"
                   step="0.01"
@@ -892,12 +1055,14 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                   value={formData.entryPrice}
                   onChange={handleInputChange}
                   placeholder="Leave empty for process-based journaling"
-                  className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.entryPrice ? 'border-red-500' : 'border-border'}`}
                 />
                 {errors.entryPrice && <p className="text-xs text-red-500 mt-1">{errors.entryPrice}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Exit Price (Optional)</label>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Exit Price {resultEntryMode === 'execution' ? '*' : '(Optional)'}
+                </label>
                 <input
                   type="number"
                   step="0.01"
@@ -905,7 +1070,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                   value={formData.exitPrice}
                   onChange={handleInputChange}
                   placeholder="Leave empty for process-based journaling"
-                  className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.exitPrice ? 'border-red-500' : 'border-border'}`}
                 />
                 {errors.exitPrice && <p className="text-xs text-red-500 mt-1">{errors.exitPrice}</p>}
               </div>
@@ -1098,7 +1263,9 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                 </select>
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-foreground mb-2">Gross P&L (Before Brokerage) - Mandatory*</label>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Gross P&amp;L (Before Brokerage){resultEntryMode === 'manual' ? ' *' : ' (Optional override)'}
+                </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">{currentCurrencySymbol}</span>
                   <input
@@ -1108,18 +1275,29 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                     value={formData.manualProfit}
                     onChange={handleInputChange}
                     placeholder="e.g., 250.50 or -125.00"
+                    disabled={resultEntryMode === 'execution'}
                     className={`w-full pl-8 pr-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.manualProfit ? 'border-red-500' : 'border-border'}`}
                   />
                 </div>
                 {errors.manualProfit && <p className="text-xs text-red-500 mt-1">{errors.manualProfit}</p>}
-                <p className="text-xs text-muted-foreground mt-1">Enter gross P&L. Brokerage is auto-deducted. W/L derived from net P&L.</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {resultEntryMode === 'manual'
+                    ? 'Enter gross P&L. Brokerage is auto-deducted. W/L is derived from net P&L.'
+                    : 'Execution-derived mode calculates net P&L from entry, exit, quantity, and charges.'}
+                </p>
               </div>
             </div>
 
             {/* R Factor (Mandatory) */}
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">R Factor (Risk Multiple) - Mandatory*</label>
-              <p className="text-xs text-muted-foreground mb-2">Enter the risk multiple. Sign is auto-corrected based on P&L (loss = negative R).</p>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                R Factor (Risk Multiple){resultEntryMode === 'manual' ? ' *' : ' (Auto when possible)'}
+              </label>
+              <p className="text-xs text-muted-foreground mb-2">
+                {resultEntryMode === 'manual'
+                  ? 'Enter the risk multiple. Sign is auto-corrected based on P&L (loss = negative R).'
+                  : 'If left empty, R is derived from P&L, entry, stop loss, and quantity.'}
+              </p>
               <input
                 type="number"
                 step="0.1"
@@ -1127,10 +1305,12 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                 value={formData.exitRFactor}
                 onChange={handleInputChange}
                 placeholder="e.g., 2.5 (sign auto-corrected based on P&L)"
+                disabled={resultEntryMode === 'execution'}
                 className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.exitRFactor ? 'border-red-500' : 'border-border'}`}
               />
               {errors.exitRFactor && <p className="text-xs text-red-500 mt-1">{errors.exitRFactor}</p>}
             </div>
+            </section>
 
             {/* Confidence */}
             <div>
@@ -1252,52 +1432,71 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
               </Card>
             )}
 
-            {/* Notes */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Trade Tags</label>
-              <input
-                type="text"
-                name="tags"
-                value={formData.tags}
-                onChange={handleInputChange}
-                placeholder="e.g., A+, breakout, FOMO, news, high confidence"
-                className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">Separate tags with commas to improve filtering and analytics.</p>
-            </div>
+            <section className="space-y-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">Review & Reflection</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Keep the core trade save path clean, then open this when you want richer context.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowReviewSections((prev) => !prev)}
+                >
+                  {showReviewSections ? 'Hide Review Fields' : 'Show Review Fields'}
+                  <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${showReviewSections ? 'rotate-180' : ''}`} />
+                </Button>
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Pre-Trade Notes</label>
-              <textarea
-                name="preNotes"
-                value={formData.preNotes}
-                onChange={handleInputChange}
-                placeholder="What was your setup? Why did you take this trade?"
-                className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                rows={3}
-              />
-            </div>
+              {showReviewSections ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Trade Tags</label>
+                    <input
+                      type="text"
+                      name="tags"
+                      value={formData.tags}
+                      onChange={handleInputChange}
+                      placeholder="e.g., A+, breakout, FOMO, news, high confidence"
+                      className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">Separate tags with commas to improve filtering and analytics.</p>
+                  </div>
 
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Post-Trade Notes</label>
-              <textarea
-                name="postNotes"
-                value={formData.postNotes}
-                onChange={handleInputChange}
-                placeholder="How did it go? What did you learn from this trade?"
-                className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                rows={3}
-              />
-            </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Pre-Trade Notes</label>
+                    <textarea
+                      name="preNotes"
+                      value={formData.preNotes}
+                      onChange={handleInputChange}
+                      placeholder="Why did I take this trade? What confirmed the entry?"
+                      className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      rows={3}
+                    />
+                  </div>
 
-            <Card className="border-border/70 bg-card/60 shadow-none">
-              <CardHeader className="p-4 pb-3">
-                <CardTitle className="text-base">Discipline & Context Tracker</CardTitle>
-                <CardDescription>
-                  Capture whether the trade followed plan, what market environment you were in, and which execution mistakes showed up.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 p-4 pt-0">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Post-Trade Notes</label>
+                    <textarea
+                      name="postNotes"
+                      value={formData.postNotes}
+                      onChange={handleInputChange}
+                      placeholder="What would I repeat, adjust, or avoid next time?"
+                      className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      rows={3}
+                    />
+                  </div>
+
+                  <Card className="border-border/70 bg-card/60 shadow-none">
+                    <CardHeader className="p-4 pb-3">
+                      <CardTitle className="text-base">Discipline & Context Tracker</CardTitle>
+                      <CardDescription>
+                        Capture whether the trade followed plan, what market environment you were in, and which execution mistakes showed up.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4 p-4 pt-0">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">Market Condition</label>
@@ -1358,10 +1557,10 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                   </div>
                   {errors.ruleViolations && <p className="text-xs text-red-500 mt-2">{errors.ruleViolations}</p>}
                 </div>
-              </CardContent>
-            </Card>
+                    </CardContent>
+                  </Card>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Entry Emotion</label>
                 <select
@@ -1401,31 +1600,52 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                   How you felt when closing or exiting the trade.
                 </p>
               </div>
-            </div>
+                  </div>
 
-            {/* Mistake Tag */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Mistake Tag</label>
-              <select
-                name="mistakeTag"
-                value={formData.mistakeTag || ''}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="">Select mistake tag (if applicable)</option>
-                {MISTAKE_TAG_OPTIONS.map((tag) => (
-                  <option key={tag} value={tag}>
-                    {tag}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Use this even for breakeven or winning trades if the process was poor. It helps the weekly review surface repeated mistakes faster.
-              </p>
-            </div>
+                  {/* Mistake Tag */}
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Mistake Tag</label>
+                    <select
+                      name="mistakeTag"
+                      value={formData.mistakeTag || ''}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Select mistake tag (if applicable)</option>
+                      {MISTAKE_TAG_OPTIONS.map((tag) => (
+                        <option key={tag} value={tag}>
+                          {tag}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Use this even for breakeven or winning trades if the process was poor. It helps the weekly review surface repeated mistakes faster.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+            </section>
 
-            {/* Screenshot Uploads */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <section className="space-y-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">Attachments</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Keep chart images available when you need them, without crowding the form every time.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowAttachments((prev) => !prev)}
+                >
+                  {showAttachments ? 'Hide Attachments' : 'Show Attachments'}
+                  <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${showAttachments ? 'rotate-180' : ''}`} />
+                </Button>
+              </div>
+
+              {showAttachments ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {/* Before Trade Screenshot */}
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-foreground mb-2">Before Trade</label>
@@ -1487,7 +1707,9 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                   </div>
                 )}
               </div>
-            </div>
+                </div>
+              ) : null}
+            </section>
 
             {/* Submit Button */}
             <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-sm sm:text-base py-2 sm:py-2.5">

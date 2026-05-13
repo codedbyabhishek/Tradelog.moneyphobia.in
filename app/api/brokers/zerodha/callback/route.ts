@@ -7,10 +7,9 @@ export async function GET(request: NextRequest) {
   const status = request.nextUrl.searchParams.get('status');
 
   return NextResponse.json({
-    ok: true,
+    ok: false,
     status: status || 'unknown',
     requestTokenReceived: Boolean(requestToken),
-    message:
-      'Zerodha callback groundwork is ready. The request_token exchange flow still needs to be completed before full live sync is available.',
-  });
+    message: 'Zerodha sync is coming soon and is not available in production yet.',
+  }, { status: 501 });
 }

@@ -12,7 +12,7 @@ export interface BrokerDefinition {
 export const BROKER_DEFINITIONS: BrokerDefinition[] = [
   { id: 'manual', label: 'Manual Journal', shortLabel: 'Manual', status: 'live' },
   { id: 'dhan', label: 'Dhan', shortLabel: 'Dhan', status: 'live' },
-  { id: 'zerodha', label: 'Zerodha', shortLabel: 'Zerodha', status: 'groundwork' },
+  { id: 'zerodha', label: 'Zerodha', shortLabel: 'Zerodha', status: 'coming-soon' },
   { id: 'upstox', label: 'Upstox', shortLabel: 'Upstox', status: 'live' },
   { id: 'angelone', label: 'Angel One', shortLabel: 'Angel One', status: 'coming-soon' },
 ];

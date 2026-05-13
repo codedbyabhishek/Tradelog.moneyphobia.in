@@ -17,6 +17,19 @@ import { EmptyStateIllustration } from './brand-illustrations';
 import ShareCardDialog from '@/components/share-card-dialog';
 import { useTemplates, type TradeTemplate } from '@/lib/templates-context';
 
+function getLocalDateString(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getDaysAgoLocalDateString(daysAgo: number) {
+  const date = new Date();
+  date.setDate(date.getDate() - daysAgo);
+  return getLocalDateString(date);
+}
+
 function isBrokerSyncedTrade(trade: Trade) {
   return trade.id.startsWith('dhan:');
 }
@@ -52,6 +65,7 @@ export default function TradeLog() {
   const [sortBy, setSortBy] = useState<'date' | 'pnl'>('date');
   const [filterSetup, setFilterSetup] = useState('All');
   const [filterTag, setFilterTag] = useState('All');
+  const [filterDate, setFilterDate] = useState<'All' | 'Today' | 'Last 7 Days'>('All');
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const { toast } = useToast();
 
@@ -124,19 +138,26 @@ export default function TradeLog() {
   }, [trades]);
 
   const filteredAndSortedTrades = useMemo(() => {
+    const today = getLocalDateString(new Date());
+    const last7DaysStart = getDaysAgoLocalDateString(6);
     let filtered = filterSetup === 'All' ? trades : trades.filter(t => t.setupName === filterSetup);
     if (filterTag !== 'All') {
       filtered = filtered.filter((trade) => (trade.tags || []).includes(filterTag));
     }
+    if (filterDate === 'Today') {
+      filtered = filtered.filter((trade) => trade.date === today);
+    } else if (filterDate === 'Last 7 Days') {
+      filtered = filtered.filter((trade) => trade.date >= last7DaysStart && trade.date <= today);
+    }
 
-    return filtered.sort((a, b) => {
+    return [...filtered].sort((a, b) => {
       if (sortBy === 'date') {
         return new Date(b.date).getTime() - new Date(a.date).getTime();
       } else {
         return b.pnl - a.pnl;
       }
     });
-  }, [trades, sortBy, filterSetup, filterTag]);
+  }, [trades, sortBy, filterSetup, filterTag, filterDate]);
 
   const openEditTrade = (trade: Trade) => {
     setEditingTrade(trade);
@@ -266,6 +287,19 @@ export default function TradeLog() {
                 {tag}
               </option>
             ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-sm text-muted-foreground flex-shrink-0">Date:</span>
+          <select
+            value={filterDate}
+            onChange={e => setFilterDate(e.target.value as 'All' | 'Today' | 'Last 7 Days')}
+            className="flex-1 px-3 py-2 bg-secondary border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="All">All</option>
+            <option value="Today">Today</option>
+            <option value="Last 7 Days">Last 7 Days</option>
           </select>
         </div>
 

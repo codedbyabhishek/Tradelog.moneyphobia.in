@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
-import { TradeProvider } from '@/lib/trade-context';
+import { TradeProvider, useTrades } from '@/lib/trade-context';
 import { SettingsProvider } from '@/lib/settings-context';
 import { IdeasProvider } from '@/lib/ideas-context';
 import { GoalsProvider } from '@/lib/goals-context';
@@ -98,7 +98,9 @@ function loadPage(
 const importTradeForm = () => import('@/components/trade-form');
 const importPlaybookBuilder = () => import('@/components/playbook-builder');
 const importTradeLog = () => import('@/components/trade-log');
+const importCalendarView = () => import('@/components/calendar-view');
 const importPerformance = () => import('@/components/performance');
+const importImportedTradeAnalyzer = () => import('@/components/imported-trade-analyzer');
 const importAnalytics = () => import('@/components/analytics');
 const importProfitLoss = () => import('@/components/profit-loss');
 const importWeeklyReview = () => import('@/components/weekly-review');
@@ -117,7 +119,9 @@ const importLearningVideos = () => import('@/components/learning-videos');
 const TradeForm = dynamic(loadPage(importTradeForm, 'trade form'), { loading: createPageLoader('trade form') });
 const PlaybookBuilder = dynamic(loadPage(importPlaybookBuilder, 'playbooks'), { loading: createPageLoader('playbooks') });
 const TradeLog = dynamic(loadPage(importTradeLog, 'trade log'), { loading: createPageLoader('trade log') });
+const CalendarView = dynamic(loadPage(importCalendarView, 'calendar view'), { loading: createPageLoader('calendar view') });
 const Performance = dynamic(loadPage(importPerformance, 'performance'), { loading: createPageLoader('performance') });
+const ImportedTradeAnalyzer = dynamic(loadPage(importImportedTradeAnalyzer, 'import analysis'), { loading: createPageLoader('import analysis') });
 const Analytics = dynamic(loadPage(importAnalytics, 'analytics'), { loading: createPageLoader('analytics') });
 const ProfitLoss = dynamic(loadPage(importProfitLoss, 'profit and loss'), { loading: createPageLoader('profit and loss') });
 const WeeklyReview = dynamic(loadPage(importWeeklyReview, 'weekly review'), { loading: createPageLoader('weekly review') });
@@ -144,6 +148,7 @@ const IDLE_PRELOAD_IMPORTERS = [
 
 function JournalAppContent({ currentPage }: { currentPage: Page }) {
   const { user, isLoading } = useAuth();
+  const { trades } = useTrades();
   const router = useRouter();
 
   useEffect(() => {
@@ -193,8 +198,12 @@ function JournalAppContent({ currentPage }: { currentPage: Page }) {
     switch (currentPage) {
       case 'dashboard':
         return <Dashboard />;
+      case 'calendar':
+        return <CalendarView trades={trades} />;
       case 'performance':
         return <Performance />;
+      case 'import-analysis':
+        return <ImportedTradeAnalyzer />;
       case 'pre-trade':
         return <PreTradeChecklistWorkspace onStartTrade={() => router.push(buildAppPath('add-trade'))} />;
       case 'playbooks':
