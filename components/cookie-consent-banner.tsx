@@ -1,14 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { getCookieConsent, setCookieConsent, trackEvent, type CookieConsentState } from '@/lib/analytics';
 
 export default function CookieConsentBanner() {
+  const [isReady, setIsReady] = useState(false);
   const [consent, setConsent] = useState<CookieConsentState>(() => getCookieConsent());
 
-  if (consent !== 'unset') {
+  useEffect(() => {
+    setConsent(getCookieConsent());
+    setIsReady(true);
+  }, []);
+
+  if (!isReady || consent !== 'unset') {
     return null;
   }
 
