@@ -1,11 +1,11 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import PublicPageLayout from '@/components/public-page-layout';
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const searchParams = useSearchParams();
   const token = useMemo(() => searchParams.get('token') || '', [searchParams]);
   const [password, setPassword] = useState('');
@@ -127,5 +127,19 @@ export default function ResetPasswordPage() {
         </form>
       ) : null}
     </PublicPageLayout>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <PublicPageLayout title="Reset Password" description="Choose a new password for your Traderlogify account.">
+          <p>Checking your reset link...</p>
+        </PublicPageLayout>
+      }
+    >
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

@@ -96,13 +96,13 @@ export async function deleteSessionByToken(token: string) {
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
-  await ensureEmailVerificationSchema();
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(SESSION_COOKIE)?.value;
   if (!sessionToken) {
     return null;
   }
 
+  await ensureEmailVerificationSchema();
   const tokenHash = hashSessionToken(sessionToken);
 
   const rows = await dbQuery<

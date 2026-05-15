@@ -1,11 +1,11 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import PublicPageLayout from '@/components/public-page-layout';
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = useMemo(() => searchParams.get('token') || '', [searchParams]);
   const [checking, setChecking] = useState(true);
@@ -89,5 +89,19 @@ export default function VerifyEmailPage() {
         </form>
       ) : null}
     </PublicPageLayout>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense
+      fallback={
+        <PublicPageLayout title="Verify Email" description="Confirm your email address to finish setting up your account.">
+          <p>Checking your verification link...</p>
+        </PublicPageLayout>
+      }
+    >
+      <VerifyEmailContent />
+    </Suspense>
   );
 }
