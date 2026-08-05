@@ -2,7 +2,10 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-MYSQL_BASE="/opt/anaconda3"
+MYSQL_BASE="${MYSQL_BASE:-/opt/anaconda3}"
+if [ ! -x "$MYSQL_BASE/bin/mysqld" ] && [ -x "/opt/homebrew/opt/mysql/bin/mysqld" ]; then
+  MYSQL_BASE="/opt/homebrew/opt/mysql"
+fi
 MYSQLD="$MYSQL_BASE/bin/mysqld"
 MYSQL="$MYSQL_BASE/bin/mysql"
 MYSQLADMIN="$MYSQL_BASE/bin/mysqladmin"
