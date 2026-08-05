@@ -56,7 +56,7 @@ export async function assertSchemaReady(options: SchemaCheckOptions) {
 
   if (requiredTables.length > 0) {
     const tableRows = await dbQuery<ExistingTableRow[]>(
-      `SELECT table_name
+      `SELECT table_name AS table_name
        FROM information_schema.tables
        WHERE table_schema = ?
          AND table_name IN (${requiredTables.map(() => '?').join(', ')})`,
@@ -75,7 +75,7 @@ export async function assertSchemaReady(options: SchemaCheckOptions) {
   if (columnEntries.length > 0) {
     const columnTableNames = columnEntries.map(([table]) => table);
     const columnRows = await dbQuery<ExistingColumnRow[]>(
-      `SELECT table_name, column_name
+      `SELECT table_name AS table_name, column_name AS column_name
        FROM information_schema.columns
        WHERE table_schema = ?
          AND table_name IN (${columnTableNames.map(() => '?').join(', ')})`,

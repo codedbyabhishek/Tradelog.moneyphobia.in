@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Trade } from '@/lib/types';
 import { Trash2, Eye, Filter, Star, Pencil, Upload, X, Share2 } from 'lucide-react';
-import { CURRENCY_SYMBOLS, getTradeOutcome } from '@/lib/trade-utils';
+import { calculateRFactor, convertToBaseCurrency, CURRENCY_SYMBOLS, getExchangeRateToBase, getTradeOutcome, getTradeResultLabel } from '@/lib/trade-utils';
 import { ScreenshotViewer } from './screenshot-viewer';
 import { useToast } from '@/hooks/use-toast';
 import { validateImageFile } from '@/lib/validation';
@@ -16,6 +16,10 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '
 import { EmptyStateIllustration } from './brand-illustrations';
 import ShareCardDialog from '@/components/share-card-dialog';
 import { useTemplates, type TradeTemplate } from '@/lib/templates-context';
+
+const PENDING_OUTCOME_TAG = 'Pending Outcome';
+type EditResultDirection = 'Pending' | 'Win' | 'Loss' | 'Break-Even';
+const EDIT_RESULT_OPTIONS: EditResultDirection[] = ['Pending', 'Win', 'Loss', 'Break-Even'];
 
 function getLocalDateString(date: Date) {
   const year = date.getFullYear();
@@ -47,6 +51,25 @@ function isJournalEnrichedTrade(trade: Trade) {
   );
 }
 
+function isPendingOutcomeTrade(trade: Trade) {
+  return trade.tags?.includes(PENDING_OUTCOME_TAG) ?? false;
+}
+
+function getResultDisplay(trade: Trade): { label: string; className: string } {
+  if (isPendingOutcomeTrade(trade)) {
+    return { label: 'Pending', className: 'text-amber-400' };
+  }
+
+  const outcome = getTradeOutcome(trade.pnl);
+  if (outcome === 'W') {
+    return { label: 'Win', className: 'text-green-400' };
+  }
+  if (outcome === 'L') {
+    return { label: 'Loss', className: 'text-red-400' };
+  }
+  return { label: 'Break-Even', className: 'text-yellow-400' };
+}
+
 export default function TradeLog() {
   const { trades, deleteTrade, updateTrade } = useTrades();
   const { addTemplate } = useTemplates();
@@ -62,6 +85,9 @@ export default function TradeLog() {
   const [editPostNotes, setEditPostNotes] = useState('');
   const [editBeforeScreenshot, setEditBeforeScreenshot] = useState<string | null>(null);
   const [editAfterScreenshot, setEditAfterScreenshot] = useState<string | null>(null);
+  const [editExitPrice, setEditExitPrice] = useState('');
+  const [editProfitAmount, setEditProfitAmount] = useState('');
+  const [editResultDirection, setEditResultDirection] = useState<EditResultDirection>('Pending');
   const [sortBy, setSortBy] = useState<'date' | 'pnl'>('date');
   const [filterSetup, setFilterSetup] = useState('All');
   const [filterTag, setFilterTag] = useState('All');
@@ -171,6 +197,17 @@ export default function TradeLog() {
     setEditPostNotes(trade.postNotes || '');
     setEditBeforeScreenshot(trade.beforeTradeScreenshot || null);
     setEditAfterScreenshot(trade.afterExitScreenshot || null);
+    setEditExitPrice(trade.exitPrice !== undefined ? String(trade.exitPrice) : '');
+    setEditProfitAmount(trade.pnl !== 0 ? String(Math.abs(trade.pnl + (trade.fees || 0))) : '');
+    setEditResultDirection(
+      trade.tags?.includes(PENDING_OUTCOME_TAG)
+        ? 'Pending'
+        : trade.pnl > 0
+        ? 'Win'
+        : trade.pnl < 0
+        ? 'Loss'
+        : 'Break-Even'
+    );
   };
 
   const closeEditTrade = () => {
@@ -185,6 +222,9 @@ export default function TradeLog() {
     setEditPostNotes('');
     setEditBeforeScreenshot(null);
     setEditAfterScreenshot(null);
+    setEditExitPrice('');
+    setEditProfitAmount('');
+    setEditResultDirection('Pending');
   };
 
   const handleEditScreenshot = (type: 'before' | 'after') => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -229,13 +269,60 @@ export default function TradeLog() {
   const handleSaveTradeEdits = () => {
     if (!editingTrade) return;
 
+    const fees = editingTrade.fees || 0;
+    const enteredProfitAmount = editProfitAmount.trim() ? parseFloat(editProfitAmount) : null;
+    if (editResultDirection !== 'Pending' && editResultDirection !== 'Break-Even') {
+      if (enteredProfitAmount === null || !Number.isFinite(enteredProfitAmount) || enteredProfitAmount <= 0) {
+        toast({
+          title: 'Amount required',
+          description: 'Enter a positive amount before marking the trade as Win or Loss.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    const signedGrossPnl =
+      editResultDirection === 'Pending' || editResultDirection === 'Break-Even'
+        ? 0
+        : Math.abs(enteredProfitAmount || 0) * (editResultDirection === 'Loss' ? -1 : 1);
+    const nextPnl = editResultDirection === 'Pending' || editResultDirection === 'Break-Even'
+      ? 0
+      : signedGrossPnl - fees;
+    const nextExitPrice = editExitPrice.trim() ? parseFloat(editExitPrice) : undefined;
+    const exchangeRate = getExchangeRateToBase(editingTrade.currency);
+    const nextRFactor =
+      editingTrade.entryPrice !== undefined && editingTrade.stopLoss !== undefined && editingTrade.quantity
+        ? calculateRFactor(nextPnl, editingTrade.stopLoss, editingTrade.entryPrice, editingTrade.position, editingTrade.quantity)
+        : editingTrade.rFactor;
+    const tags = Array.from(
+      new Set(
+        editTags
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter(Boolean)
+          .filter((tag) => editResultDirection === 'Pending' || tag !== PENDING_OUTCOME_TAG)
+      )
+    );
+    if (editResultDirection === 'Pending' && !tags.includes(PENDING_OUTCOME_TAG)) {
+      tags.push(PENDING_OUTCOME_TAG);
+    }
+
     const updatedTrade: Trade = {
       ...editingTrade,
-      tags: Array.from(new Set(editTags.split(',').map((tag) => tag.trim()).filter(Boolean))),
+      tags,
       setupName: editSetupName.trim() || editingTrade.setupName,
       timeFrame: editTimeFrame.trim() || undefined,
       limit: editLimit || undefined,
       exit: editExit || undefined,
+      exitPrice: Number.isFinite(nextExitPrice) ? nextExitPrice : editingTrade.exitPrice,
+      pnl: nextPnl,
+      pnlBase: convertToBaseCurrency(nextPnl, editingTrade.currency, exchangeRate),
+      exchangeRate,
+      tradeResult: getTradeResultLabel(nextPnl),
+      isWin: nextPnl > 0,
+      rFactor: Number.isFinite(nextRFactor) ? nextRFactor : editingTrade.rFactor,
+      exitRFactor: Number.isFinite(nextRFactor) ? nextRFactor : editingTrade.exitRFactor,
       preNotes: editPreNotes,
       postNotes: editPostNotes,
       beforeTradeScreenshot: editBeforeScreenshot || undefined,
@@ -412,13 +499,8 @@ export default function TradeLog() {
                       </td>
                       <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm text-right text-foreground">{trade.rFactor.toFixed(2)}R</td>
                       <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-center">
-                        {/* W/L derived from P&L, not deprecated isWin field */}
-                        <span className={`text-xs font-semibold ${
-                          getTradeOutcome(trade.pnl) === 'W' ? 'text-green-400' : 
-                          getTradeOutcome(trade.pnl) === 'L' ? 'text-red-400' : 
-                          'text-yellow-400'
-                        }`}>
-                          {getTradeOutcome(trade.pnl)}
+                        <span className={`text-xs font-semibold ${getResultDisplay(trade).className}`}>
+                          {getResultDisplay(trade).label}
                         </span>
                       </td>
                       <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-center text-xs sm:text-sm text-foreground">{trade.confidence}</td>
@@ -533,15 +615,8 @@ export default function TradeLog() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs text-muted-foreground">Result</p>
-                      {/* W/L derived from P&L */}
-                      <p className={`font-bold text-sm ${
-                        getTradeOutcome(trade.pnl) === 'W' ? 'text-green-400' : 
-                        getTradeOutcome(trade.pnl) === 'L' ? 'text-red-400' : 
-                        'text-yellow-400'
-                      }`}>
-                        {getTradeOutcome(trade.pnl) === 'W' ? 'Win' : 
-                         getTradeOutcome(trade.pnl) === 'L' ? 'Loss' : 
-                         'Break-Even'}
+                      <p className={`font-bold text-sm ${getResultDisplay(trade).className}`}>
+                        {getResultDisplay(trade).label}
                       </p>
                     </div>
                   </div>
@@ -696,15 +771,9 @@ export default function TradeLog() {
                   <p className="text-2xl font-bold text-primary">{selectedTrade.rFactor.toFixed(2)}R</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Outcome (Auto)</p>
-                  <p className={`text-2xl font-bold ${
-                    getTradeOutcome(selectedTrade.pnl) === 'W' ? 'text-green-400' : 
-                    getTradeOutcome(selectedTrade.pnl) === 'L' ? 'text-red-400' : 
-                    'text-yellow-400'
-                  }`}>
-                    {getTradeOutcome(selectedTrade.pnl) === 'W' ? 'Win' : 
-                     getTradeOutcome(selectedTrade.pnl) === 'L' ? 'Loss' : 
-                     'Break-Even'}
+                  <p className="text-xs text-muted-foreground">Outcome</p>
+                  <p className={`text-2xl font-bold ${getResultDisplay(selectedTrade).className}`}>
+                    {getResultDisplay(selectedTrade).label}
                   </p>
                 </div>
                 {selectedTrade.exitRFactor !== undefined && (
@@ -940,6 +1009,92 @@ export default function TradeLog() {
                       </option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border bg-secondary/20 p-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-foreground">Close Trade Result</label>
+                  <p className="text-xs text-muted-foreground">
+                    Keep it pending until the trade finishes, then choose the outcome and enter the final amount.
+                  </p>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {EDIT_RESULT_OPTIONS.map((result) => {
+                    const isSelected = editResultDirection === result;
+                    const selectedClass =
+                      result === 'Win'
+                        ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-300'
+                        : result === 'Loss'
+                        ? 'border-red-500/60 bg-red-500/10 text-red-300'
+                        : result === 'Break-Even'
+                        ? 'border-yellow-500/60 bg-yellow-500/10 text-yellow-300'
+                        : 'border-amber-500/60 bg-amber-500/10 text-amber-300';
+
+                    return (
+                      <button
+                        key={result}
+                        type="button"
+                        onClick={() => {
+                          setEditResultDirection(result);
+                          if (result === 'Pending' || result === 'Break-Even') {
+                            setEditProfitAmount('');
+                          }
+                        }}
+                        className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+                          isSelected
+                            ? selectedClass
+                            : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                        }`}
+                      >
+                        {result}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-foreground">Actual Exit Price</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        {CURRENCY_SYMBOLS[editingTrade.currency] || '$'}
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editExitPrice}
+                        onChange={(e) => setEditExitPrice(e.target.value)}
+                        placeholder="Optional"
+                        className="w-full rounded-lg border border-border bg-input py-2 pl-8 pr-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-foreground">
+                      Amount {editResultDirection === 'Win' || editResultDirection === 'Loss' ? '*' : '(Not needed)'}
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        {CURRENCY_SYMBOLS[editingTrade.currency] || '$'}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editProfitAmount}
+                        onChange={(e) => setEditProfitAmount(e.target.value)}
+                        disabled={editResultDirection === 'Pending' || editResultDirection === 'Break-Even'}
+                        placeholder={editResultDirection === 'Loss' ? 'Loss amount' : 'Profit amount'}
+                        className="w-full rounded-lg border border-border bg-input py-2 pl-8 pr-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Enter Win/Loss amount as positive. Loss is saved as negative P&amp;L automatically.
+                    </p>
+                  </div>
                 </div>
               </div>
 

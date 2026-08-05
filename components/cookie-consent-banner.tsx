@@ -1,26 +1,40 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { getCookieConsent, setCookieConsent, trackEvent, type CookieConsentState } from '@/lib/analytics';
+import { getCookieConsent, setCookieConsent, trackEvent } from '@/lib/analytics';
+
+function subscribeToCookieConsent(onStoreChange: () => void) {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === 'td-cookie-consent') {
+      onStoreChange();
+    }
+  };
+  const handleConsentChange = () => onStoreChange();
+
+  window.addEventListener('storage', handleStorage);
+  window.addEventListener('td-cookie-consent-change', handleConsentChange);
+
+  return () => {
+    window.removeEventListener('storage', handleStorage);
+    window.removeEventListener('td-cookie-consent-change', handleConsentChange);
+  };
+}
 
 export default function CookieConsentBanner() {
-  const [isReady, setIsReady] = useState(false);
-  const [consent, setConsent] = useState<CookieConsentState>(() => getCookieConsent());
+  const consent = useSyncExternalStore(subscribeToCookieConsent, getCookieConsent, () => 'declined');
 
-  useEffect(() => {
-    setConsent(getCookieConsent());
-    setIsReady(true);
-  }, []);
-
-  if (!isReady || consent !== 'unset') {
+  if (consent !== 'unset') {
     return null;
   }
 
   const handleConsent = (nextValue: 'accepted' | 'declined') => {
     setCookieConsent(nextValue);
-    setConsent(nextValue);
 
     if (nextValue === 'accepted') {
       trackEvent('cookie_consent_accepted', {

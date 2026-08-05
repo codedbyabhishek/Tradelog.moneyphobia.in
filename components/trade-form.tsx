@@ -8,9 +8,9 @@ import { validateTradeForm, sanitizeString, validateImageFile } from '@/lib/vali
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { AlertTriangle, ChevronDown, Upload, X } from 'lucide-react';
-import { TradeFormData, Currency, EmotionTag, MISTAKE_TAG_OPTIONS, MARKET_CONDITION_OPTIONS, RULE_VIOLATION_OPTIONS, type RuleViolation } from '@/lib/types';
-import { calculatePnL, calculateRFactor, CURRENCY_SYMBOLS, getTradeOutcome } from '@/lib/trade-utils';
+import { AlertTriangle, CheckCircle2, ChevronDown, ClipboardList, Save, Upload, WalletCards, X } from 'lucide-react';
+import { TradeFormData, Currency, EmotionTag, MISTAKE_TAG_OPTIONS, MARKET_CONDITION_OPTIONS, RULE_VIOLATION_OPTIONS, type RuleViolation, type Trade } from '@/lib/types';
+import { calculatePnL, calculateRFactor, CURRENCY_SYMBOLS, getDayOfWeek, getExchangeRateToBase, getTradeOutcome, getTradeResultLabel } from '@/lib/trade-utils';
 import { ScreenshotViewer } from './screenshot-viewer';
 import { useToast } from '@/hooks/use-toast';
 import { clearPreTradeDraft, readPreTradeDraft } from '@/lib/pre-trade-draft';
@@ -102,6 +102,11 @@ const MARKET_CONDITION_LABELS: Record<(typeof MARKET_CONDITION_OPTIONS)[number],
 
 const TRADE_FORM_DEFAULTS_KEY = 'journal.tradeFormDefaults.v1';
 type ResultEntryMode = 'manual' | 'execution';
+type FormMode = 'fast' | 'detailed';
+const TRADE_TYPE_OPTIONS: TradeFormData['tradeType'][] = ['Intraday', 'Scalping', 'Swing', 'Positional'];
+const POSITION_OPTIONS: TradeFormData['position'][] = ['Buy', 'Sell'];
+const TIMEFRAME_OPTIONS = ['1m', '3m', '5m', '15m', '1H', '4H', 'Daily'] as const;
+const PENDING_OUTCOME_TAG = 'Pending Outcome';
 
 export default function TradeForm({ onSuccess }: TradeFormProps) {
   const { addTrade, trades } = useTrades();
@@ -180,6 +185,8 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
   const [riskGateAcknowledged, setRiskGateAcknowledged] = useState(false);
   const [selectedPlaybookId, setSelectedPlaybookId] = useState('');
   const [resultEntryMode, setResultEntryMode] = useState<ResultEntryMode>('manual');
+  const [formMode, setFormMode] = useState<FormMode>('fast');
+  const [quickTargetPrice, setQuickTargetPrice] = useState('');
   const [isCustomLimit, setIsCustomLimit] = useState(
     Boolean(formData.limit && !FIB_LEVEL_OPTIONS.includes(formData.limit as (typeof FIB_LEVEL_OPTIONS)[number]))
   );
@@ -200,6 +207,11 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
 
     setRiskGateAcknowledged(false);
     setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
+  };
+
+  const setQuickField = <K extends keyof TradeFormData>(field: K, value: TradeFormData[K]) => {
+    setRiskGateAcknowledged(false);
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   useEffect(() => {
@@ -503,6 +515,93 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     }
   };
 
+  const handleFastSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitStatus('idle');
+
+    const fastErrors: Partial<Record<keyof TradeFormData, string>> = {};
+    if (!formData.symbol.trim()) fastErrors.symbol = 'Symbol is required';
+    if (!formData.entryPrice) fastErrors.entryPrice = 'Entry price is required';
+    if (!quickTargetPrice.trim()) fastErrors.exit = 'Target or planned exit is required';
+    if (!formData.stopLoss) fastErrors.stopLoss = 'Stop loss is required';
+    if (!beforeScreenshot) fastErrors.beforeTradeScreenshot = 'Entry screenshot is required';
+
+    const entryPrice = parseFloat(formData.entryPrice);
+    const stopLoss = parseFloat(formData.stopLoss);
+    if (formData.entryPrice && !Number.isFinite(entryPrice)) fastErrors.entryPrice = 'Entry price must be a valid number';
+    if (formData.stopLoss && !Number.isFinite(stopLoss)) fastErrors.stopLoss = 'Stop loss must be a valid number';
+
+    if (Object.keys(fastErrors).length > 0) {
+      setErrors(fastErrors);
+      setSubmitStatus('error');
+      return;
+    }
+
+    try {
+      const exchangeRate = getExchangeRateToBase(formData.currency);
+      const pnl = 0;
+      const quantity = formData.quantity ? parseFloat(formData.quantity) || 1 : 1;
+      const pendingTrade: Trade = {
+        id: `quick:${Date.now()}`,
+        tags: [PENDING_OUTCOME_TAG],
+        date: formData.date,
+        dayOfWeek: getDayOfWeek(formData.date),
+        symbol: formData.symbol.trim().toUpperCase(),
+        tradeType: formData.tradeType,
+        setupName: formData.setupName.trim() || 'Fast Trade',
+        position: formData.position,
+        entryPrice,
+        stopLoss,
+        quantity,
+        fees: 0,
+        pnl,
+        currency: formData.currency,
+        pnlBase: pnl * exchangeRate,
+        exchangeRate,
+        tradeResult: getTradeResultLabel(pnl),
+        rFactor: 0,
+        exitRFactor: 0,
+        isWin: false,
+        confidence: parseInt(formData.confidence || '5', 10),
+        preNotes: [
+          quickTargetPrice.trim() ? `Planned exit/target: ${quickTargetPrice.trim()}` : '',
+          formData.preNotes,
+        ].filter(Boolean).join('\n'),
+        postNotes: '',
+        beforeTradeScreenshot: beforeScreenshot || undefined,
+        timeFrame: formData.timeFrame || 'Fast',
+        exit: quickTargetPrice.trim(),
+        ruleFollowed: true,
+        marketCondition: formData.marketCondition,
+      };
+
+      addTrade(pendingTrade);
+      setFormData((prev) => ({
+        ...prev,
+        symbol: '',
+        entryPrice: '',
+        exitPrice: '',
+        stopLoss: '',
+        quantity: '',
+        setupName: '',
+        preNotes: '',
+        postNotes: '',
+        manualProfit: '',
+        exitRFactor: '',
+      }));
+      setQuickTargetPrice('');
+      clearBeforeScreenshot();
+      clearAfterScreenshot();
+      setErrors({});
+      setSubmitStatus('success');
+      if (onSuccess) onSuccess();
+      setTimeout(() => setSubmitStatus('idle'), 3000);
+    } catch (error) {
+      console.error('[quick-trade] submission error:', error);
+      setSubmitStatus('error');
+    }
+  };
+
   // Get current currency symbol
   const currentCurrencySymbol = CURRENCY_SYMBOLS[formData.currency] || '₹';
   const recentSymbols = useMemo(
@@ -655,13 +754,52 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     { label: 'Time frame', value: formData.timeFrame || 'Add timeframe' },
     { label: 'Result mode', value: resultEntryMode === 'manual' ? 'Manual P&L' : 'Execution-derived' },
   ];
+  const requiredItems = [
+    Boolean(formData.date),
+    Boolean(formData.symbol),
+    Boolean(formData.setupName),
+    Boolean(formData.timeFrame),
+    Boolean(formData.stopLoss),
+    Boolean(formData.quantity),
+    resultEntryMode === 'manual'
+      ? Boolean(formData.manualProfit) && Boolean(formData.exitRFactor)
+      : Boolean(formData.entryPrice) && Boolean(formData.exitPrice),
+    !useFibonacciLevels || (Boolean(formData.limit) && Boolean(formData.exit)),
+  ];
+  const completedRequiredItems = requiredItems.filter(Boolean).length;
+  const completionPercent = Math.round((completedRequiredItems / requiredItems.length) * 100);
+  const outcomeLabel = livePreviewValues
+    ? livePreviewValues.outcome === 'W'
+      ? 'Win'
+      : livePreviewValues.outcome === 'L'
+      ? 'Loss'
+      : 'Break-Even'
+    : 'Waiting for result';
 
   return (
-    <div className="min-h-full w-full max-w-4xl mx-auto p-3 sm:p-6 lg:p-8">
+    <div className="min-h-full w-full max-w-6xl mx-auto p-3 sm:p-6 lg:p-8">
       <Card className="min-h-full bg-card border-border">
         <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="text-xl sm:text-2xl lg:text-3xl">Add New Trade</CardTitle>
-          <CardDescription className="text-xs sm:text-sm">Record your trade details and analysis</CardDescription>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <CardTitle className="text-xl sm:text-2xl lg:text-3xl">Add New Trade</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
+                Start with the essentials, then open deeper review fields only when you need them.
+              </CardDescription>
+            </div>
+            <div className="rounded-lg border border-border bg-background/70 p-3 lg:min-w-64">
+              <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                <span>Required fields</span>
+                <span className="font-medium text-foreground">{completedRequiredItems}/{requiredItems.length}</span>
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-secondary">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${completionPercent}%` }}
+                />
+              </div>
+            </div>
+          </div>
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {quickStats.map((item) => (
               <div key={item.label} className="rounded-lg border border-border/60 bg-background/70 p-3">
@@ -672,7 +810,279 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
           </div>
         </CardHeader>
         <CardContent className="p-3 sm:p-6">
-          <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6 lg:space-y-8">
+          <form onSubmit={formMode === 'fast' ? handleFastSubmit : handleSubmit}>
+            <div className="mb-5 grid grid-cols-2 gap-2 rounded-lg border border-border bg-background/70 p-1">
+              <button
+                type="button"
+                onClick={() => setFormMode('fast')}
+                className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  formMode === 'fast'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                }`}
+              >
+                Fast Entry
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormMode('detailed')}
+                className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  formMode === 'detailed'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                }`}
+              >
+                Detailed Journal
+              </button>
+            </div>
+
+            {formMode === 'fast' ? (
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+                <div className="space-y-5">
+                  <section className="space-y-4">
+                    <div>
+                      <h2 className="text-lg font-semibold text-foreground">Fast Trade Input</h2>
+                      <p className="text-sm text-muted-foreground">
+                        Save the trade plan now. Complete profit, win/loss, and exit screenshot later from Trade Log.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">Trade Date*</label>
+                        <input
+                          type="date"
+                          name="date"
+                          value={formData.date}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">Market / Symbol*</label>
+                        <input
+                          type="text"
+                          name="symbol"
+                          value={formData.symbol}
+                          onChange={handleInputChange}
+                          placeholder="e.g., NIFTY, BTC, AAPL"
+                          className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.symbol ? 'border-red-500' : 'border-border'}`}
+                        />
+                        {errors.symbol && <p className="text-xs text-red-500 mt-1">{errors.symbol}</p>}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">Position*</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {POSITION_OPTIONS.map((position) => (
+                            <button
+                              key={position}
+                              type="button"
+                              onClick={() => setQuickField('position', position)}
+                              className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+                                formData.position === position
+                                  ? position === 'Buy'
+                                    ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-300'
+                                    : 'border-red-500/60 bg-red-500/10 text-red-300'
+                                  : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                              }`}
+                            >
+                              {position}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">Trade Type</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {TRADE_TYPE_OPTIONS.map((tradeType) => (
+                            <button
+                              key={tradeType}
+                              type="button"
+                              onClick={() => setQuickField('tradeType', tradeType)}
+                              className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                                formData.tradeType === tradeType
+                                  ? 'border-primary bg-primary/10 text-foreground'
+                                  : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                              }`}
+                            >
+                              {tradeType}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">Entry Price*</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          name="entryPrice"
+                          value={formData.entryPrice}
+                          onChange={handleInputChange}
+                          placeholder="0.00"
+                          className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.entryPrice ? 'border-red-500' : 'border-border'}`}
+                        />
+                        {errors.entryPrice && <p className="text-xs text-red-500 mt-1">{errors.entryPrice}</p>}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">Target / Exit Price*</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={quickTargetPrice}
+                          onChange={(e) => {
+                            setRiskGateAcknowledged(false);
+                            setQuickTargetPrice(e.target.value);
+                          }}
+                          placeholder="0.00"
+                          className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.exit ? 'border-red-500' : 'border-border'}`}
+                        />
+                        {errors.exit && <p className="text-xs text-red-500 mt-1">{errors.exit}</p>}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">Stop Loss*</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          name="stopLoss"
+                          value={formData.stopLoss}
+                          onChange={handleInputChange}
+                          placeholder="0.00"
+                          className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.stopLoss ? 'border-red-500' : 'border-border'}`}
+                        />
+                        {errors.stopLoss && <p className="text-xs text-red-500 mt-1">{errors.stopLoss}</p>}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">Quantity</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          name="quantity"
+                          value={formData.quantity}
+                          onChange={handleInputChange}
+                          placeholder="Defaults to 1"
+                          className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">Currency</label>
+                        <select
+                          name="currency"
+                          value={formData.currency}
+                          onChange={(e) => setQuickField('currency', e.target.value as Currency)}
+                          className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          <option value="INR">INR (₹)</option>
+                          <option value="USD">USD ($)</option>
+                          <option value="EUR">EUR (€)</option>
+                          <option value="GBP">GBP (£)</option>
+                          <option value="JPY">JPY (¥)</option>
+                          <option value="AUD">AUD (A$)</option>
+                          <option value="CAD">CAD (C$)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">Setup Name</label>
+                        <input
+                          type="text"
+                          name="setupName"
+                          value={formData.setupName}
+                          onChange={handleInputChange}
+                          placeholder="Optional"
+                          className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">Time Frame</label>
+                      <div className="flex flex-wrap gap-2">
+                        {TIMEFRAME_OPTIONS.map((timeFrame) => (
+                          <button
+                            key={timeFrame}
+                            type="button"
+                            onClick={() => setQuickField('timeFrame', timeFrame)}
+                            className={`rounded-md border px-2 py-1 text-xs transition-colors ${
+                              formData.timeFrame === timeFrame
+                                ? 'border-primary bg-primary/10 text-foreground'
+                                : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                            }`}
+                          >
+                            {timeFrame}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">Entry Screenshot*</label>
+                      {beforeScreenshot ? (
+                        <div className="relative inline-block w-full">
+                          <ScreenshotViewer imageUrl={beforeScreenshot} title="Entry Screenshot" />
+                          <button
+                            type="button"
+                            onClick={clearBeforeScreenshot}
+                            className="absolute top-2 right-2 p-1 bg-red-600 rounded-full hover:bg-red-700 transition-colors"
+                            title="Remove image"
+                          >
+                            <X className="w-4 h-4 text-white" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          onPaste={handlePasteImage('before')}
+                          className={`flex items-center justify-center w-full p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-secondary transition-colors ${errors.beforeTradeScreenshot ? 'border-red-500' : 'border-border'}`}
+                        >
+                          <label className="w-full text-center cursor-pointer">
+                            <Upload className="w-6 h-6 mx-auto text-muted-foreground mb-2" />
+                            <span className="text-sm text-foreground block">Upload or paste entry screenshot</span>
+                            <input type="file" accept="image/*" onChange={handleBeforeScreenshot} className="hidden" />
+                          </label>
+                        </div>
+                      )}
+                      {errors.beforeTradeScreenshot && <p className="text-xs text-red-500 mt-1">{errors.beforeTradeScreenshot}</p>}
+                    </div>
+
+                    <Button type="submit" className="w-full">
+                      <Save className="h-4 w-4" />
+                      Save Pending Trade
+                    </Button>
+                  </section>
+                </div>
+
+                <aside className="hidden lg:block">
+                  <div className="sticky top-6 space-y-4 rounded-lg border border-border bg-background/80 p-4">
+                    <div className="flex items-center gap-2">
+                      <ClipboardList className="h-4 w-4 text-primary" />
+                      <h2 className="text-base font-semibold text-foreground">Fast Entry</h2>
+                    </div>
+                    <div className="rounded-lg border border-border/60 bg-card/70 p-3">
+                      <p className="text-xs text-muted-foreground">Status</p>
+                      <p className="mt-1 text-sm font-semibold text-amber-300">Pending Outcome</p>
+                    </div>
+                    <div className="rounded-lg border border-border/60 bg-card/70 p-3">
+                      <p className="text-xs text-muted-foreground">Plan</p>
+                      <p className="mt-1 text-sm font-semibold text-foreground">
+                        {formData.symbol || 'Symbol'} · {formData.position} · {quickTargetPrice || 'Target'}
+                      </p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Save the plan first. After the trade closes, open it from Trade Log and set Win, Loss, or Break-even with the final amount.
+                    </p>
+                  </div>
+                </aside>
+              </div>
+            ) : (
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+              <div className="space-y-5 sm:space-y-6 lg:space-y-8">
             <Card className="border-primary/20 bg-primary/5 shadow-none">
               <CardHeader className="p-4 sm:p-5">
                 <CardTitle className="text-lg sm:text-xl">Apply Playbook</CardTitle>
@@ -859,17 +1269,22 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
               </div>
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-foreground mb-2">Trade Type*</label>
-                <select
-                  name="tradeType"
-                  value={formData.tradeType}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option>Intraday</option>
-                  <option>Swing</option>
-                  <option>Scalping</option>
-                  <option>Positional</option>
-                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  {TRADE_TYPE_OPTIONS.map((tradeType) => (
+                    <button
+                      key={tradeType}
+                      type="button"
+                      onClick={() => setQuickField('tradeType', tradeType)}
+                      className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                        formData.tradeType === tradeType
+                          ? 'border-primary bg-primary/10 text-foreground'
+                          : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                      }`}
+                    >
+                      {tradeType}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -962,15 +1377,24 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Position*</label>
-                <select
-                  name="position"
-                  value={formData.position}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option>Buy</option>
-                  <option>Sell</option>
-                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  {POSITION_OPTIONS.map((position) => (
+                    <button
+                      key={position}
+                      type="button"
+                      onClick={() => setQuickField('position', position)}
+                      className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+                        formData.position === position
+                          ? position === 'Buy'
+                            ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-300'
+                            : 'border-red-500/60 bg-red-500/10 text-red-300'
+                          : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                      }`}
+                    >
+                      {position}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Time Frame (When Entered)*</label>
@@ -983,6 +1407,22 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                   className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.timeFrame ? 'border-red-500' : 'border-border'}`}
                 />
                 {errors.timeFrame && <p className="text-xs text-red-500 mt-1">{errors.timeFrame}</p>}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {TIMEFRAME_OPTIONS.map((timeFrame) => (
+                    <button
+                      key={timeFrame}
+                      type="button"
+                      onClick={() => setQuickField('timeFrame', timeFrame)}
+                      className={`rounded-md border px-2 py-1 text-xs transition-colors ${
+                        formData.timeFrame === timeFrame
+                          ? 'border-primary bg-primary/10 text-foreground'
+                          : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                      }`}
+                    >
+                      {timeFrame}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             </section>
@@ -1710,11 +2150,92 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                 </div>
               ) : null}
             </section>
+              </div>
+
+              <aside className="hidden lg:block">
+                <div className="sticky top-6 space-y-4 rounded-lg border border-border bg-background/80 p-4">
+                  <div className="flex items-center gap-2">
+                    <ClipboardList className="h-4 w-4 text-primary" />
+                    <h2 className="text-base font-semibold text-foreground">Trade Snapshot</h2>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-border/60 bg-card/70 p-3">
+                      <p className="text-xs text-muted-foreground">Market</p>
+                      <p className="mt-1 text-sm font-semibold text-foreground">
+                        {formData.symbol || 'Add symbol'} · {formData.setupName || 'Add setup'}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-lg border border-border/60 bg-card/70 p-3">
+                        <p className="text-xs text-muted-foreground">Side</p>
+                        <p className={`mt-1 text-sm font-semibold ${formData.position === 'Buy' ? 'text-emerald-300' : 'text-red-300'}`}>
+                          {formData.position}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-border/60 bg-card/70 p-3">
+                        <p className="text-xs text-muted-foreground">Outcome</p>
+                        <p className={`mt-1 text-sm font-semibold ${
+                          livePreviewValues?.outcome === 'W'
+                            ? 'text-emerald-300'
+                            : livePreviewValues?.outcome === 'L'
+                            ? 'text-red-300'
+                            : 'text-foreground'
+                        }`}>
+                          {outcomeLabel}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-border/60 bg-card/70 p-3">
+                      <div className="flex items-center gap-2">
+                        <WalletCards className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-xs text-muted-foreground">Net P&amp;L preview</p>
+                      </div>
+                      <p className={`mt-2 text-2xl font-bold ${
+                        livePreviewValues && parseFloat(livePreviewValues.pnl) >= 0 ? 'text-emerald-300' : 'text-red-300'
+                      }`}>
+                        {livePreviewValues ? `${currentCurrencySymbol}${livePreviewValues.pnl}` : '--'}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {livePreviewValues ? `${livePreviewValues.rFactor}R after charges` : 'Enter result details to preview.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {riskGateWarnings.length > 0 ? (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
+                      {riskGateWarnings.length} warning{riskGateWarnings.length === 1 ? '' : 's'} need review before saving.
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-100">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4" />
+                      <span>No discipline warnings from the current inputs.</span>
+                    </div>
+                  )}
+
+                  {submitStatus === 'error' ? (
+                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-100">
+                      Some required fields need attention.
+                    </div>
+                  ) : null}
+
+                  <Button type="submit" className="w-full">
+                    <Save className="h-4 w-4" />
+                    Add Trade
+                  </Button>
+                </div>
+              </aside>
+            </div>
+            )}
 
             {/* Submit Button */}
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-sm sm:text-base py-2 sm:py-2.5">
-              Add Trade
-            </Button>
+            {formMode === 'detailed' ? (
+              <Button type="submit" className="mt-6 w-full bg-primary hover:bg-primary/90 text-primary-foreground text-sm sm:text-base py-2 sm:py-2.5 lg:hidden">
+                <Save className="h-4 w-4" />
+                Add Trade
+              </Button>
+            ) : null}
           </form>
         </CardContent>
       </Card>
