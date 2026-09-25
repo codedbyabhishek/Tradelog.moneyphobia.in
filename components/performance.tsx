@@ -6,6 +6,7 @@ import { PerformanceDashboard } from '@/components/performance-dashboard';
 import { generatePerformanceMetrics } from '@/lib/performance-analytics';
 import { useSettings } from '@/lib/settings-context';
 import { formatBaseCurrencyAmount, getTradeBasePnL } from '@/lib/trade-utils';
+import { SessionPerformanceCard } from '@/components/session-performance-card';
 
 export default function Performance() {
   const { trades } = useTrades();
@@ -97,6 +98,8 @@ export default function Performance() {
           </div>
         </div>
       </div>
+
+      <SessionPerformanceCard trades={trades} baseCurrency={baseCurrency} />
 
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">

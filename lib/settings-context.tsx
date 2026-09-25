@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { clearBootstrap, readBootstrap, storeBootstrap } from '@/lib/client-bootstrap';
 import type { AppBootstrapData } from '@/lib/bootstrap';
 import { DEFAULT_BILLING_STATE, normalizeBillingState } from '@/lib/subscription';
+import { createDefaultTradingPlan, normalizeTradingPlan, TRADING_PLAN_SETTING_KEY, type TradingPlan } from '@/lib/trading-plan';
 
 interface SettingsContextType {
   baseCurrency: Currency;
@@ -16,6 +17,8 @@ interface SettingsContextType {
   saveCapitalAdjustments: (adjustments: CapitalAdjustment[]) => Promise<void>;
   billingState: BillingState;
   saveBillingState: (billing: BillingState) => Promise<void>;
+  tradingPlan: TradingPlan;
+  saveTradingPlan: (plan: TradingPlan) => Promise<void>;
 }
 
 export const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -79,6 +82,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [startingBalance, setStartingBalanceState] = useState<number>(DEFAULT_STARTING_BALANCE);
   const [capitalAdjustments, setCapitalAdjustmentsState] = useState<CapitalAdjustment[]>(DEFAULT_CAPITAL_ADJUSTMENTS);
   const [billingState, setBillingState] = useState<BillingState>(DEFAULT_BILLING_STATE);
+  const [tradingPlan, setTradingPlan] = useState<TradingPlan>(() => createDefaultTradingPlan());
 
   useEffect(() => {
     const load = async () => {
@@ -88,6 +92,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setStartingBalanceState(DEFAULT_STARTING_BALANCE);
         setCapitalAdjustmentsState(DEFAULT_CAPITAL_ADJUSTMENTS);
         setBillingState(DEFAULT_BILLING_STATE);
+        setTradingPlan(createDefaultTradingPlan());
         clearBootstrap();
         return;
       }
@@ -107,6 +112,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setStartingBalanceState(Number.isFinite(storedStartingBalance) ? storedStartingBalance : DEFAULT_STARTING_BALANCE);
         setCapitalAdjustmentsState(storedCapitalAdjustments);
         setBillingState(normalizeBillingState(bootstrap.settings?.billing));
+        setTradingPlan(normalizeTradingPlan(bootstrap.settings?.tradingPlan));
         return;
       }
 
@@ -124,6 +130,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           setStartingBalanceState(storedStartingBalance);
         }
         setBillingState(normalizeBillingState(data?.settings?.billing));
+        const storedTradingPlan = normalizeTradingPlan(data?.settings?.tradingPlan);
+        setTradingPlan(storedTradingPlan);
         setCapitalAdjustmentsState(storedCapitalAdjustments);
 
         if (user) {
@@ -133,6 +141,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             ...(Number.isFinite(storedStartingBalance) ? { startingBalance: storedStartingBalance } : {}),
             capitalAdjustments: storedCapitalAdjustments,
             billing: normalizeBillingState(data?.settings?.billing),
+            tradingPlan: storedTradingPlan,
           }));
         }
       } catch (error) {
@@ -250,6 +259,33 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const saveTradingPlan = async (plan: TradingPlan) => {
+    const normalized = normalizeTradingPlan(plan);
+    if (JSON.stringify(normalized) === JSON.stringify(tradingPlan)) return;
+
+    const previousPlan = tradingPlan;
+    setTradingPlan(normalized);
+    if (user) {
+      updateBootstrapSettings(user.id, (settings) => ({
+        ...settings,
+        tradingPlan: normalized,
+      }));
+    }
+
+    if (!user) return;
+
+    try {
+      await persistSetting(TRADING_PLAN_SETTING_KEY, normalized);
+    } catch (err) {
+      setTradingPlan(previousPlan);
+      updateBootstrapSettings(user.id, (settings) => ({
+        ...settings,
+        tradingPlan: previousPlan,
+      }));
+      throw err;
+    }
+  };
+
   return (
     <SettingsContext.Provider
       value={{
@@ -261,6 +297,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         saveCapitalAdjustments,
         billingState,
         saveBillingState,
+        tradingPlan,
+        saveTradingPlan,
       }}
     >
       {children}

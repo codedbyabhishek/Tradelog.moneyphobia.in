@@ -113,6 +113,7 @@ const importTradeSearch = () => import('@/components/trade-search');
 const importReportsGenerator = () => import('@/components/reports-generator');
 const importEmotionAnalyzer = () => import('@/components/emotion-analyzer');
 const importPreTradeChecklistWorkspace = () => import('@/components/pre-trade-checklist-workspace');
+const importTradingPlanWorkspace = () => import('@/components/trading-plan-workspace');
 const importScreenshotGallery = () => import('@/components/screenshot-gallery');
 const importLearningVideos = () => import('@/components/learning-videos');
 
@@ -136,6 +137,10 @@ const EmotionAnalyzer = dynamic(loadPage(importEmotionAnalyzer, 'emotion analyze
 const PreTradeChecklistWorkspace = dynamic(
   loadPage(importPreTradeChecklistWorkspace, 'pre-trade workspace'),
   { loading: createPageLoader('pre-trade workspace') },
+);
+const TradingPlanWorkspace = dynamic(
+  loadPage(importTradingPlanWorkspace, 'plan workspace'),
+  { loading: createPageLoader('plan workspace') },
 );
 const ScreenshotGallery = dynamic(loadPage(importScreenshotGallery, 'gallery'), { loading: createPageLoader('gallery') });
 const LearningVideos = dynamic(loadPage(importLearningVideos, 'learning videos'), { loading: createPageLoader('learning videos') });
@@ -206,6 +211,8 @@ function JournalAppContent({ currentPage }: { currentPage: Page }) {
         return <ImportedTradeAnalyzer />;
       case 'pre-trade':
         return <PreTradeChecklistWorkspace onStartTrade={() => router.push(buildAppPath('add-trade'))} />;
+      case 'plan':
+        return <TradingPlanWorkspace />;
       case 'playbooks':
         return <PlaybookBuilder />;
       case 'add-trade':

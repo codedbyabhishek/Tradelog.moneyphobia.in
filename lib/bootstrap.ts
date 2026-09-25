@@ -1,5 +1,6 @@
 import type { CapitalAdjustment, Trade, TradeFilter, TradeIdea, TradingGoal } from '@/lib/types';
 import type { TradeTemplate } from '@/lib/templates-context';
+import type { TradingPlan } from '@/lib/trading-plan';
 
 export interface AppBootstrapData {
   userId: number;
@@ -13,5 +14,6 @@ export interface AppBootstrapData {
     startingBalance?: number;
     capitalAdjustments?: CapitalAdjustment[];
     billing?: import('@/lib/types').BillingState;
+    tradingPlan?: TradingPlan;
   };
 }

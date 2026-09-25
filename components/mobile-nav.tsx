@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BarChart3, PlusCircle, Table, LineChart, Activity, Settings, Calendar, TrendingUp, Lightbulb, Palette, Target, Search, FileText, Brain, Ellipsis, Sparkles, Images, Youtube, BookOpen, FileSpreadsheet, LogOut, Users } from 'lucide-react';
+import { BarChart3, PlusCircle, Table, LineChart, Activity, Settings, Calendar, TrendingUp, Lightbulb, Palette, Target, Search, FileText, Brain, Ellipsis, Sparkles, Images, Youtube, BookOpen, FileSpreadsheet, LogOut, Users, ClipboardCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -29,6 +29,7 @@ export default function MobileNav({ currentPage }: MobileNavProps) {
     { id: 'performance', label: 'Performance', icon: Activity },
     { id: 'import-analysis', label: 'Import Analysis', icon: FileSpreadsheet },
     { id: 'pre-trade', label: 'Pre-Trade', icon: Sparkles },
+    { id: 'plan', label: 'Plan', icon: ClipboardCheck },
     { id: 'playbooks', label: 'Playbooks', icon: BookOpen },
     { id: 'gallery', label: 'Gallery', icon: Images },
     { id: 'learning-videos', label: 'Videos', icon: Youtube },

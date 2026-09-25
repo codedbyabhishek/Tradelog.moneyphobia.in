@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AlertTriangle, CheckCircle2, ChevronDown, ClipboardList, Save, Upload, WalletCards, X } from 'lucide-react';
-import { TradeFormData, Currency, EmotionTag, MISTAKE_TAG_OPTIONS, MARKET_CONDITION_OPTIONS, RULE_VIOLATION_OPTIONS, type RuleViolation, type Trade } from '@/lib/types';
+import { TradeFormData, Currency, EmotionTag, MISTAKE_TAG_OPTIONS, MARKET_CONDITION_OPTIONS, RULE_VIOLATION_OPTIONS, type MarketSession, type RuleViolation, type Trade } from '@/lib/types';
 import { calculatePnL, calculateRFactor, CURRENCY_SYMBOLS, getDayOfWeek, getExchangeRateToBase, getTradeOutcome, getTradeResultLabel } from '@/lib/trade-utils';
 import { ScreenshotViewer } from './screenshot-viewer';
 import { useToast } from '@/hooks/use-toast';
@@ -107,6 +107,14 @@ const TRADE_TYPE_OPTIONS: TradeFormData['tradeType'][] = ['Intraday', 'Scalping'
 const POSITION_OPTIONS: TradeFormData['position'][] = ['Buy', 'Sell'];
 const TIMEFRAME_OPTIONS = ['1m', '3m', '5m', '15m', '1H', '4H', 'Daily'] as const;
 const PENDING_OUTCOME_TAG = 'Pending Outcome';
+const SESSION_OPTIONS: Array<{ value: MarketSession; label: string }> = [
+  { value: 'Asia', label: 'Asian (00:00–08:00 UTC)' },
+  { value: 'London', label: 'London (08:00–13:00 UTC)' },
+  { value: 'NewYork', label: 'New York (13:00–22:00 UTC)' },
+  { value: 'Overlap_Asia_London', label: 'Asia–London overlap' },
+  { value: 'Overlap_London_NY', label: 'London–New York overlap' },
+  { value: 'Off_Hours', label: 'Off hours' },
+];
 
 export default function TradeForm({ onSuccess }: TradeFormProps) {
   const { addTrade, trades } = useTrades();
@@ -165,6 +173,9 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
       emotionEntry: undefined,
       emotionExit: undefined,
       plannedRTarget: '',
+      session: undefined,
+      entryTime: '',
+      exitTime: '',
     };
   });
 
@@ -523,6 +534,9 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
         emotionEntry: undefined,
         emotionExit: undefined,
         plannedRTarget: '',
+        session: undefined,
+        entryTime: '',
+        exitTime: '',
       }));
       clearBeforeScreenshot();
       clearAfterScreenshot();
@@ -1990,6 +2004,44 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                       rows={3}
                     />
                   </div>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">Trading Session</label>
+                      <select
+                        name="session"
+                        value={formData.session || ''}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="">Infer from entry time</option>
+                        {SESSION_OPTIONS.map((session) => (
+                          <option key={session.value} value={session.value}>{session.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">Entry Time (UTC)</label>
+                      <input
+                        type="time"
+                        name="entryTime"
+                        value={formData.entryTime || ''}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">Exit Time (UTC)</label>
+                      <input
+                        type="time"
+                        name="exitTime"
+                        value={formData.exitTime || ''}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+                  <p className="-mt-2 text-xs text-muted-foreground">Session is optional. If you add an entry time, Performance assigns it to Asian, London, or New York automatically.</p>
 
                   <Card className="border-border/70 bg-card/60 shadow-none">
                     <CardHeader className="p-4 pb-3">

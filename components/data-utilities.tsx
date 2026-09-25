@@ -25,11 +25,13 @@ import CapitalAdjustmentsSettings from '@/components/capital-adjustments-setting
 import BillingSettings from '@/components/billing-settings';
 import { useToast } from '@/hooks/use-toast';
 import type { CapitalAdjustment, Currency, TradeIdea } from '@/lib/types';
+import { normalizeTradingPlan, type TradingPlan } from '@/lib/trading-plan';
 
 type BackupSettings = {
   baseCurrency?: Currency;
   startingBalance?: number;
   capitalAdjustments?: CapitalAdjustment[];
+  tradingPlan?: TradingPlan;
 };
 
 type ImportPreview = {
@@ -79,6 +81,10 @@ function normalizeBackupSettings(input: unknown): BackupSettings | null {
     );
   }
 
+  if (raw.tradingPlan && typeof raw.tradingPlan === 'object') {
+    next.tradingPlan = normalizeTradingPlan(raw.tradingPlan);
+  }
+
   return Object.keys(next).length > 0 ? next : null;
 }
 
@@ -90,9 +96,11 @@ export default function DataUtilities() {
     baseCurrency,
     startingBalance,
     capitalAdjustments,
+    tradingPlan,
     setBaseCurrency,
     setStartingBalance,
     saveCapitalAdjustments,
+    saveTradingPlan,
   } = useSettings();
   const { toast } = useToast();
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -105,19 +113,10 @@ export default function DataUtilities() {
   const proPlan = isProPlan(billingState);
 
   const storageSizeKb = useMemo(() => {
-    return (new Blob([JSON.stringify({ trades, ideas, settings: { baseCurrency, startingBalance, capitalAdjustments } })]).size / 1024).toFixed(2);
-  }, [trades, ideas, baseCurrency, startingBalance, capitalAdjustments]);
+    return (new Blob([JSON.stringify({ trades, ideas, settings: { baseCurrency, startingBalance, capitalAdjustments, tradingPlan } })]).size / 1024).toFixed(2);
+  }, [trades, ideas, baseCurrency, startingBalance, capitalAdjustments, tradingPlan]);
 
   const handleExportAllJSON = () => {
-    if (trades.length === 0 && ideas.length === 0) {
-      toast({
-        title: 'Nothing to export',
-        description: 'Add trades or ideas before creating a full backup.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     try {
       const combinedData = {
         trades,
@@ -126,6 +125,7 @@ export default function DataUtilities() {
           baseCurrency,
           startingBalance,
           capitalAdjustments,
+          tradingPlan,
         },
         exportedAt: new Date().toISOString(),
       };
@@ -254,6 +254,9 @@ export default function DataUtilities() {
         }
         if (importPreview.settings.capitalAdjustments) {
           await saveCapitalAdjustments(importPreview.settings.capitalAdjustments);
+        }
+        if (importPreview.settings.tradingPlan) {
+          await saveTradingPlan(importPreview.settings.tradingPlan);
         }
       }
 
@@ -482,7 +485,7 @@ export default function DataUtilities() {
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
                             {importPreview.settings
-                              ? 'Currency, starting balance, and capital adjustments can be restored.'
+                              ? 'Currency, account math, and your trading plan can be restored.'
                               : 'This file only contains journal records.'}
                           </p>
                         </div>
@@ -569,9 +572,9 @@ export default function DataUtilities() {
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <p><strong>Primary storage:</strong> MySQL data tied to your signed-in account.</p>
-                <p><strong>Synced records:</strong> Trades, trade ideas, starting balance, currency, and capital adjustments.</p>
+                <p><strong>Synced records:</strong> Trades, trade ideas, your Plan workspace, starting balance, currency, and capital adjustments.</p>
                 <p><strong>Browser storage:</strong> Small convenience settings like theme and fast bootstrap data.</p>
-                <p><strong>Best practice:</strong> Export a full backup before bulk imports or large cleanup work.</p>
+                <p><strong>Best practice:</strong> Export a full backup before bulk imports or large cleanup work. Your Plan workspace is included too.</p>
               </CardContent>
             </Card>
 

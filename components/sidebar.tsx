@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BarChart3, PlusCircle, Table, LineChart, Activity, Settings, Calendar, TrendingUp, Lightbulb, Target, Search, Zap, FileText, Brain, Sparkles, Images, Youtube, BookOpen, FileSpreadsheet, PanelLeftClose, PanelLeftOpen, LogOut, Users } from 'lucide-react';
+import { BarChart3, PlusCircle, Table, LineChart, Activity, Settings, Calendar, TrendingUp, Lightbulb, Target, Search, Zap, FileText, Brain, Sparkles, Images, Youtube, BookOpen, FileSpreadsheet, PanelLeftClose, PanelLeftOpen, LogOut, Users, ClipboardCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useAuth } from '@/lib/auth-context';
@@ -67,6 +67,7 @@ export default function Sidebar({ currentPage }: SidebarProps) {
     { id: 'performance', label: 'Performance', icon: Activity },
     { id: 'import-analysis', label: 'Import Analysis', icon: FileSpreadsheet },
     { id: 'pre-trade', label: 'Pre-Trade', icon: Sparkles },
+    { id: 'plan', label: 'Plan', icon: ClipboardCheck },
     { id: 'playbooks', label: 'Playbooks', icon: BookOpen },
     { id: 'gallery', label: 'Gallery', icon: Images },
     { id: 'learning-videos', label: 'Learning Videos', icon: Youtube },
