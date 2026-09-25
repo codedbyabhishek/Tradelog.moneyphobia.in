@@ -1,4 +1,5 @@
 import { dbExecute, dbQuery } from '@/lib/server/db';
+import { decryptBrokerCredentials, encryptBrokerCredentials } from '@/lib/server/credentials';
 import { getDayOfWeek, getTradeResultLabel } from '@/lib/trade-utils';
 import type { Trade } from '@/lib/types';
 
@@ -92,7 +93,7 @@ export async function getStoredUpstoxConfig(userId: number): Promise<UpstoxStore
   if (rows.length === 0) return null;
 
   try {
-    const parsed = JSON.parse(rows[0].value_json) as UpstoxStoredConfig;
+    const parsed = decryptBrokerCredentials<UpstoxStoredConfig>(rows[0].value_json);
     if (!parsed?.clientId || !parsed?.accessToken) return null;
     return parsed;
   } catch {
@@ -105,7 +106,7 @@ export async function saveUpstoxConfig(userId: number, config: UpstoxStoredConfi
     `INSERT INTO user_settings (user_id, key_name, value_json, updated_at)
      VALUES (?, ?, ?, NOW())
      ON DUPLICATE KEY UPDATE value_json = VALUES(value_json), updated_at = NOW()`,
-    [userId, UPSTOX_SETTINGS_KEY, JSON.stringify(config)]
+    [userId, UPSTOX_SETTINGS_KEY, encryptBrokerCredentials(config)]
   );
 }
 

@@ -294,6 +294,7 @@ export function convertFormToTrade(formData: TradeFormData): Trade {
     postNotes: formData.postNotes,
     beforeTradeScreenshot: formData.beforeTradeScreenshot,
     afterExitScreenshot: formData.afterExitScreenshot,
+    hftScreenshot: formData.hftScreenshot,
     mistakeTag: formData.mistakeTag,
     timeFrame: formData.timeFrame,
     marketTrend: formData.marketTrend || undefined,

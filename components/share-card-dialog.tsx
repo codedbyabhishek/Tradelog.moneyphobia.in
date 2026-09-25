@@ -17,11 +17,15 @@ import {
   filterTradesByRange,
   formatDisplayDate,
   getShareDateRange,
+  getTradeShareLayout,
+  TRADE_SHARE_LAYOUTS,
   type ShareGraphType,
   type ShareRangePreset,
   type ShareVisualTheme,
+  type TradeShareLayout,
 } from '@/lib/share-card';
 import { Button } from '@/components/ui/button';
+import TradeShareCardPreview from '@/components/trade-share-card-preview';
 import {
   Dialog,
   DialogContent,
@@ -158,6 +162,7 @@ export default function ShareCardDialog({
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   const [graphType, setGraphType] = useState<ShareGraphType>('equity');
+  const [shareLayout, setShareLayout] = useState<TradeShareLayout>('post');
   const [visualTheme, setVisualTheme] = useState<ShareVisualTheme>(getDefaultVisualTheme(mode, resolvedTheme, theme));
   const [caption, setCaption] = useState('Discipline > Luck');
   const [username, setUsername] = useState('');
@@ -187,7 +192,7 @@ export default function ShareCardDialog({
 
   useEffect(() => {
     setHostedShare(null);
-  }, [mode, trade, rangePreset, customFrom, customTo, graphType, visualTheme, caption, username, include]);
+  }, [mode, trade, rangePreset, customFrom, customTo, graphType, shareLayout, visualTheme, caption, username, include]);
 
   const range = useMemo(
     () => getShareDateRange(rangePreset, customFrom, customTo),
@@ -223,13 +228,22 @@ export default function ShareCardDialog({
 
   const themeTokens = getThemeTokens(visualTheme);
   const canShare = mode === 'trade' ? Boolean(trade) : Boolean(performanceSnapshot && performanceSnapshot.tradeCount > 0);
+  const tradeShareLayout = getTradeShareLayout(shareLayout);
 
   const exportPreview = async () => {
     if (!previewRef.current) return null;
     return toPng(previewRef.current, {
       cacheBust: true,
-      pixelRatio: 2,
+      pixelRatio: mode === 'trade' ? 1 : 2,
       backgroundColor: visualTheme === 'light' ? '#ffffff' : '#020617',
+      ...(mode === 'trade'
+        ? {
+            width: tradeShareLayout.width,
+            height: tradeShareLayout.height,
+            canvasWidth: tradeShareLayout.width,
+            canvasHeight: tradeShareLayout.height,
+          }
+        : {}),
     });
   };
 
@@ -241,7 +255,7 @@ export default function ShareCardDialog({
       if (!dataUrl) return;
       const link = document.createElement('a');
       link.href = dataUrl;
-      link.download = mode === 'trade' ? `${trade?.symbol || 'trade'}-share-card.png` : 'pnl-share-card.png';
+      link.download = mode === 'trade' ? `${trade?.symbol || 'trade'}-${shareLayout}-share-card.png` : 'pnl-share-card.png';
       link.click();
       toast({
         title: 'Image downloaded',
@@ -262,8 +276,16 @@ export default function ShareCardDialog({
     try {
       const blob = await toBlob(previewRef.current, {
         cacheBust: true,
-        pixelRatio: 2,
+        pixelRatio: mode === 'trade' ? 1 : 2,
         backgroundColor: visualTheme === 'light' ? '#ffffff' : '#020617',
+        ...(mode === 'trade'
+          ? {
+              width: tradeShareLayout.width,
+              height: tradeShareLayout.height,
+              canvasWidth: tradeShareLayout.width,
+              canvasHeight: tradeShareLayout.height,
+            }
+          : {}),
       });
 
       if (!blob || !navigator.clipboard || typeof ClipboardItem === 'undefined') {
@@ -508,20 +530,43 @@ export default function ShareCardDialog({
 
               <div className="space-y-3">
                 <p className="text-sm font-semibold text-foreground">Card Customization</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['light', 'dark', 'prism', 'cyberpunk'] as ShareVisualTheme[]).map((value) => (
-                    <Button
-                      key={value}
-                      type="button"
-                      size="sm"
-                      variant={visualTheme === value ? 'default' : 'outline'}
-                      onClick={() => setVisualTheme(value)}
-                      className="capitalize"
-                    >
-                      {value}
-                    </Button>
-                  ))}
-                </div>
+                {mode === 'trade' ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {TRADE_SHARE_LAYOUTS.map((option) => (
+                      <Button
+                        key={option.value}
+                        type="button"
+                        size="sm"
+                        variant={shareLayout === option.value ? 'default' : 'outline'}
+                        onClick={() => setShareLayout(option.value)}
+                        className="h-auto min-h-14 flex-col gap-0.5 py-2"
+                      >
+                        <span>{option.label}</span>
+                        <span className="text-[10px] opacity-70">{option.dimensions}</span>
+                      </Button>
+                    ))}
+                  </div>
+                ) : null}
+                {mode === 'trade' ? (
+                  <p className="rounded-xl border border-border bg-secondary/20 px-3 py-2 text-xs text-muted-foreground">
+                    The trade card uses the Traderlogify P&amp;L visual style from the preview above.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['light', 'dark', 'prism', 'cyberpunk'] as ShareVisualTheme[]).map((value) => (
+                      <Button
+                        key={value}
+                        type="button"
+                        size="sm"
+                        variant={visualTheme === value ? 'default' : 'outline'}
+                        onClick={() => setVisualTheme(value)}
+                        className="capitalize"
+                      >
+                        {value}
+                      </Button>
+                    ))}
+                  </div>
+                )}
                 {mode === 'performance' && include.graph ? (
                   <div className="grid grid-cols-2 gap-2">
                     {(['equity', 'pnl'] as ShareGraphType[]).map((value) => (
@@ -613,6 +658,15 @@ export default function ShareCardDialog({
               </p>
             </div>
 
+            {mode === 'trade' && trade ? (
+              <TradeShareCardPreview
+                trade={trade}
+                layout={shareLayout}
+                username={username}
+                include={include}
+                previewRef={previewRef}
+              />
+            ) : (
             <div className="flex justify-center">
               <div
                 ref={previewRef}
@@ -851,6 +905,7 @@ export default function ShareCardDialog({
                 ) : null}
               </div>
             </div>
+            )}
           </div>
         </div>
       </DialogContent>

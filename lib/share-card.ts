@@ -5,6 +5,23 @@ import { formatCurrency, formatBaseCurrencyAmount, getNetCapitalAdjustments, get
 export type ShareVisualTheme = 'light' | 'dark' | 'prism' | 'cyberpunk';
 export type ShareRangePreset = 'today' | 'last7' | 'custom';
 export type ShareGraphType = 'equity' | 'pnl';
+export type TradeShareLayout = 'story' | 'post' | 'landscape';
+
+export const TRADE_SHARE_LAYOUTS: Array<{
+  value: TradeShareLayout;
+  label: string;
+  dimensions: string;
+  width: number;
+  height: number;
+}> = [
+  { value: 'story', label: 'Story', dimensions: '1080 × 1920', width: 1080, height: 1920 },
+  { value: 'post', label: 'Post', dimensions: '1080 × 1080', width: 1080, height: 1080 },
+  { value: 'landscape', label: 'Landscape', dimensions: '1920 × 1080', width: 1920, height: 1080 },
+];
+
+export function getTradeShareLayout(layout: TradeShareLayout) {
+  return TRADE_SHARE_LAYOUTS.find((option) => option.value === layout) ?? TRADE_SHARE_LAYOUTS[1];
+}
 
 export interface PerformanceShareSnapshot {
   label: string;

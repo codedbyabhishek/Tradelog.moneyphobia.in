@@ -171,6 +171,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
   // Screenshot state
   const [beforeScreenshot, setBeforeScreenshot] = useState<string | null>(null);
   const [afterScreenshot, setAfterScreenshot] = useState<string | null>(null);
+  const [hftScreenshot, setHftScreenshot] = useState<string | null>(null);
 
   // Validation state for enhanced error handling
   const [errors, setErrors] = useState<Partial<Record<keyof TradeFormData, string>>>({});
@@ -325,7 +326,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     });
   };
 
-  const handlePasteImage = (type: 'before' | 'after') => async (e: React.ClipboardEvent<HTMLDivElement>) => {
+  const handlePasteImage = (type: 'before' | 'after' | 'hft') => async (e: React.ClipboardEvent<HTMLDivElement>) => {
     const items = e.clipboardData?.items;
     if (!items) return;
 
@@ -350,8 +351,10 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
           const result = event.target?.result as string;
           if (type === 'before') {
             setBeforeScreenshot(result);
-          } else {
+          } else if (type === 'after') {
             setAfterScreenshot(result);
+          } else {
+            setHftScreenshot(result);
           }
         };
         reader.readAsDataURL(file);
@@ -405,12 +408,39 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     reader.readAsDataURL(file);
   };
 
+  const handleHftScreenshot = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      toast({
+        title: 'Invalid image',
+        description: validation.error ?? 'Please upload a valid screenshot (JPEG, PNG, WebP, max 5MB).',
+        variant: 'destructive',
+      });
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      setHftScreenshot(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const clearBeforeScreenshot = () => {
     setBeforeScreenshot(null);
   };
 
   const clearAfterScreenshot = () => {
     setAfterScreenshot(null);
+  };
+
+  const clearHftScreenshot = () => {
+    setHftScreenshot(null);
   };
 
   /**
@@ -450,6 +480,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
         ...formData,
         beforeTradeScreenshot: beforeScreenshot || undefined,
         afterExitScreenshot: afterScreenshot || undefined,
+        hftScreenshot: hftScreenshot || undefined,
       });
       addTrade(trade);
 
@@ -495,6 +526,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
       }));
       clearBeforeScreenshot();
       clearAfterScreenshot();
+      clearHftScreenshot();
       clearPreTradeDraft();
       setErrors({});
       setSubmitStatus('success');
@@ -569,6 +601,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
         ].filter(Boolean).join('\n'),
         postNotes: '',
         beforeTradeScreenshot: beforeScreenshot || undefined,
+        hftScreenshot: hftScreenshot || undefined,
         timeFrame: formData.timeFrame || 'Fast',
         exit: quickTargetPrice.trim(),
         ruleFollowed: true,
@@ -592,6 +625,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
       setQuickTargetPrice('');
       clearBeforeScreenshot();
       clearAfterScreenshot();
+      clearHftScreenshot();
       setErrors({});
       setSubmitStatus('success');
       if (onSuccess) onSuccess();
@@ -1049,6 +1083,34 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                         </div>
                       )}
                       {errors.beforeTradeScreenshot && <p className="text-xs text-red-500 mt-1">{errors.beforeTradeScreenshot}</p>}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">HFT Screenshot <span className="text-muted-foreground">(optional)</span></label>
+                      {hftScreenshot ? (
+                        <div className="relative inline-block w-full">
+                          <ScreenshotViewer imageUrl={hftScreenshot} title="HFT Screenshot" />
+                          <button
+                            type="button"
+                            onClick={clearHftScreenshot}
+                            className="absolute top-2 right-2 p-1 bg-red-600 rounded-full hover:bg-red-700 transition-colors"
+                            title="Remove image"
+                          >
+                            <X className="w-4 h-4 text-white" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          onPaste={handlePasteImage('hft')}
+                          className="flex items-center justify-center w-full p-6 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-secondary transition-colors"
+                        >
+                          <label className="w-full text-center cursor-pointer">
+                            <Upload className="w-6 h-6 mx-auto text-muted-foreground mb-2" />
+                            <span className="text-sm text-foreground block">Upload or paste HFT screenshot</span>
+                            <input type="file" accept="image/*" onChange={handleHftScreenshot} className="hidden" />
+                          </label>
+                        </div>
+                      )}
                     </div>
 
                     <Button type="submit" className="w-full">
@@ -2085,7 +2147,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
               </div>
 
               {showAttachments ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
               {/* Before Trade Screenshot */}
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-foreground mb-2">Before Trade</label>
@@ -2143,6 +2205,37 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                         <span className="text-xs sm:text-sm text-foreground block">Upload or paste</span>
                       </div>
                       <input type="file" accept="image/*" onChange={handleAfterScreenshot} className="hidden" />
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              {/* HFT Screenshot */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-foreground mb-2">HFT Screenshot</label>
+                {hftScreenshot ? (
+                  <div className="relative inline-block w-full">
+                    <ScreenshotViewer imageUrl={hftScreenshot} title="HFT Screenshot" />
+                    <button
+                      type="button"
+                      onClick={clearHftScreenshot}
+                      className="absolute top-2 right-2 p-1 bg-red-600 rounded-full hover:bg-red-700 transition-colors"
+                      title="Remove image"
+                    >
+                      <X className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onPaste={handlePasteImage('hft')}
+                    className="flex items-center justify-center w-full p-4 sm:p-6 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-secondary transition-colors"
+                  >
+                    <label className="w-full text-center cursor-pointer">
+                      <div>
+                        <Upload className="w-5 h-5 sm:w-6 sm:h-6 mx-auto text-muted-foreground mb-2" />
+                        <span className="text-xs sm:text-sm text-foreground block">Upload or paste</span>
+                      </div>
+                      <input type="file" accept="image/*" onChange={handleHftScreenshot} className="hidden" />
                     </label>
                   </div>
                 )}

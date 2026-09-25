@@ -27,7 +27,7 @@ function FavoriteTradeCard({
   trade: ReturnType<typeof useTrades>['trades'][number];
   onToggle: () => void;
 }) {
-  const imageUrl = trade.afterExitScreenshot || trade.beforeTradeScreenshot;
+  const imageUrl = trade.afterExitScreenshot || trade.hftScreenshot || trade.beforeTradeScreenshot;
   const outcome = getTradeOutcome(trade.pnl);
 
   return (

@@ -120,6 +120,7 @@ export interface Trade {
   emotion?: EmotionTag;
   beforeTradeScreenshot?: string;
   afterExitScreenshot?: string;
+  hftScreenshot?: string;
   mistakeTag?: MistakeTag;
   timeFrame?: string;
   marketTrend?: MarketTrend;
@@ -214,6 +215,7 @@ export interface TradeFormData {
   postNotes: string;
   beforeTradeScreenshot?: string;
   afterExitScreenshot?: string;
+  hftScreenshot?: string;
   mistakeTag?: MistakeTag;
   exitRFactor?: string;
   timeFrame: string;

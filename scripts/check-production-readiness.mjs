@@ -1,4 +1,11 @@
-const REQUIRED_VARS = ['DB_HOST', 'DB_USER', 'DB_NAME', 'NEXT_PUBLIC_SITE_URL', 'HEALTHCHECK_TOKEN'];
+const REQUIRED_VARS = [
+  'DB_HOST',
+  'DB_USER',
+  'DB_NAME',
+  'NEXT_PUBLIC_SITE_URL',
+  'HEALTHCHECK_TOKEN',
+  'BROKER_CREDENTIALS_ENCRYPTION_KEY',
+];
 const OPTIONAL_GROUPS = {
   SMTP: ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'],
   Razorpay: [
@@ -47,6 +54,13 @@ if (
 
 if (filled('HEALTHCHECK_TOKEN') && process.env.HEALTHCHECK_TOKEN.trim().length < 24) {
   errors.push('HEALTHCHECK_TOKEN should be at least 24 characters long');
+}
+
+if (
+  filled('BROKER_CREDENTIALS_ENCRYPTION_KEY') &&
+  Buffer.from(process.env.BROKER_CREDENTIALS_ENCRYPTION_KEY.trim(), 'base64').length !== 32
+) {
+  errors.push('BROKER_CREDENTIALS_ENCRYPTION_KEY must be a base64-encoded 32-byte key');
 }
 
 for (const [label, names] of Object.entries(OPTIONAL_GROUPS)) {

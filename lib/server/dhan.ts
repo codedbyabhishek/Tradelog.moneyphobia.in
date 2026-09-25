@@ -1,4 +1,5 @@
 import { dbExecute, dbQuery } from '@/lib/server/db';
+import { decryptBrokerCredentials, encryptBrokerCredentials } from '@/lib/server/credentials';
 import { getDayOfWeek, getTradeResultLabel } from '@/lib/trade-utils';
 import { Trade } from '@/lib/types';
 
@@ -153,7 +154,7 @@ export async function getStoredDhanConfig(userId: number): Promise<DhanStoredCon
   }
 
   try {
-    const parsed = JSON.parse(rows[0].value_json) as DhanStoredConfig;
+    const parsed = decryptBrokerCredentials<DhanStoredConfig>(rows[0].value_json);
     if (!parsed?.clientId || !parsed?.accessToken) {
       return null;
     }
@@ -168,7 +169,7 @@ export async function saveDhanConfig(userId: number, config: DhanStoredConfig) {
     `INSERT INTO user_settings (user_id, key_name, value_json, updated_at)
      VALUES (?, ?, ?, NOW())
      ON DUPLICATE KEY UPDATE value_json = VALUES(value_json), updated_at = NOW()`,
-    [userId, DHAN_SETTINGS_KEY, JSON.stringify(config)]
+    [userId, DHAN_SETTINGS_KEY, encryptBrokerCredentials(config)]
   );
 }
 

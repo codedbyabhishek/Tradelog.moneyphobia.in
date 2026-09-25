@@ -840,8 +840,8 @@ export default function CalendarView({ trades }: CalendarViewProps) {
                 </div>
               )}
 
-              {(selectedTradeForDetails.beforeTradeScreenshot || selectedTradeForDetails.afterExitScreenshot) && (
-                <div className="grid gap-3 sm:grid-cols-2">
+              {(selectedTradeForDetails.beforeTradeScreenshot || selectedTradeForDetails.afterExitScreenshot || selectedTradeForDetails.hftScreenshot) && (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {selectedTradeForDetails.beforeTradeScreenshot && (
                     <div>
                       <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Before Trade</p>
@@ -852,6 +852,12 @@ export default function CalendarView({ trades }: CalendarViewProps) {
                     <div>
                       <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">After Exit</p>
                       <ScreenshotViewer imageUrl={selectedTradeForDetails.afterExitScreenshot} title="After Exit Screenshot" />
+                    </div>
+                  )}
+                  {selectedTradeForDetails.hftScreenshot && (
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">HFT</p>
+                      <ScreenshotViewer imageUrl={selectedTradeForDetails.hftScreenshot} title="HFT Screenshot" />
                     </div>
                   )}
                 </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTrades } from '@/lib/trade-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,6 +43,7 @@ function isJournalEnrichedTrade(trade: Trade) {
     trade.tags?.length ||
     trade.beforeTradeScreenshot ||
       trade.afterExitScreenshot ||
+      trade.hftScreenshot ||
       trade.preNotes?.trim() ||
       trade.postNotes?.trim() ||
       (trade.setupName && !trade.setupName.startsWith('Dhan Sync')) ||
@@ -73,7 +74,12 @@ function getResultDisplay(trade: Trade): { label: string; className: string } {
 export default function TradeLog() {
   const { trades, deleteTrade, updateTrade } = useTrades();
   const { addTemplate } = useTemplates();
+  const tableScrollRailRef = useRef<HTMLDivElement | null>(null);
+  const tableViewportRef = useRef<HTMLDivElement | null>(null);
+  const tableElementRef = useRef<HTMLTableElement | null>(null);
+  const [tableContentWidth, setTableContentWidth] = useState(1280);
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
+  const [sharingTrade, setSharingTrade] = useState<Trade | null>(null);
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [editSetupName, setEditSetupName] = useState('');
   const [editTags, setEditTags] = useState('');
@@ -85,6 +91,7 @@ export default function TradeLog() {
   const [editPostNotes, setEditPostNotes] = useState('');
   const [editBeforeScreenshot, setEditBeforeScreenshot] = useState<string | null>(null);
   const [editAfterScreenshot, setEditAfterScreenshot] = useState<string | null>(null);
+  const [editHftScreenshot, setEditHftScreenshot] = useState<string | null>(null);
   const [editExitPrice, setEditExitPrice] = useState('');
   const [editProfitAmount, setEditProfitAmount] = useState('');
   const [editResultDirection, setEditResultDirection] = useState<EditResultDirection>('Pending');
@@ -138,6 +145,18 @@ export default function TradeLog() {
     });
   };
 
+  const openTradeShare = (trade: Trade) => {
+    setSharingTrade(trade);
+    setIsShareDialogOpen(true);
+  };
+
+  const handleShareDialogChange = (open: boolean) => {
+    setIsShareDialogOpen(open);
+    if (!open) {
+      setSharingTrade(null);
+    }
+  };
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -185,6 +204,27 @@ export default function TradeLog() {
     });
   }, [trades, sortBy, filterSetup, filterTag, filterDate]);
 
+  useEffect(() => {
+    const table = tableElementRef.current;
+    const viewport = tableViewportRef.current;
+    if (!table || !viewport) return;
+
+    const updateTableContentWidth = () => {
+      setTableContentWidth(Math.max(1280, Math.ceil(table.scrollWidth)));
+    };
+
+    updateTableContentWidth();
+    const observer = new ResizeObserver(updateTableContentWidth);
+    observer.observe(table);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [filteredAndSortedTrades.length]);
+
+  const syncTableScroll = (source: HTMLDivElement | null, target: HTMLDivElement | null) => {
+    if (!source || !target || target.scrollLeft === source.scrollLeft) return;
+    target.scrollLeft = source.scrollLeft;
+  };
+
   const openEditTrade = (trade: Trade) => {
     setEditingTrade(trade);
     setEditSetupName(trade.setupName || '');
@@ -197,6 +237,7 @@ export default function TradeLog() {
     setEditPostNotes(trade.postNotes || '');
     setEditBeforeScreenshot(trade.beforeTradeScreenshot || null);
     setEditAfterScreenshot(trade.afterExitScreenshot || null);
+    setEditHftScreenshot(trade.hftScreenshot || null);
     setEditExitPrice(trade.exitPrice !== undefined ? String(trade.exitPrice) : '');
     setEditProfitAmount(trade.pnl !== 0 ? String(Math.abs(trade.pnl + (trade.fees || 0))) : '');
     setEditResultDirection(
@@ -222,12 +263,13 @@ export default function TradeLog() {
     setEditPostNotes('');
     setEditBeforeScreenshot(null);
     setEditAfterScreenshot(null);
+    setEditHftScreenshot(null);
     setEditExitPrice('');
     setEditProfitAmount('');
     setEditResultDirection('Pending');
   };
 
-  const handleEditScreenshot = (type: 'before' | 'after') => (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEditScreenshot = (type: 'before' | 'after' | 'hft') => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -247,8 +289,10 @@ export default function TradeLog() {
       const result = event.target?.result as string;
       if (type === 'before') {
         setEditBeforeScreenshot(result);
-      } else {
+      } else if (type === 'after') {
         setEditAfterScreenshot(result);
+      } else {
+        setEditHftScreenshot(result);
       }
     };
     reader.readAsDataURL(file);
@@ -327,6 +371,7 @@ export default function TradeLog() {
       postNotes: editPostNotes,
       beforeTradeScreenshot: editBeforeScreenshot || undefined,
       afterExitScreenshot: editAfterScreenshot || undefined,
+      hftScreenshot: editHftScreenshot || undefined,
     };
 
     updateTrade(editingTrade.id, updatedTrade);
@@ -428,8 +473,26 @@ export default function TradeLog() {
           {/* Desktop Table */}
           <div className="hidden lg:block w-full min-w-0">
             <Card className="bg-card border-border overflow-hidden">
-              <div className="w-full overflow-x-auto">
-              <table className="w-full min-w-[1240px] border-collapse">
+              <div className="flex items-center gap-3 border-b border-border bg-secondary/40 px-3 py-2 sm:px-4">
+                <span className="shrink-0 text-xs font-medium text-muted-foreground">Scroll columns</span>
+                <div
+                  ref={tableScrollRailRef}
+                  onScroll={(event) => syncTableScroll(event.currentTarget, tableViewportRef.current)}
+                  className="h-4 min-w-0 flex-1 overflow-x-scroll"
+                  aria-label="Horizontal table scrollbar"
+                  role="region"
+                  tabIndex={0}
+                >
+                  <div style={{ width: `${tableContentWidth}px`, height: '1px' }} />
+                </div>
+                <span className="hidden shrink-0 text-xs text-muted-foreground xl:inline">Drag the bar to view every column</span>
+              </div>
+              <div
+                ref={tableViewportRef}
+                onScroll={(event) => syncTableScroll(event.currentTarget, tableScrollRailRef.current)}
+                className="w-full overflow-x-auto"
+              >
+              <table ref={tableElementRef} className="w-full min-w-[1280px] border-collapse">
                 <thead>
                   <tr className="border-b border-border bg-secondary">
                     <th className="text-left px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">Date</th>
@@ -527,6 +590,9 @@ export default function TradeLog() {
                           <button onClick={() => openEditTrade(trade)} className="text-blue-400 hover:text-blue-300 transition-colors p-1" title="Edit">
                             <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           </button>
+                          <button onClick={() => openTradeShare(trade)} className="text-violet-400 hover:text-violet-300 transition-colors p-1" title="Share trade" aria-label={`Share ${trade.symbol} trade`}>
+                            <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          </button>
                           <button onClick={() => deleteTrade(trade.id)} className="text-red-400 hover:text-red-300 transition-colors p-1" title="Delete">
                             <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           </button>
@@ -621,7 +687,7 @@ export default function TradeLog() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-center gap-2 pt-2 border-t border-border">
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2 border-t border-border">
                     <button
                       onClick={() => updateTrade(trade.id, { ...trade, isFavorite: !trade.isFavorite })}
                       className={`flex-1 flex items-center justify-center gap-1 transition-colors py-2 ${
@@ -639,6 +705,10 @@ export default function TradeLog() {
                     <button onClick={() => openEditTrade(trade)} className="flex-1 flex items-center justify-center gap-1 text-blue-400 hover:text-blue-300 transition-colors py-2">
                       <Pencil className="w-4 h-4" />
                       <span className="text-xs font-medium">Edit</span>
+                    </button>
+                    <button onClick={() => openTradeShare(trade)} className="flex-1 flex items-center justify-center gap-1 text-violet-400 hover:text-violet-300 transition-colors py-2">
+                      <Share2 className="w-4 h-4" />
+                      <span className="text-xs font-medium">Share</span>
                     </button>
                     <button onClick={() => deleteTrade(trade.id)} className="flex-1 flex items-center justify-center gap-1 text-red-400 hover:text-red-300 transition-colors py-2">
                       <Trash2 className="w-4 h-4" />
@@ -825,10 +895,10 @@ export default function TradeLog() {
               )}
 
               {/* Screenshots */}
-              {(selectedTrade.beforeTradeScreenshot || selectedTrade.afterExitScreenshot) && (
+              {(selectedTrade.beforeTradeScreenshot || selectedTrade.afterExitScreenshot || selectedTrade.hftScreenshot) && (
                 <div>
                   <p className="text-sm font-semibold text-foreground mb-3">Trade Screenshots</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                     {selectedTrade.beforeTradeScreenshot && (
                       <div>
                         <p className="text-xs text-muted-foreground mb-2">Before Trade</p>
@@ -841,11 +911,17 @@ export default function TradeLog() {
                         <ScreenshotViewer imageUrl={selectedTrade.afterExitScreenshot} title="After Exit Screenshot" />
                       </div>
                     )}
+                    {selectedTrade.hftScreenshot && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-2">HFT</p>
+                        <ScreenshotViewer imageUrl={selectedTrade.hftScreenshot} title="HFT Screenshot" />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
-              <Button onClick={() => setIsShareDialogOpen(true)} variant="outline" className="w-full">
+              <Button onClick={() => openTradeShare(selectedTrade)} variant="outline" className="w-full">
                 <Share2 className="mr-2 h-4 w-4" />
                 Share Trade
               </Button>
@@ -1120,7 +1196,7 @@ export default function TradeLog() {
                 />
               </div>
 
-              <div className="grid gap-6 sm:grid-cols-2">
+              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <label className="text-sm font-medium text-foreground">Before Trade Screenshot</label>
@@ -1188,6 +1264,40 @@ export default function TradeLog() {
                     </ScreenshotViewer>
                   )}
                 </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="text-sm font-medium text-foreground">HFT Screenshot</label>
+                    {editHftScreenshot && (
+                      <button
+                        type="button"
+                        onClick={() => setEditHftScreenshot(null)}
+                        className="text-xs text-red-400 transition-colors hover:text-red-300"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-secondary/20 px-4 py-6 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground">
+                    <Upload className="h-4 w-4" />
+                    Upload HFT image
+                    <input type="file" accept="image/*" className="hidden" onChange={handleEditScreenshot('hft')} />
+                  </label>
+                  {editHftScreenshot && (
+                    <ScreenshotViewer imageUrl={editHftScreenshot} title="HFT Screenshot">
+                      <button type="button" className="w-full overflow-hidden rounded-lg border border-border">
+                        <Image
+                          src={editHftScreenshot}
+                          alt="HFT"
+                          width={1200}
+                          height={800}
+                          unoptimized
+                          className="max-h-56 w-full object-cover"
+                        />
+                      </button>
+                    </ScreenshotViewer>
+                  )}
+                </div>
               </div>
 
               <div className="flex flex-col-reverse gap-3 border-t border-border pt-4 sm:flex-row sm:justify-end">
@@ -1205,10 +1315,10 @@ export default function TradeLog() {
 
       <ShareCardDialog
         open={isShareDialogOpen}
-        onOpenChange={setIsShareDialogOpen}
+        onOpenChange={handleShareDialogChange}
         mode="trade"
         trades={trades}
-        trade={selectedTrade}
+        trade={sharingTrade}
       />
     </div>
   );

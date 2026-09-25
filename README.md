@@ -12,6 +12,7 @@ Traderlogify is a Next.js trading journal for logging manual trades, importing b
 - Trade ideas and backtesting workspace
 - Mobile-friendly navigation with a `More` sheet
 - Local temp MySQL setup plus lightweight PHP DB admin for development
+- Encrypted at-rest storage for saved broker credentials
 
 ## Feature overview
 
@@ -78,6 +79,8 @@ Open [http://127.0.0.1:8081](http://127.0.0.1:8081)
 ## Dhan sync
 
 The Dhan integration is intentionally read-only.
+
+Broker tokens are encrypted at rest using `BROKER_CREDENTIALS_ENCRYPTION_KEY` and are never included in generic settings or app-bootstrap API responses. Generate the key with `openssl rand -base64 32` before deploying.
 
 ### It does
 

@@ -1,6 +1,7 @@
 import { dbQuery } from '@/lib/server/db';
 import type { AppBootstrapData } from '@/lib/bootstrap';
 import { getAdminBillingOverride } from '@/lib/server/admin';
+import { isSensitiveSettingsKey } from '@/lib/server/settings';
 
 interface JsonRow {
   payload_json: string;
@@ -70,6 +71,9 @@ export async function loadBootstrapData(userId: number, email?: string | null): 
 
   const settings: AppBootstrapData['settings'] = {};
   for (const row of settingsRows) {
+    if (isSensitiveSettingsKey(row.key_name)) {
+      continue;
+    }
     try {
       settings[row.key_name as keyof AppBootstrapData['settings']] = JSON.parse(row.value_json);
     } catch {

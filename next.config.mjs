@@ -1,10 +1,19 @@
 /** @type {import('next').NextConfig} */
+const scriptSources = [
+  "'self'",
+  "'unsafe-inline'",
+  ...(process.env.NODE_ENV === 'production' ? [] : ["'unsafe-eval'"]),
+  'https://accounts.google.com',
+  'https://www.googletagmanager.com',
+  'https://www.google-analytics.com',
+].join(' ');
+
 const securityHeaders = [
   {
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://accounts.google.com https://www.googletagmanager.com https://www.google-analytics.com",
+      `script-src ${scriptSources}`,
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data: https://fonts.gstatic.com",
@@ -40,6 +49,7 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  agentRules: false,
   poweredByHeader: false,
   images: {
     unoptimized: true,

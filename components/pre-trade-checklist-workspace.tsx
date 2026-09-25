@@ -426,8 +426,8 @@ export default function PreTradeChecklistWorkspace({ onStartTrade }: PreTradeChe
                     ))}
                   </div>
                 </div>
-                {selectedMatchedTrade.trade.beforeTradeScreenshot || selectedMatchedTrade.trade.afterExitScreenshot ? (
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {selectedMatchedTrade.trade.beforeTradeScreenshot || selectedMatchedTrade.trade.afterExitScreenshot || selectedMatchedTrade.trade.hftScreenshot ? (
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {selectedMatchedTrade.trade.beforeTradeScreenshot ? (
                       <div>
                         <p className="text-xs text-muted-foreground">Before Trade Screenshot</p>
@@ -446,6 +446,17 @@ export default function PreTradeChecklistWorkspace({ onStartTrade }: PreTradeChe
                           <ScreenshotViewer
                             imageUrl={selectedMatchedTrade.trade.afterExitScreenshot}
                             title={`${selectedMatchedTrade.trade.symbol} after exit`}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                    {selectedMatchedTrade.trade.hftScreenshot ? (
+                      <div>
+                        <p className="text-xs text-muted-foreground">HFT Screenshot</p>
+                        <div className="mt-2">
+                          <ScreenshotViewer
+                            imageUrl={selectedMatchedTrade.trade.hftScreenshot}
+                            title={`${selectedMatchedTrade.trade.symbol} HFT`}
                           />
                         </div>
                       </div>

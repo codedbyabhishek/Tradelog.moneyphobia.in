@@ -3,6 +3,7 @@ import { dbExecute, dbQuery } from '@/lib/server/db';
 import { getCurrentUser } from '@/lib/server/auth';
 import { getAdminBillingOverride } from '@/lib/server/admin';
 import { jsonError, parseJsonBody } from '@/lib/server/http';
+import { isSensitiveSettingsKey } from '@/lib/server/settings';
 
 export const runtime = 'nodejs';
 
@@ -23,6 +24,9 @@ export async function GET() {
 
     const settings: Record<string, unknown> = {};
     for (const row of rows) {
+      if (isSensitiveSettingsKey(row.key_name)) {
+        continue;
+      }
       try {
         settings[row.key_name] = JSON.parse(row.value_json);
       } catch {
@@ -59,6 +63,9 @@ export async function PUT(request: NextRequest) {
     }
     if (key.length > 100) {
       return jsonError('Settings key is too long.', 400);
+    }
+    if (isSensitiveSettingsKey(key)) {
+      return jsonError('Broker credentials must be managed through the broker configuration endpoints.', 403);
     }
 
     await dbExecute(

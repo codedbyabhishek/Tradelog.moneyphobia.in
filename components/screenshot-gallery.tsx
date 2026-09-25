@@ -12,7 +12,7 @@ import { ScreenshotViewer } from '@/components/screenshot-viewer';
 import { cn } from '@/lib/utils';
 import { buildAppPath } from '@/lib/app-routes';
 
-type ScreenshotFilter = 'All' | 'Before Trade' | 'After Exit';
+type ScreenshotFilter = 'All' | 'Before Trade' | 'After Exit' | 'HFT';
 type GalleryLayout = 'grid' | 'masonry' | 'compact';
 type DayFilter = 'All Days' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
 type TimeframeFilter = 'All Time' | 'Today' | 'Last 7 Days' | 'This Month' | 'Last 30 Days';
@@ -34,7 +34,7 @@ type ScreenshotEntry = {
   id: string;
   tradeId: string;
   imageUrl: string;
-  screenshotType: 'Before Trade' | 'After Exit';
+  screenshotType: 'Before Trade' | 'After Exit' | 'HFT';
   symbol: string;
   setupName: string;
   date: string;
@@ -133,6 +133,20 @@ export default function ScreenshotGallery() {
             tradeId: trade.id,
             imageUrl: trade.afterExitScreenshot,
             screenshotType: 'After Exit',
+            symbol: trade.symbol,
+            setupName: trade.setupName,
+            date: trade.date,
+            tradeType: trade.tradeType,
+            timeFrame: trade.timeFrame?.trim() || 'Unspecified',
+          });
+        }
+
+        if (trade.hftScreenshot) {
+          items.push({
+            id: `${trade.id}-hft`,
+            tradeId: trade.id,
+            imageUrl: trade.hftScreenshot,
+            screenshotType: 'HFT',
             symbol: trade.symbol,
             setupName: trade.setupName,
             date: trade.date,
@@ -263,7 +277,7 @@ export default function ScreenshotGallery() {
                 <p className="mt-1 text-2xl font-bold text-foreground">{filteredScreenshots.length}</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                {(['All', 'Before Trade', 'After Exit'] as ScreenshotFilter[]).map((option) => (
+                {(['All', 'Before Trade', 'After Exit', 'HFT'] as ScreenshotFilter[]).map((option) => (
                   <Button
                     key={option}
                     type="button"
@@ -349,7 +363,7 @@ export default function ScreenshotGallery() {
               <ImageIcon className="h-10 w-10 text-muted-foreground" />
               <h3 className="mt-4 text-lg font-semibold text-foreground">No screenshots yet</h3>
               <p className="mt-2 max-w-md text-sm text-muted-foreground">
-                Add before-trade or after-exit screenshots while logging trades, or adjust your current filters and search.
+                Add before-trade, after-exit, or HFT screenshots while logging trades, or adjust your current filters and search.
               </p>
             </div>
           ) : (

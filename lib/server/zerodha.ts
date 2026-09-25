@@ -1,4 +1,5 @@
 import { dbExecute, dbQuery } from '@/lib/server/db';
+import { decryptBrokerCredentials, encryptBrokerCredentials } from '@/lib/server/credentials';
 
 const ZERODHA_SETTINGS_KEY = 'broker_zerodha_config';
 
@@ -22,7 +23,7 @@ export async function getStoredZerodhaConfig(userId: number): Promise<ZerodhaSto
   if (rows.length === 0) return null;
 
   try {
-    const parsed = JSON.parse(rows[0].value_json) as ZerodhaStoredConfig;
+    const parsed = decryptBrokerCredentials<ZerodhaStoredConfig>(rows[0].value_json);
     if (!parsed?.apiKey || !parsed?.apiSecret || !parsed?.redirectUri) return null;
     return parsed;
   } catch {
@@ -35,7 +36,7 @@ export async function saveZerodhaConfig(userId: number, config: ZerodhaStoredCon
     `INSERT INTO user_settings (user_id, key_name, value_json, updated_at)
      VALUES (?, ?, ?, NOW())
      ON DUPLICATE KEY UPDATE value_json = VALUES(value_json), updated_at = NOW()`,
-    [userId, ZERODHA_SETTINGS_KEY, JSON.stringify(config)]
+    [userId, ZERODHA_SETTINGS_KEY, encryptBrokerCredentials(config)]
   );
 }
 

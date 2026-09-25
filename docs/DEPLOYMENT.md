@@ -25,6 +25,7 @@ NEXT_PUBLIC_SITE_URL=https://traderlogify.online
 SITE_URL=https://traderlogify.online
 ADMIN_EMAILS=you@example.com,team@example.com
 HEALTHCHECK_TOKEN=replace-with-a-long-random-secret
+BROKER_CREDENTIALS_ENCRYPTION_KEY=replace-with-a-base64-encoded-32-byte-key
 NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxx
 RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxx
 RAZORPAY_KEY_SECRET=your_razorpay_key_secret
@@ -34,6 +35,8 @@ RAZORPAY_PLAN_YEARLY_ID=plan_xxxxxxxxxx
 ```
 
 Base template: [.env.example](../.env.example)
+
+`BROKER_CREDENTIALS_ENCRYPTION_KEY` protects saved Dhan, Upstox, and Zerodha credentials at rest. Generate it once with `openssl rand -base64 32`, store it only in your server environment, and keep it stable so existing broker connections remain decryptable.
 
 ## Database setup
 

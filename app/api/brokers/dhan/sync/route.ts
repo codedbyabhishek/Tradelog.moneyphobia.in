@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/server/auth';
 import { getStoredDhanConfig, syncDhanTradesToJournal } from '@/lib/server/dhan';
 import { jsonError } from '@/lib/server/http';
+import { consumeRateLimit } from '@/lib/server/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -12,6 +13,22 @@ function isValidDate(value: string) {
 export async function POST(request: NextRequest) {
   try {
     const user = await requireUser();
+    const rateLimit = await consumeRateLimit({
+      prefix: 'broker-dhan-sync',
+      identifier: String(user.id),
+      windowMs: 10 * 60 * 1000,
+      maxRequests: 10,
+      blockDurationMs: 10 * 60 * 1000,
+    });
+
+    if (!rateLimit.allowed) {
+      return jsonError(
+        'Too many Dhan sync attempts. Please wait before trying again.',
+        429,
+        { 'Retry-After': String(rateLimit.retryAfterSeconds || 60) }
+      );
+    }
+
     const config = await getStoredDhanConfig(user.id);
 
     if (!config) {

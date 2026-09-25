@@ -33,6 +33,11 @@ function isValidAbsoluteUrl(value: string) {
   }
 }
 
+function isValidCredentialEncryptionKey(value: string | undefined) {
+  if (!value?.trim()) return false;
+  return Buffer.from(value.trim(), 'base64').length === 32;
+}
+
 function buildCheck(
   name: string,
   required: boolean,
@@ -104,6 +109,12 @@ export function getEnvValidationReport(): EnvValidationReport {
         return normalized.length >= 24;
       },
       'Health check token should be configured and at least 24 characters long.'
+    ),
+    buildCheck(
+      'BROKER_CREDENTIALS_ENCRYPTION_KEY',
+      true,
+      isValidCredentialEncryptionKey,
+      'Broker credential encryption key must be a base64-encoded 32-byte key.'
     ),
   ];
 

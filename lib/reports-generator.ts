@@ -334,11 +334,11 @@ export function generateMonthlyReport(trades: Trade[], year: number, month: numb
   const worstTrade = monthTrades.length > 0 ? Math.min(...monthTrades.map((trade) => getTradeBasePnL(trade))) : 0;
   const documentedTrades = monthTrades.filter((trade) => {
     const hasNotes = Boolean(trade.preNotes?.trim() || trade.postNotes?.trim() || trade.notes?.trim());
-    const hasScreenshot = Boolean(trade.beforeTradeScreenshot || trade.afterExitScreenshot);
+    const hasScreenshot = Boolean(trade.beforeTradeScreenshot || trade.afterExitScreenshot || trade.hftScreenshot);
     return hasNotes || hasScreenshot;
   }).length;
   const screenshotCoverage = monthTrades.length > 0
-    ? (monthTrades.filter((trade) => trade.beforeTradeScreenshot || trade.afterExitScreenshot).length / monthTrades.length) * 100
+    ? (monthTrades.filter((trade) => trade.beforeTradeScreenshot || trade.afterExitScreenshot || trade.hftScreenshot).length / monthTrades.length) * 100
     : 0;
   const notesCoverage = monthTrades.length > 0
     ? (monthTrades.filter((trade) => trade.preNotes?.trim() || trade.postNotes?.trim() || trade.notes?.trim()).length / monthTrades.length) * 100
@@ -507,7 +507,7 @@ export function generateMonthlyReport(trades: Trade[], year: number, month: numb
     .slice(0, 4);
 
   const documentedSorted = sortedTrades.filter((trade) => {
-    return Boolean(trade.beforeTradeScreenshot || trade.afterExitScreenshot || trade.preNotes?.trim() || trade.postNotes?.trim() || trade.notes?.trim());
+    return Boolean(trade.beforeTradeScreenshot || trade.afterExitScreenshot || trade.hftScreenshot || trade.preNotes?.trim() || trade.postNotes?.trim() || trade.notes?.trim());
   });
   const bestDocumentedTrade = [...documentedSorted].sort((a, b) => getTradeBasePnL(b) - getTradeBasePnL(a))[0];
   const worstDocumentedTrade = [...documentedSorted].sort((a, b) => getTradeBasePnL(a) - getTradeBasePnL(b))[0];
@@ -523,7 +523,7 @@ export function generateMonthlyReport(trades: Trade[], year: number, month: numb
       pnl: getTradeBasePnL(trade),
       rFactor: trade.rFactor || 0,
       confidence: trade.confidence || 0,
-      hasScreenshot: Boolean(trade.beforeTradeScreenshot || trade.afterExitScreenshot),
+      hasScreenshot: Boolean(trade.beforeTradeScreenshot || trade.afterExitScreenshot || trade.hftScreenshot),
       hasNotes: Boolean(trade.preNotes?.trim() || trade.postNotes?.trim() || trade.notes?.trim()),
       noteSnippet: buildTradeSnippet(trade),
     }));

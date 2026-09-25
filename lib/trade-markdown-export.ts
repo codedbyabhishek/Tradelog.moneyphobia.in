@@ -83,6 +83,7 @@ ${trade.postNotes || '*No post-trade notes recorded*'}
 
 ${trade.beforeTradeScreenshot ? `- **Before Trade:** \`${trade.beforeTradeScreenshot}\`` : ''}
 ${trade.afterExitScreenshot ? `- **After Exit:** \`${trade.afterExitScreenshot}\`` : ''}
+${trade.hftScreenshot ? `- **HFT:** \`${trade.hftScreenshot}\`` : ''}
 
 ---
 
