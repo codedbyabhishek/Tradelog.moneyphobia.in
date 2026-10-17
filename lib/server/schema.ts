@@ -183,3 +183,25 @@ export async function assertSharedCardsSchemaReady() {
     },
   });
 }
+
+export async function assertBrokerAccountsSchemaReady() {
+  await assertSchemaReady({
+    cacheKey: 'broker-accounts',
+    requiredTables: ['broker_accounts', 'trades'],
+    requiredColumns: {
+      broker_accounts: [
+        'user_id',
+        'account_id',
+        'broker_id',
+        'account_name',
+        'account_reference_encrypted',
+        'account_number_last4',
+        'currency',
+        'is_default',
+        'created_at',
+        'updated_at',
+      ],
+      trades: ['user_id', 'account_id', 'trade_id', 'trade_date', 'trade_json'],
+    },
+  });
+}

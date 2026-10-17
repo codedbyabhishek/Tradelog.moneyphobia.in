@@ -64,6 +64,12 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.traderlogify.online' }],
+        destination: 'https://traderlogify.online/:path*',
+        permanent: true,
+      },
       { source: '/about-us', destination: '/about', permanent: true },
       { source: '/contact-us', destination: '/contact', permanent: true },
       { source: '/privacy-policy', destination: '/privacy', permanent: true },

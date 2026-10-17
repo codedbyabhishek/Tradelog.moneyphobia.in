@@ -21,6 +21,7 @@ LOG_FILE="$LOG_DIR/mysql.log"
 PORT="${TEMP_MYSQL_PORT:-3307}"
 DB_NAME="${TEMP_DB_NAME:-trading_journal_temp}"
 INIT_SQL="$ROOT_DIR/sql/init.sql"
+BROKER_ACCOUNTS_MIGRATION="$ROOT_DIR/sql/migrations/20260926_broker_accounts.sql"
 
 mkdir -p "$DATADIR" "$RUN_DIR" "$LOG_DIR"
 
@@ -76,6 +77,12 @@ echo "Creating database $DB_NAME if needed"
 
 echo "Applying schema from $INIT_SQL"
 "$MYSQL" --protocol=tcp -h127.0.0.1 -P"$PORT" -uroot "$DB_NAME" < "$INIT_SQL"
+
+HAS_TRADE_ACCOUNT_ID="$("$MYSQL" --protocol=tcp -h127.0.0.1 -P"$PORT" -uroot --batch --skip-column-names "$DB_NAME" -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'trades' AND column_name = 'account_id';")"
+if [ "$HAS_TRADE_ACCOUNT_ID" -eq 0 ]; then
+  echo "Applying broker account migration from $BROKER_ACCOUNTS_MIGRATION"
+  "$MYSQL" --protocol=tcp -h127.0.0.1 -P"$PORT" -uroot "$DB_NAME" < "$BROKER_ACCOUNTS_MIGRATION"
+fi
 
 echo
 echo "Temporary MySQL is ready."

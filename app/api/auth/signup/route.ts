@@ -12,7 +12,6 @@ import {
 } from '@/lib/server/auth';
 import { jsonError, parseJsonBody } from '@/lib/server/http';
 import { consumeRateLimit, getClientIp } from '@/lib/server/rate-limit';
-import { loadBootstrapData } from '@/lib/server/bootstrap';
 import { createEmailVerificationToken } from '@/lib/server/email-verification';
 import { sendEmailVerificationEmail } from '@/lib/server/email';
 
@@ -101,7 +100,6 @@ export async function POST(request: NextRequest) {
 
     const sessionToken = await createSession(userId);
     await setSessionCookie(sessionToken);
-    const bootstrap = await loadBootstrapData(userId, validated.data.email);
 
     return NextResponse.json(
       {
@@ -111,7 +109,6 @@ export async function POST(request: NextRequest) {
           name: validated.data.name,
           emailVerified: false,
         },
-        bootstrap,
       },
       { status: 201 }
     );

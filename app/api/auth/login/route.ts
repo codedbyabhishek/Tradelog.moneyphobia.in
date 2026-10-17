@@ -11,7 +11,6 @@ import {
 } from '@/lib/server/auth';
 import { jsonError, parseJsonBody } from '@/lib/server/http';
 import { consumeRateLimit, getClientIp } from '@/lib/server/rate-limit';
-import { loadBootstrapData } from '@/lib/server/bootstrap';
 
 export const runtime = 'nodejs';
 
@@ -100,7 +99,6 @@ export async function POST(request: NextRequest) {
 
     const sessionToken = await createSession(user.id);
     await setSessionCookie(sessionToken);
-    const bootstrap = await loadBootstrapData(user.id, user.email);
 
     return NextResponse.json({
       user: {
@@ -109,7 +107,6 @@ export async function POST(request: NextRequest) {
         name: user.name,
         emailVerified: Boolean(user.email_verified_at),
       },
-      bootstrap,
     });
   } catch (error) {
     console.error('[auth/login] error', error);

@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useRef, useState, type ChangeEvent } from 'react';
-import { AlertCircle, BarChart3, FileSpreadsheet, LineChart, RefreshCcw, Upload } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { AlertCircle, BarChart3, FileSpreadsheet, LineChart, Loader2, RefreshCcw, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,8 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { useToast } from '@/hooks/use-toast';
-import type { Currency } from '@/lib/types';
-import { formatCurrency } from '@/lib/trade-utils';
+import type { Currency, Trade } from '@/lib/types';
+import { convertToBaseCurrency, formatCurrency, getDayOfWeek, getExchangeRateToBase, getTradeResultLabel } from '@/lib/trade-utils';
+import { useAccounts } from '@/lib/accounts-context';
+import { useTrades } from '@/lib/trade-context';
 import {
   buildImportedTradeAnalytics,
   IMPORT_COLUMN_LABELS,
@@ -19,6 +21,7 @@ import {
   parseImportedTradesFile,
   type ColumnKey,
   type ImportedTradeAnalytics,
+  type ImportedTradeRecord,
   type ImportPresetId,
   type ImportedTradeParseResult,
 } from '@/lib/imported-trade-analysis';
@@ -139,15 +142,94 @@ function clearSavedMappingForPreset(presetId: ImportPresetId) {
   window.localStorage.setItem(IMPORT_MAPPING_STORAGE_KEY, JSON.stringify(nextMappings));
 }
 
+function stableImportId(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `import-${(hash >>> 0).toString(36)}`;
+}
+
+function toJournalTrade(
+  record: ImportedTradeRecord,
+  accountId: string,
+  currency: Currency,
+  fileName: string,
+  presetId: ImportPresetId,
+): Trade | null {
+  if (!record.tradeDate || record.pnl === null || record.side === 'Unknown') return null;
+
+  const entryPrice = record.entryPrice ?? undefined;
+  const exitPrice = record.exitPrice ?? undefined;
+  const quantity = record.quantity && record.quantity > 0 ? record.quantity : 1;
+  const exchangeRate = getExchangeRateToBase(currency);
+  const setupLabel = IMPORT_PRESETS.find((preset) => preset.id === presetId)?.label || 'Broker export';
+  const id = stableImportId([
+    fileName,
+    record.rawIndex,
+    record.tradeDate,
+    record.symbol,
+    record.side,
+    record.quantity ?? '',
+    record.entryPrice ?? '',
+    record.exitPrice ?? '',
+    record.pnl,
+  ].join('|'));
+
+  return {
+    id,
+    accountId,
+    isFavorite: false,
+    date: record.tradeDate,
+    dayOfWeek: getDayOfWeek(record.tradeDate),
+    symbol: record.symbol,
+    tradeType: 'Intraday',
+    setupName: `Import • ${setupLabel}`,
+    position: record.side,
+    entryPrice,
+    exitPrice,
+    stopLoss: entryPrice ?? 0,
+    quantity,
+    // Imported P&L is treated as net because brokers commonly report a net result.
+    // The source charge is retained in the note instead of subtracting it twice.
+    fees: 0,
+    pnl: record.pnl,
+    currency,
+    pnlBase: convertToBaseCurrency(record.pnl, currency, exchangeRate),
+    exchangeRate,
+    tradeResult: getTradeResultLabel(record.pnl),
+    rFactor: 0,
+    isWin: record.pnl > 0,
+    confidence: 5,
+    preNotes: `Imported from ${setupLabel}, source row ${record.rawIndex}.`,
+    postNotes: `Imported net P&L. Source charges reported: ${record.fees.toFixed(2)}.`,
+    timeFrame: 'Imported',
+    ruleFollowed: true,
+    marketCondition: 'Normal',
+    isScaledEntry: false,
+    isScaledExit: false,
+  };
+}
+
+function journalTradesHint(records: ImportedTradeRecord[]) {
+  const count = records.filter((record) => record.tradeDate && record.pnl !== null && record.side !== 'Unknown').length;
+  return `${count} ${count === 1 ? 'row is' : 'rows are'}`;
+}
+
 export default function ImportedTradeAnalyzer() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { accounts, activeAccount, activeAccountId, defaultAccountId } = useAccounts();
+  const { saveImportedTrades } = useTrades();
   const [fileName, setFileName] = useState<string>('');
   const [fileText, setFileText] = useState<string>('');
   const [parseResult, setParseResult] = useState<ImportedTradeParseResult | null>(null);
   const [reportCurrency, setReportCurrency] = useState<Currency>('INR');
   const [columnMapping, setColumnMapping] = useState<Partial<Record<ColumnKey, string>>>({});
   const [selectedPreset, setSelectedPreset] = useState<ImportPresetId>('custom');
+  const [targetAccountId, setTargetAccountId] = useState('');
+  const [isSavingToJournal, setIsSavingToJournal] = useState(false);
 
   const analytics: ImportedTradeAnalytics | null = useMemo(() => {
     if (!parseResult) return null;
@@ -157,6 +239,13 @@ export default function ImportedTradeAnalyzer() {
   const hasUsableAnalysis = Boolean(parseResult && analytics && analytics.summary.analyzedTrades > 0);
   const usableAnalytics = hasUsableAnalysis ? analytics : null;
   const hasSavedMapping = selectedPreset !== 'custom' && Object.keys(loadSavedMappingForPreset(selectedPreset)).length > 0;
+
+  useEffect(() => {
+    const preferred = activeAccountId === 'all' ? defaultAccountId : activeAccount?.id;
+    if (!targetAccountId || !accounts.some((account) => account.id === targetAccountId)) {
+      setTargetAccountId(preferred || accounts[0]?.id || '');
+    }
+  }, [accounts, activeAccount?.id, activeAccountId, defaultAccountId, targetAccountId]);
 
   const applyMapping = (
     nextMapping: Partial<Record<ColumnKey, string>>,
@@ -253,13 +342,52 @@ export default function ImportedTradeAnalyzer() {
     applyMapping({}, fileName, fileText, selectedPreset);
   };
 
+  const handleSaveToJournal = async () => {
+    if (!parseResult || !targetAccountId) {
+      toast({ title: 'Choose an account', description: 'Create or select a broker account before saving this import.', variant: 'destructive' });
+      return;
+    }
+
+    const targetAccount = accounts.find((account) => account.id === targetAccountId);
+    if (!targetAccount) return;
+    const journalTrades = parseResult.records
+      .map((record) => toJournalTrade(record, targetAccountId, targetAccount.currency, fileName, selectedPreset))
+      .filter((trade): trade is Trade => Boolean(trade));
+
+    if (journalTrades.length === 0) {
+      toast({
+        title: 'Nothing ready to save',
+        description: 'Map a date, symbol, side, and either P&L or complete entry/exit values before saving.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSavingToJournal(true);
+    try {
+      const result = await saveImportedTrades(journalTrades, targetAccountId);
+      toast({
+        title: 'Trades saved to journal',
+        description: `${result.savedCount} trades are now assigned to ${targetAccount.name}. Re-uploading this file updates the same rows instead of creating duplicates.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Could not save import',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingToJournal(false);
+    }
+  };
+
   return (
     <div className="space-y-6 p-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Imported Trade Analysis</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Upload broker-exported trades to generate reports without mixing them into your journal.
+            Upload a broker export to analyze it first, then save the verified trades into the broker account you choose.
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
             Safety checks: only plain `.csv` and `.json` files under 2 MB are accepted, and binary or archive-like files are rejected before parsing.
@@ -303,7 +431,7 @@ export default function ImportedTradeAnalyzer() {
                 <EmptyTitle>Analyze broker exports in one place</EmptyTitle>
                 <EmptyDescription>
                   Upload a CSV or JSON file from your broker and this page will detect columns, calculate P&amp;L metrics,
-                  and build key reports without linking to any other section.
+                  and build key reports. When the mapping looks right, you can save the verified rows to a specific journal account.
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
@@ -496,8 +624,8 @@ export default function ImportedTradeAnalyzer() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Import Quality</CardTitle>
-                <CardDescription>This section stays separate from your journal trades.</CardDescription>
+                <CardTitle>Save to journal account</CardTitle>
+                <CardDescription>Review the mapping, then assign these verified rows to one account. Full broker account numbers stay hidden.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <div className="flex items-center justify-between rounded-lg border p-3">
@@ -521,6 +649,26 @@ export default function ImportedTradeAnalyzer() {
                       </Badge>
                     ))}
                   </div>
+                </div>
+                <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/[0.04] p-3">
+                  <p className="text-sm font-medium">Journal destination</p>
+                  <Select value={targetAccountId} onValueChange={setTargetAccountId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose broker account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name}{account.accountNumberLast4 ? ` ••••${account.accountNumberLast4}` : ''} · {account.currency}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">{journalTradesHint(parseResult.records)} valid rows will be stored with this account. Re-importing the same file updates matching rows.</p>
+                  <Button className="w-full" onClick={() => void handleSaveToJournal()} disabled={isSavingToJournal || !targetAccountId}>
+                    {isSavingToJournal ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                    Save verified trades to journal
+                  </Button>
                 </div>
                 {parseResult.warnings.length > 0 ? (
                   <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900">

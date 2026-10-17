@@ -5,17 +5,20 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTrades } from '@/lib/trade-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trade } from '@/lib/types';
-import { Trash2, Eye, Filter, Star, Pencil, Upload, X, Share2 } from 'lucide-react';
+import type { MarketSession, Trade } from '@/lib/types';
+import { Trash2, Eye, Filter, Star, Pencil, Upload, X, Share2, Download } from 'lucide-react';
 import { calculateRFactor, convertToBaseCurrency, CURRENCY_SYMBOLS, getExchangeRateToBase, getTradeOutcome, getTradeResultLabel } from '@/lib/trade-utils';
 import { ScreenshotViewer } from './screenshot-viewer';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/lib/auth-context';
 import { validateImageFile } from '@/lib/validation';
-import { FIB_LEVEL_OPTIONS, PRESET_SETUPS } from './trade-form';
+import { FIB_LEVEL_OPTIONS, PRESET_SETUPS, SESSION_OPTIONS } from './trade-form';
+import { inferMarketSessionFromEntryTime } from '@/lib/session-performance';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { EmptyStateIllustration } from './brand-illustrations';
 import ShareCardDialog from '@/components/share-card-dialog';
 import { useTemplates, type TradeTemplate } from '@/lib/templates-context';
+import { openTradeJournalReportPDF } from '@/lib/trade-report';
 
 const PENDING_OUTCOME_TAG = 'Pending Outcome';
 type EditResultDirection = 'Pending' | 'Win' | 'Loss' | 'Break-Even';
@@ -71,8 +74,14 @@ function getResultDisplay(trade: Trade): { label: string; className: string } {
   return { label: 'Break-Even', className: 'text-yellow-400' };
 }
 
+function getTradeSessionLabel(trade: Trade) {
+  const session = trade.session || inferMarketSessionFromEntryTime(trade.entryTime);
+  return SESSION_OPTIONS.find((option) => option.value === session)?.label || '—';
+}
+
 export default function TradeLog() {
   const { trades, deleteTrade, updateTrade } = useTrades();
+  const { user } = useAuth();
   const { addTemplate } = useTemplates();
   const tableScrollRailRef = useRef<HTMLDivElement | null>(null);
   const tableViewportRef = useRef<HTMLDivElement | null>(null);
@@ -84,6 +93,8 @@ export default function TradeLog() {
   const [editSetupName, setEditSetupName] = useState('');
   const [editTags, setEditTags] = useState('');
   const [editTimeFrame, setEditTimeFrame] = useState('');
+  const [editSession, setEditSession] = useState<MarketSession | ''>('');
+  const [editEntryTime, setEditEntryTime] = useState('');
   const [editLimit, setEditLimit] = useState('');
   const [editExit, setEditExit] = useState('');
   const [editIsCustomSetup, setEditIsCustomSetup] = useState(false);
@@ -101,6 +112,37 @@ export default function TradeLog() {
   const [filterDate, setFilterDate] = useState<'All' | 'Today' | 'Last 7 Days'>('All');
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const { toast } = useToast();
+
+  const handleDownloadTradeReport = (trade: Trade) => {
+    try {
+      if (!openTradeJournalReportPDF(trade, user?.name, () => {
+        toast({
+          title: 'PDF print failed',
+          description: 'The report opened, but the browser could not start printing. Please try again.',
+          variant: 'destructive',
+        });
+      })) {
+        toast({
+          title: 'Could not open report',
+          description: 'Allow pop-ups for Traderlogify, then try downloading the PDF again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      toast({
+        title: 'Trade report is ready',
+        description: 'Choose “Save as PDF” in the print dialog to download your report.',
+      });
+    } catch (error) {
+      console.error('[TradeLog] PDF report generation failed', error);
+      toast({
+        title: 'Report generation failed',
+        description: 'The trade report could not be prepared. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const createPlaybookFromTrade = (trade: Trade) => {
     const now = new Date().toISOString();
@@ -230,6 +272,8 @@ export default function TradeLog() {
     setEditSetupName(trade.setupName || '');
     setEditTags(trade.tags?.join(', ') || '');
     setEditTimeFrame(trade.timeFrame || '');
+    setEditSession(trade.session || '');
+    setEditEntryTime(trade.entryTime || '');
     setEditLimit(trade.limit || '');
     setEditExit(trade.exit || '');
     setEditIsCustomSetup(!PRESET_SETUPS.includes((trade.setupName || '') as (typeof PRESET_SETUPS)[number]));
@@ -256,6 +300,8 @@ export default function TradeLog() {
     setEditSetupName('');
     setEditTags('');
     setEditTimeFrame('');
+    setEditSession('');
+    setEditEntryTime('');
     setEditLimit('');
     setEditExit('');
     setEditIsCustomSetup(false);
@@ -357,6 +403,8 @@ export default function TradeLog() {
       tags,
       setupName: editSetupName.trim() || editingTrade.setupName,
       timeFrame: editTimeFrame.trim() || undefined,
+      session: editSession || undefined,
+      entryTime: editEntryTime || undefined,
       limit: editLimit || undefined,
       exit: editExit || undefined,
       exitPrice: Number.isFinite(nextExitPrice) ? nextExitPrice : editingTrade.exitPrice,
@@ -500,6 +548,7 @@ export default function TradeLog() {
                     <th className="text-left px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">Symbol</th>
                     <th className="text-left px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">Setup</th>
                     <th className="text-left px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">Tags</th>
+                    <th className="text-left px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">Forex Session</th>
                     <th className="text-left px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">Pos</th>
                     <th className="text-right px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">Entry</th>
                     <th className="text-right px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">Exit</th>
@@ -549,6 +598,10 @@ export default function TradeLog() {
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
+                      </td>
+                      <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
+                        <span title={getTradeSessionLabel(trade)}>{getTradeSessionLabel(trade)}</span>
+                        {trade.entryTime && <span className="ml-1 text-[10px]">({trade.entryTime} UTC)</span>}
                       </td>
                       <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm">
                         <span className={`px-2 py-1 rounded text-xs font-semibold ${trade.position === 'Buy' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
@@ -656,6 +709,11 @@ export default function TradeLog() {
                       <p className="text-xs text-muted-foreground">Confidence</p>
                       <p className="font-semibold text-foreground">{trade.confidence}/10</p>
                     </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">Forex Session</p>
+                      <p className="font-semibold text-foreground text-xs">{getTradeSessionLabel(trade)}</p>
+                      {trade.entryTime && <p className="text-xs text-muted-foreground">{trade.entryTime} UTC</p>}
+                    </div>
                   </div>
 
                   {trade.tags && trade.tags.length > 0 && (
@@ -725,23 +783,21 @@ export default function TradeLog() {
       {/* Detail Modal - Accessible overlay with proper focus management */}
       {selectedTrade && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-50 overflow-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-auto bg-black/70 p-1 sm:p-3"
           onClick={() => setSelectedTrade(null)}
           role="dialog"
           aria-modal="true"
           aria-labelledby="trade-detail-title"
         >
-          {/* Modal content with proper overflow handling */}
           <Card
-            className="bg-card border-border w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col my-auto"
+            className="my-auto flex h-[96dvh] max-h-[1100px] w-full max-w-screen-2xl flex-col overflow-hidden border-border bg-card"
             onClick={e => e.stopPropagation()}
           >
-            {/* Sticky header with close button */}
-            <CardHeader className="sticky top-0 bg-card border-b border-border p-3 sm:p-4 lg:p-6 flex-shrink-0">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <CardHeader className="sticky top-0 z-10 flex-shrink-0 border-b border-border bg-card p-3 sm:p-4 lg:p-5">
+              <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <CardTitle id="trade-detail-title" className="text-lg sm:text-xl lg:text-2xl break-words">
+                    <CardTitle id="trade-detail-title" className="break-words text-lg sm:text-xl lg:text-2xl">
                       {selectedTrade.symbol} - {selectedTrade.tradeType}
                     </CardTitle>
                     {isBrokerSyncedTrade(selectedTrade) && (
@@ -755,75 +811,113 @@ export default function TradeLog() {
                       </span>
                     )}
                   </div>
-                  <CardDescription className="text-xs sm:text-sm mt-1">{selectedTrade.date}</CardDescription>
+                  <CardDescription className="mt-1 text-xs sm:text-sm">
+                    {selectedTrade.date} · {selectedTrade.dayOfWeek} · {getTradeSessionLabel(selectedTrade)}
+                    {selectedTrade.entryTime ? ` · ${selectedTrade.entryTime} UTC` : ''}
+                  </CardDescription>
                 </div>
-                {/* Accessible close button */}
-                <button
-                  onClick={() => setSelectedTrade(null)}
-                  className="flex-shrink-0 p-1 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-primary"
-                  aria-label="Close trade details"
-                  type="button"
-                >
-                  <span className="text-xl leading-none">✕</span>
-                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => handleDownloadTradeReport(selectedTrade)}
+                  >
+                    <Download className="h-4 w-4" />
+                    <span className="hidden sm:inline">Download PDF</span>
+                    <span className="sm:hidden">PDF</span>
+                  </Button>
+                  <button
+                    onClick={() => setSelectedTrade(null)}
+                    className="flex-shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    aria-label="Close trade details"
+                    type="button"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
             </CardHeader>
-            {/* Scrollable content area */}
-            <CardContent className="flex-1 overflow-y-auto space-y-4 sm:space-y-6 p-3 sm:p-4 lg:p-6">
+            <CardContent className="flex-1 space-y-4 overflow-y-auto p-3 sm:space-y-6 sm:p-5 lg:p-7">
               {/* Trade Details Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                <div className="rounded-xl border border-border bg-secondary/30 p-3">
                   <p className="text-xs text-muted-foreground">Position</p>
                   <p className={`text-lg font-bold ${selectedTrade.position === 'Buy' ? 'text-green-400' : 'text-red-400'}`}>{selectedTrade.position}</p>
                 </div>
-                <div>
+                <div className="rounded-xl border border-border bg-secondary/30 p-3">
                   <p className="text-xs text-muted-foreground">Setup Name</p>
                   <p className="text-lg font-bold text-foreground">{selectedTrade.setupName}</p>
                 </div>
-                <div>
+                <div className="rounded-xl border border-border bg-secondary/30 p-3">
                   <p className="text-xs text-muted-foreground">Time Frame</p>
                   <p className="text-lg font-bold text-foreground">{selectedTrade.timeFrame || 'N/A'}</p>
                 </div>
-                <div>
+                <div className="rounded-xl border border-border bg-secondary/30 p-3">
                   <p className="text-xs text-muted-foreground">Limit (Fibonacci)</p>
                   <p className="text-lg font-bold text-foreground">{selectedTrade.limit || 'N/A'}</p>
                 </div>
-                <div>
+                <div className="rounded-xl border border-border bg-secondary/30 p-3">
                   <p className="text-xs text-muted-foreground">Exit (Fibonacci)</p>
                   <p className="text-lg font-bold text-foreground">{selectedTrade.exit || 'N/A'}</p>
                 </div>
-                <div>
+                <div className="rounded-xl border border-border bg-secondary/30 p-3">
                   <p className="text-xs text-muted-foreground">Currency</p>
                   <p className="text-lg font-bold text-foreground">{selectedTrade.currency || 'USD'} ({CURRENCY_SYMBOLS[selectedTrade.currency] || '$'})</p>
                 </div>
-                <div>
+                <div className="rounded-xl border border-border bg-secondary/30 p-3">
                   <p className="text-xs text-muted-foreground">Entry Price</p>
                   <p className="text-lg font-bold text-foreground">{selectedTrade.entryPrice ? `${CURRENCY_SYMBOLS[selectedTrade.currency] || '$'}${selectedTrade.entryPrice.toFixed(2)}` : 'N/A'}</p>
                 </div>
-                <div>
+                <div className="rounded-xl border border-border bg-secondary/30 p-3">
                   <p className="text-xs text-muted-foreground">Exit Price</p>
                   <p className="text-lg font-bold text-foreground">{selectedTrade.exitPrice ? `${CURRENCY_SYMBOLS[selectedTrade.currency] || '$'}${selectedTrade.exitPrice.toFixed(2)}` : 'N/A'}</p>
                 </div>
-                <div>
+                <div className="rounded-xl border border-border bg-secondary/30 p-3">
                   <p className="text-xs text-muted-foreground">Stop Loss</p>
                   <p className="text-lg font-bold text-foreground">{CURRENCY_SYMBOLS[selectedTrade.currency] || '$'}{selectedTrade.stopLoss.toFixed(2)}</p>
                 </div>
-                <div>
+                <div className="rounded-xl border border-border bg-secondary/30 p-3">
                   <p className="text-xs text-muted-foreground">Quantity</p>
                   <p className="text-lg font-bold text-foreground">{selectedTrade.quantity}</p>
                 </div>
-                <div>
+                <div className="rounded-xl border border-border bg-secondary/30 p-3">
                   <p className="text-xs text-muted-foreground">Fees</p>
                   <p className="text-lg font-bold text-foreground">{CURRENCY_SYMBOLS[selectedTrade.currency] || '$'}{selectedTrade.fees.toFixed(2)}</p>
                 </div>
-                <div>
+                <div className="rounded-xl border border-border bg-secondary/30 p-3">
                   <p className="text-xs text-muted-foreground">Confidence</p>
                   <p className="text-lg font-bold text-foreground">{selectedTrade.confidence}/10</p>
                 </div>
+                {selectedTrade.marketCondition && (
+                  <div className="rounded-xl border border-border bg-secondary/30 p-3">
+                    <p className="text-xs text-muted-foreground">Market Condition</p>
+                    <p className="text-lg font-bold text-foreground">{selectedTrade.marketCondition}</p>
+                  </div>
+                )}
+                {selectedTrade.marketTrend && (
+                  <div className="rounded-xl border border-border bg-secondary/30 p-3">
+                    <p className="text-xs text-muted-foreground">Market Trend</p>
+                    <p className="text-lg font-bold text-foreground">{selectedTrade.marketTrend}</p>
+                  </div>
+                )}
+                {selectedTrade.emotion && (
+                  <div className="rounded-xl border border-border bg-secondary/30 p-3">
+                    <p className="text-xs text-muted-foreground">Emotion</p>
+                    <p className="text-lg font-bold text-foreground">{selectedTrade.emotion}</p>
+                  </div>
+                )}
+                {selectedTrade.riskRewardRatio !== undefined && (
+                  <div className="rounded-xl border border-border bg-secondary/30 p-3">
+                    <p className="text-xs text-muted-foreground">Risk / Reward</p>
+                    <p className="text-lg font-bold text-foreground">{selectedTrade.riskRewardRatio.toFixed(2)}R</p>
+                  </div>
+                )}
               </div>
 
               {/* Results - shows currency and auto-derived outcome */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-secondary rounded-lg border border-border">
+              <div className="grid grid-cols-2 gap-4 rounded-xl border border-border bg-secondary p-4 sm:grid-cols-4">
                 <div>
                   <p className="text-xs text-muted-foreground">Net P&L ({selectedTrade.currency || 'USD'})</p>
                   <p className={`text-2xl font-bold ${selectedTrade.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
@@ -933,9 +1027,6 @@ export default function TradeLog() {
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit Trade
               </Button>
-              <Button onClick={() => setSelectedTrade(null)} className="w-full bg-primary hover:bg-primary/90">
-                Close
-              </Button>
             </CardContent>
           </Card>
         </div>
@@ -1040,6 +1131,34 @@ export default function TradeLog() {
                     className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-foreground">Forex Market Session</label>
+                  <select
+                    value={editSession}
+                    onChange={(e) => setEditSession(e.target.value as MarketSession | '')}
+                    className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Infer from entry time</option>
+                    {SESSION_OPTIONS.map((session) => (
+                      <option key={session.value} value={session.value}>{session.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-foreground">Entry Time (UTC)</label>
+                  <input
+                    type="time"
+                    value={editEntryTime}
+                    onChange={(e) => setEditEntryTime(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground sm:col-span-2">
+                  Session hours are approximate UTC and shift with daylight saving.
+                </p>
               </div>
 
               <div>

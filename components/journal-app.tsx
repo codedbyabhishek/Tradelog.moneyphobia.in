@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { TradeProvider, useTrades } from '@/lib/trade-context';
 import { SettingsProvider } from '@/lib/settings-context';
+import { AccountsProvider } from '@/lib/accounts-context';
 import { IdeasProvider } from '@/lib/ideas-context';
 import { GoalsProvider } from '@/lib/goals-context';
 import { FiltersProvider } from '@/lib/filters-context';
@@ -100,6 +101,7 @@ const importPlaybookBuilder = () => import('@/components/playbook-builder');
 const importTradeLog = () => import('@/components/trade-log');
 const importCalendarView = () => import('@/components/calendar-view');
 const importPerformance = () => import('@/components/performance');
+const importBrokerHub = () => import('@/components/broker-hub');
 const importImportedTradeAnalyzer = () => import('@/components/imported-trade-analyzer');
 const importAnalytics = () => import('@/components/analytics');
 const importProfitLoss = () => import('@/components/profit-loss');
@@ -122,6 +124,7 @@ const PlaybookBuilder = dynamic(loadPage(importPlaybookBuilder, 'playbooks'), { 
 const TradeLog = dynamic(loadPage(importTradeLog, 'trade log'), { loading: createPageLoader('trade log') });
 const CalendarView = dynamic(loadPage(importCalendarView, 'calendar view'), { loading: createPageLoader('calendar view') });
 const Performance = dynamic(loadPage(importPerformance, 'performance'), { loading: createPageLoader('performance') });
+const BrokerHub = dynamic(loadPage(importBrokerHub, 'broker hub'), { loading: createPageLoader('broker hub') });
 const ImportedTradeAnalyzer = dynamic(loadPage(importImportedTradeAnalyzer, 'import analysis'), { loading: createPageLoader('import analysis') });
 const Analytics = dynamic(loadPage(importAnalytics, 'analytics'), { loading: createPageLoader('analytics') });
 const ProfitLoss = dynamic(loadPage(importProfitLoss, 'profit and loss'), { loading: createPageLoader('profit and loss') });
@@ -207,6 +210,8 @@ function JournalAppContent({ currentPage }: { currentPage: Page }) {
         return <CalendarView trades={trades} />;
       case 'performance':
         return <Performance />;
+      case 'broker-hub':
+        return <BrokerHub />;
       case 'import-analysis':
         return <ImportedTradeAnalyzer />;
       case 'pre-trade':
@@ -288,17 +293,19 @@ export default function JournalApp({ currentPage }: { currentPage: Page }) {
     <HydrationBoundary>
       <AuthProvider>
         <SettingsProvider>
-          <TradeProvider>
-            <IdeasProvider>
-              <GoalsProvider>
-                <FiltersProvider>
-                  <TemplatesProvider>
-                    <JournalAppContent currentPage={currentPage} />
-                  </TemplatesProvider>
-                </FiltersProvider>
-              </GoalsProvider>
-            </IdeasProvider>
-          </TradeProvider>
+          <AccountsProvider>
+            <TradeProvider>
+              <IdeasProvider>
+                <GoalsProvider>
+                  <FiltersProvider>
+                    <TemplatesProvider>
+                      <JournalAppContent currentPage={currentPage} />
+                    </TemplatesProvider>
+                  </FiltersProvider>
+                </GoalsProvider>
+              </IdeasProvider>
+            </TradeProvider>
+          </AccountsProvider>
         </SettingsProvider>
       </AuthProvider>
     </HydrationBoundary>

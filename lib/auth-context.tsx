@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   clearAuthUser,
   clearBootstrap,
@@ -8,7 +8,6 @@ import {
   markRecentAuth,
   rememberAuthUser,
   readAuthUser,
-  readBootstrap,
   storeAuthUser,
   storeBootstrap,
 } from '@/lib/client-bootstrap';
@@ -36,6 +35,7 @@ interface AuthContextType {
   loginWithGoogle: (credential: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  updateProfileName: (name: string) => void;
   clearError: () => void;
 }
 
@@ -88,15 +88,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshSession = async () => {
     try {
-      const cachedUser = readAuthUser();
-      const cachedBootstrap = cachedUser ? readBootstrap(cachedUser.id) : null;
       const res = await fetchWithTimeout('/api/auth/me', {
         method: 'GET',
         credentials: 'include',
         cache: 'no-store',
-        headers: cachedUser && cachedBootstrap?.userId === cachedUser.id
-          ? { 'x-bootstrap-cache-user': String(cachedUser.id) }
-          : undefined,
       });
 
       if (!res.ok) {
@@ -117,6 +112,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         storeBootstrap(null);
       } else if ('bootstrap' in data) {
         storeBootstrap(data.bootstrap || null);
+      } else {
+        storeBootstrap(null);
       }
       setError(null);
     } catch (error) {
@@ -250,11 +247,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
   };
 
+  const updateProfileName = useCallback((name: string) => {
+    if (!currentUser) return;
+    const updated = { ...currentUser, name };
+    setCurrentUser(updated);
+    storeAuthUser(updated);
+    rememberAuthUser(updated);
+  }, [currentUser]);
+
   const clearError = () => setError(null);
 
   const value = useMemo(
-    () => ({ user: currentUser, isLoading, error, login, signup, loginWithGoogle, logout, refreshSession, clearError }),
-    [currentUser, isLoading, error]
+    () => ({ user: currentUser, isLoading, error, login, signup, loginWithGoogle, logout, refreshSession, updateProfileName, clearError }),
+    [currentUser, isLoading, error, updateProfileName]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -52,6 +52,21 @@ interface UpstoxDayTradeResponse {
   data?: Array<{ trade_id?: string }>;
 }
 
+interface UpstoxFundMargin {
+  used_margin?: number;
+  payin_amount?: number;
+  span_margin?: number;
+  adhoc_margin?: number;
+  notional_cash?: number;
+  available_margin?: number;
+  exposure_margin?: number;
+}
+
+interface UpstoxFundMarginResponse {
+  status?: string;
+  data?: Record<string, UpstoxFundMargin>;
+}
+
 interface OpenLot {
   side: 'BUY' | 'SELL';
   quantity: number;
@@ -72,6 +87,7 @@ async function upstoxFetch<T>(path: string, accessToken: string): Promise<T> {
       Accept: 'application/json',
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
+      'Api-Version': '2.0',
     },
     cache: 'no-store',
   });
@@ -115,14 +131,24 @@ export async function deleteUpstoxConfig(userId: number) {
 }
 
 export async function getUpstoxStatus(config: UpstoxStoredConfig) {
-  const todayTrades = await upstoxFetch<UpstoxDayTradeResponse>(
-    '/v2/order/trades/get-trades-for-day',
-    config.accessToken
-  );
+  const [todayTrades, fundMargin] = await Promise.all([
+    upstoxFetch<UpstoxDayTradeResponse>('/v2/order/trades/get-trades-for-day', config.accessToken),
+    upstoxFetch<UpstoxFundMarginResponse>('/v2/user/get-funds-and-margin', config.accessToken),
+  ]);
+
+  if (!fundMargin.data || typeof fundMargin.data !== 'object' || Array.isArray(fundMargin.data)) {
+    throw new Error('Upstox returned no fund and margin data.');
+  }
+  for (const [segment, metrics] of Object.entries(fundMargin.data)) {
+    if (!metrics || typeof metrics !== 'object' || Array.isArray(metrics)) {
+      throw new Error(`Upstox returned invalid fund data for the ${segment} segment.`);
+    }
+  }
 
   return {
     todayTrades: todayTrades.data?.length || 0,
     tokenValidated: true,
+    funds: fundMargin.data,
   };
 }
 
@@ -288,7 +314,13 @@ function mapUpstoxTradesToJournalTrades(items: UpstoxTradeHistoryItem[]): Trade[
   return trades.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
-export async function syncUpstoxTradesToJournal(userId: number, config: UpstoxStoredConfig, fromDate: string, toDate: string) {
+export async function syncUpstoxTradesToJournal(
+  userId: number,
+  config: UpstoxStoredConfig,
+  fromDate: string,
+  toDate: string,
+  accountId: string,
+) {
   const sourceTrades = await fetchHistoricalTrades(config, fromDate, toDate);
   const mappedTrades = mapUpstoxTradesToJournalTrades(sourceTrades);
 
@@ -304,20 +336,20 @@ export async function syncUpstoxTradesToJournal(userId: number, config: UpstoxSt
   const ids = mappedTrades.map((trade) => trade.id);
   const placeholders = ids.map(() => '?').join(', ');
   const existingRows = await dbQuery<{ trade_id: string }[]>(
-    `SELECT trade_id FROM trades WHERE user_id = ? AND trade_id IN (${placeholders})`,
-    [userId, ...ids]
+    `SELECT trade_id FROM trades WHERE user_id = ? AND account_id = ? AND trade_id IN (${placeholders})`,
+    [userId, accountId, ...ids]
   );
   const existingIds = new Set(existingRows.map((row) => row.trade_id));
 
   for (const trade of mappedTrades) {
     await dbExecute(
-      `INSERT INTO trades (user_id, trade_id, trade_json, trade_date, created_at, updated_at)
-       VALUES (?, ?, ?, ?, NOW(), NOW())
+      `INSERT INTO trades (user_id, account_id, trade_id, trade_json, trade_date, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, NOW(), NOW())
        ON DUPLICATE KEY UPDATE
          trade_json = VALUES(trade_json),
          trade_date = VALUES(trade_date),
          updated_at = NOW()`,
-      [userId, trade.id, JSON.stringify(trade), trade.date]
+      [userId, accountId, trade.id, JSON.stringify({ ...trade, accountId }), trade.date]
     );
   }
 

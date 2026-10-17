@@ -4,9 +4,10 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { Currency, Trade } from './types';
 import { convertToBaseCurrency, getExchangeRateToBase, getTradeResultLabel } from './trade-utils';
 import { useAuth } from '@/lib/auth-context';
-import { clearBootstrap, readBootstrap, storeBootstrap } from '@/lib/client-bootstrap';
+import { clearBootstrap } from '@/lib/client-bootstrap';
 import { useSettings } from '@/lib/settings-context';
 import { isProPlan, SUBSCRIPTION_LIMITS } from '@/lib/subscription';
+import { useAccounts } from '@/lib/accounts-context';
 
 interface TradeContextType {
   trades: Trade[];
@@ -18,22 +19,13 @@ interface TradeContextType {
   exportJSON: () => void;
   exportCSV: () => void;
   importJSON: (file: Blob, options?: { mode?: 'merge' | 'replace' }) => Promise<{ importedCount: number; duplicateCount: number; totalCount: number }>;
+  saveImportedTrades: (trades: Trade[], accountId: string) => Promise<{ savedCount: number; totalCount: number }>;
   error: string | null;
   clearError: () => void;
   storagePercentage: number;
 }
 
 export const TradeContext = createContext<TradeContextType | undefined>(undefined);
-
-function updateBootstrapTrades(userId: number, updater: (trades: Trade[]) => Trade[]) {
-  const bootstrap = readBootstrap(userId);
-  if (!bootstrap) return;
-
-  storeBootstrap({
-    ...bootstrap,
-    trades: updater(Array.isArray(bootstrap.trades) ? bootstrap.trades : []),
-  });
-}
 
 function normalizeTrade(trade: any): Trade {
   if (trade.currency && trade.pnlBase !== undefined) {
@@ -87,12 +79,13 @@ async function apiRequest(url: string, init?: RequestInit) {
 export function TradeProvider({ children }: { children: React.ReactNode }) {
   const { user, isLoading: isAuthLoading } = useAuth();
   const { billingState } = useSettings();
+  const { activeAccountId, defaultAccountId, isLoading: isAccountsLoading } = useAccounts();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [storagePercentage] = useState(0);
 
   const refreshTrades = useCallback(async () => {
-    if (isAuthLoading) {
+    if (isAuthLoading || isAccountsLoading) {
       return;
     }
 
@@ -103,25 +96,18 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const bootstrap = readBootstrap(user.id);
-    if (bootstrap) {
-      setTrades(bootstrap.trades.map(normalizeTrade));
-      setError(null);
-      return;
-    }
-
     try {
-      const res = await apiRequest('/api/trades', { method: 'GET' });
+      const query = activeAccountId === 'all' ? '' : `?accountId=${encodeURIComponent(activeAccountId)}`;
+      const res = await apiRequest(`/api/trades${query}`, { method: 'GET' });
       const data = await res.json();
       const loadedTrades = Array.isArray(data.trades) ? data.trades.map(normalizeTrade) : [];
       setTrades(loadedTrades);
-      updateBootstrapTrades(user.id, () => loadedTrades);
       setError(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load trades';
       setError(message);
     }
-  }, [isAuthLoading, user]);
+  }, [activeAccountId, isAccountsLoading, isAuthLoading, user]);
 
   useEffect(() => {
     void refreshTrades();
@@ -139,11 +125,14 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Invalid trade data: missing required fields');
       }
 
-      const normalized = normalizeTrade(trade);
-      setTrades((prev) => [...prev, normalized]);
-      if (user) {
-        updateBootstrapTrades(user.id, (prev) => [...prev, normalized]);
+      const accountId = trade.accountId || (activeAccountId === 'all' ? defaultAccountId : activeAccountId);
+      if (!accountId) {
+        throw new Error('Choose a broker account before saving a trade.');
       }
+
+      const normalized = normalizeTrade({ ...trade, accountId });
+      setTrades((prev) => [...prev, normalized]);
+      clearBootstrap();
 
       void apiRequest('/api/trades', {
         method: 'POST',
@@ -164,12 +153,12 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Trade ID is required');
       }
 
+      const trade = trades.find((item) => item.id === id);
+      const accountId = trade?.accountId || (activeAccountId === 'all' ? defaultAccountId : activeAccountId);
       setTrades((prev) => prev.filter((t) => t.id !== id));
-      if (user) {
-        updateBootstrapTrades(user.id, (prev) => prev.filter((t) => t.id !== id));
-      }
+      clearBootstrap();
 
-      void apiRequest(`/api/trades/${encodeURIComponent(id)}`, {
+      void apiRequest(`/api/trades/${encodeURIComponent(id)}${accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''}`, {
         method: 'DELETE',
       }).catch((err) => {
         console.error('[TradeContext] Failed to delete trade:', err);
@@ -184,10 +173,9 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
   const clearTrades = async () => {
     try {
       setTrades([]);
-      if (user) {
-        updateBootstrapTrades(user.id, () => []);
-      }
-      await apiRequest('/api/trades', {
+      clearBootstrap();
+      const query = activeAccountId === 'all' ? '' : `?accountId=${encodeURIComponent(activeAccountId)}`;
+      await apiRequest(`/api/trades${query}`, {
         method: 'DELETE',
       });
       setError(null);
@@ -208,11 +196,14 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Invalid trade data');
       }
 
-      const normalized = normalizeTrade(updatedTrade);
-      setTrades((prev) => prev.map((t) => (t.id === id ? normalized : t)));
-      if (user) {
-        updateBootstrapTrades(user.id, (prev) => prev.map((t) => (t.id === id ? normalized : t)));
+      const existing = trades.find((trade) => trade.id === id);
+      const accountId = updatedTrade.accountId || existing?.accountId || (activeAccountId === 'all' ? defaultAccountId : activeAccountId);
+      if (!accountId) {
+        throw new Error('Choose a broker account before updating a trade.');
       }
+      const normalized = normalizeTrade({ ...updatedTrade, accountId });
+      setTrades((prev) => prev.map((t) => (t.id === id ? normalized : t)));
+      clearBootstrap();
 
       void apiRequest(`/api/trades/${encodeURIComponent(id)}`, {
         method: 'PUT',
@@ -366,22 +357,26 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
       }
 
       const migratedTrades = validTrades.map(normalizeTrade);
+      const accountId = activeAccountId === 'all' ? defaultAccountId : activeAccountId;
+      if (!accountId) throw new Error('Choose a broker account before importing trades.');
+      const accountTrades = migratedTrades.map((trade) => ({ ...trade, accountId }));
       const existingIds = new Set(trades.map((trade) => trade.id));
-      const dedupedTrades = migratedTrades.filter((trade) => !existingIds.has(trade.id));
-      const tradesToImport = mode === 'replace' ? migratedTrades : dedupedTrades;
-      const duplicateCount = mode === 'replace' ? 0 : migratedTrades.length - dedupedTrades.length;
+      const dedupedTrades = accountTrades.filter((trade) => !existingIds.has(trade.id));
+      const tradesToImport = mode === 'replace' ? accountTrades : dedupedTrades;
+      const duplicateCount = mode === 'replace' ? 0 : accountTrades.length - dedupedTrades.length;
 
       if (tradesToImport.length === 0) {
         setError(null);
         return {
           importedCount: 0,
           duplicateCount,
-          totalCount: migratedTrades.length,
+          totalCount: accountTrades.length,
         };
       }
 
       if (mode === 'replace') {
-        await apiRequest('/api/trades', {
+        const query = `?accountId=${encodeURIComponent(accountId)}`;
+        await apiRequest(`/api/trades${query}`, {
           method: 'DELETE',
         });
       }
@@ -396,19 +391,50 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
       );
 
       setTrades((prev) => (mode === 'replace' ? tradesToImport : [...prev, ...tradesToImport]));
-      if (user) {
-        updateBootstrapTrades(user.id, (prev) => (mode === 'replace' ? tradesToImport : [...prev, ...tradesToImport]));
-      }
+      clearBootstrap();
       setError(null);
       return {
         importedCount: tradesToImport.length,
         duplicateCount,
-        totalCount: migratedTrades.length,
+        totalCount: accountTrades.length,
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error during import';
       setError(message);
       await refreshTrades();
+      throw err;
+    }
+  };
+
+  const saveImportedTrades = async (incomingTrades: Trade[], accountId: string) => {
+    try {
+      if (!accountId) throw new Error('Choose an account before saving imported trades.');
+      const byId = new Map<string, Trade>();
+      incomingTrades.forEach((trade) => {
+        if (trade.id && trade.date && trade.symbol) {
+          byId.set(trade.id, normalizeTrade({ ...trade, accountId }));
+        }
+      });
+      const tradesToSave = [...byId.values()];
+      if (tradesToSave.length === 0) throw new Error('No complete trades are available to save. Add dates and symbols in the column mapping first.');
+
+      const batchSize = 8;
+      for (let index = 0; index < tradesToSave.length; index += batchSize) {
+        await Promise.all(tradesToSave.slice(index, index + batchSize).map((trade) => apiRequest('/api/trades', {
+          method: 'POST',
+          body: JSON.stringify({ trade }),
+        })));
+      }
+
+      if (activeAccountId === 'all' || activeAccountId === accountId) {
+        await refreshTrades();
+      }
+      clearBootstrap();
+      setError(null);
+      return { savedCount: tradesToSave.length, totalCount: incomingTrades.length };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to save imported trades.';
+      setError(message);
       throw err;
     }
   };
@@ -427,6 +453,7 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
         exportJSON,
         exportCSV,
         importJSON,
+        saveImportedTrades,
         error,
         clearError,
         storagePercentage,

@@ -79,6 +79,8 @@ export type MistakeTag = (typeof MISTAKE_TAG_OPTIONS)[number];
 
 export interface Trade {
   id: string;
+  /** The broker or manual account that owns this trade. */
+  accountId?: string;
   isFavorite?: boolean;
   tags?: string[];
   date: string;

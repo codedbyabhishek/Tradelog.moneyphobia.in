@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/use-toast';
 import { useTrades } from '@/lib/trade-context';
 import { useSettings } from '@/lib/settings-context';
+import { useAccounts } from '@/lib/accounts-context';
 import { isProPlan } from '@/lib/subscription';
 import { BROKER_DEFINITIONS, getBrokerDefinition, type BrokerId } from '@/lib/brokers';
 
@@ -27,7 +28,7 @@ interface DhanStatusResponse {
     positionsCount: number;
     openPositionCount: number;
     availableBalance: number;
-    withdrawableBalance: number;
+    withdrawableBalance: number | null;
     sampleHoldings: string[];
   };
 }
@@ -51,6 +52,15 @@ interface UpstoxStatusResponse {
   status?: {
     todayTrades: number;
     tokenValidated: boolean;
+    funds: Record<string, {
+      used_margin?: number;
+      payin_amount?: number;
+      span_margin?: number;
+      adhoc_margin?: number;
+      notional_cash?: number;
+      available_margin?: number;
+      exposure_margin?: number;
+    }>;
   };
 }
 
@@ -72,6 +82,12 @@ interface ZerodhaConfigResponse {
 type BrokerStatus = DhanStatusResponse['status'] | UpstoxStatusResponse['status'] | null;
 type BrokerSyncResult = DhanSyncResponse | UpstoxSyncResponse | null;
 
+interface BrokerSyncHubProps {
+  selectedBroker?: BrokerId;
+  onBrokerChange?: (brokerId: BrokerId) => void;
+  onConnectionChange?: () => void;
+}
+
 function todayString() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -82,6 +98,15 @@ function daysAgoString(daysAgo: number) {
   return date.toISOString().slice(0, 10);
 }
 
+function formatInr(value: number | undefined) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 function BrokerIcon({ brokerId }: { brokerId: BrokerId }) {
   if (brokerId === 'dhan') return <Database className="h-4 w-4 text-primary" />;
   if (brokerId === 'zerodha') return <Landmark className="h-4 w-4 text-primary" />;
@@ -89,13 +114,18 @@ function BrokerIcon({ brokerId }: { brokerId: BrokerId }) {
   return <ShieldEllipsis className="h-4 w-4 text-primary" />;
 }
 
-export default function BrokerSyncHub() {
+export default function BrokerSyncHub({
+  selectedBroker: controlledBroker,
+  onBrokerChange,
+  onConnectionChange,
+}: BrokerSyncHubProps) {
   const { refreshTrades } = useTrades();
+  const { activeAccount, activeAccountId, defaultAccountId } = useAccounts();
   const { billingState } = useSettings();
   const { toast } = useToast();
   const proPlan = isProPlan(billingState);
 
-  const [selectedBroker, setSelectedBroker] = useState<BrokerId>('dhan');
+  const [uncontrolledBroker, setUncontrolledBroker] = useState<BrokerId>('dhan');
   const [clientId, setClientId] = useState('');
   const [accessToken, setAccessToken] = useState('');
   const [zerodhaApiKey, setZerodhaApiKey] = useState('');
@@ -112,6 +142,8 @@ export default function BrokerSyncHub() {
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
   const [status, setStatus] = useState<BrokerStatus>(null);
   const [lastSync, setLastSync] = useState<BrokerSyncResult>(null);
+
+  const selectedBroker = controlledBroker ?? uncontrolledBroker;
 
   const broker = useMemo(() => getBrokerDefinition(selectedBroker), [selectedBroker]);
   const isDhan = selectedBroker === 'dhan';
@@ -150,6 +182,20 @@ export default function BrokerSyncHub() {
     void loadConfig(selectedBroker);
   }, [isLiveBroker, isZerodha, selectedBroker]);
 
+  useEffect(() => {
+    setStatus(null);
+    setLastSync(null);
+    setConfigured(false);
+    setHasAccessToken(false);
+    setUpdatedAt(null);
+    setClientId('');
+    setAccessToken('');
+    setZerodhaApiKey('');
+    setZerodhaApiSecret('');
+    setZerodhaHasApiSecret(false);
+    setZerodhaRedirectUri('');
+  }, [selectedBroker]);
+
   const resetLiveState = () => {
     setStatus(null);
     setLastSync(null);
@@ -159,7 +205,9 @@ export default function BrokerSyncHub() {
   };
 
   const handleBrokerChange = (value: string) => {
-    setSelectedBroker(value as BrokerId);
+    const nextBroker = value as BrokerId;
+    if (controlledBroker === undefined) setUncontrolledBroker(nextBroker);
+    onBrokerChange?.(nextBroker);
     resetLiveState();
     setConfigured(false);
     setHasAccessToken(false);
@@ -231,6 +279,7 @@ export default function BrokerSyncHub() {
       setHasAccessToken(true);
       setUpdatedAt(new Date().toISOString());
       setAccessToken('');
+      onConnectionChange?.();
       toast({
         title: `${broker.label} Connected`,
         description: `Your ${broker.label} credentials were saved. You can sync from this broker hub anytime.`,
@@ -263,6 +312,7 @@ export default function BrokerSyncHub() {
       setStatus(null);
       setLastSync(null);
       setAccessToken('');
+      onConnectionChange?.();
       toast({
         title: `${broker.label} Disconnected`,
         description: `Saved ${broker.label} credentials were removed from this account.`,
@@ -288,13 +338,19 @@ export default function BrokerSyncHub() {
       return;
     }
 
+    const accountId = activeAccountId === 'all' ? defaultAccountId : activeAccountId;
+    if (!accountId) {
+      toast({ title: 'Choose an account', description: 'Create or select a journal account before syncing.', variant: 'destructive' });
+      return;
+    }
+
     setIsSyncing(true);
     try {
       const res = await fetch(`/api/brokers/${selectedBroker}/sync`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromDate, toDate }),
+        body: JSON.stringify({ fromDate, toDate, accountId }),
       });
       const data = (await res.json()) as (DhanSyncResponse | UpstoxSyncResponse) & { error?: string };
       if (!res.ok) throw new Error(data.error || `Failed to sync trades from ${broker.label}`);
@@ -355,6 +411,7 @@ export default function BrokerSyncHub() {
       setUpdatedAt(new Date().toISOString());
       setZerodhaHasApiSecret(true);
       setZerodhaApiSecret('');
+      onConnectionChange?.();
       toast({
         title: 'Zerodha Groundwork Saved',
         description: 'Your Zerodha app setup details are stored. The request-token exchange flow is the next step.',
@@ -387,6 +444,7 @@ export default function BrokerSyncHub() {
       setZerodhaApiSecret('');
       setZerodhaHasApiSecret(false);
       setZerodhaRedirectUri('');
+      onConnectionChange?.();
       toast({
         title: 'Zerodha Setup Removed',
         description: 'Saved Zerodha groundwork was removed from this account.',
@@ -631,7 +689,7 @@ export default function BrokerSyncHub() {
                     <p className="mt-1 text-lg font-semibold text-foreground">{(status as DhanStatusResponse['status'])?.openPositionCount ?? '-'}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Balance</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Available Balance</p>
                     <p className="mt-1 text-lg font-semibold text-foreground">
                       {status ? `₹${(status as DhanStatusResponse['status'])?.availableBalance.toFixed(2)}` : '-'}
                     </p>
@@ -640,18 +698,23 @@ export default function BrokerSyncHub() {
               ) : (
                 <>
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Token</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Equity Available Margin</p>
                     <p className="mt-1 text-lg font-semibold text-foreground">
-                      {(status as UpstoxStatusResponse['status'])?.tokenValidated ? 'Valid' : '-'}
+                      {formatInr((status as UpstoxStatusResponse['status'])?.funds.equity?.available_margin)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Equity Used Margin</p>
+                    <p className="mt-1 text-lg font-semibold text-foreground">
+                      {formatInr((status as UpstoxStatusResponse['status'])?.funds.equity?.used_margin)}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">Today Trades</p>
-                    <p className="mt-1 text-lg font-semibold text-foreground">{(status as UpstoxStatusResponse['status'])?.todayTrades ?? '-'}</p>
+                    <p className="mt-1 text-lg font-semibold text-foreground">{(status as UpstoxStatusResponse['status'])?.todayTrades ?? '—'}</p>
                   </div>
-                  <div className="md:col-span-2">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Notes</p>
-                    <p className="mt-1 text-sm text-foreground">Historical trade sync is available from the same broker hub controls below.</p>
+                  <div className="md:col-span-4">
+                    <p className="text-xs text-muted-foreground">Margin and cash figures are reported by Upstox and are not total portfolio equity.</p>
                   </div>
                 </>
               )}
@@ -664,6 +727,9 @@ export default function BrokerSyncHub() {
                   {isDhan
                     ? 'Imports matched closed trades from Dhan history. Open legs remain untouched until they are closed.'
                     : 'Imports matched closed trades from Upstox historical trade history into the journal.'}
+                </p>
+                <p className="mt-2 text-xs font-medium text-primary">
+                  Sync destination: {activeAccount?.name || 'Legacy journal'}{activeAccount?.accountNumberLast4 ? ` ••••${activeAccount.accountNumberLast4}` : ''}
                 </p>
               </div>
 

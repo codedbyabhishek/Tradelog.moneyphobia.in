@@ -20,8 +20,8 @@ export type CoreSessionPerformanceSummary = {
 };
 
 export const CORE_TRADING_SESSIONS: Array<{ id: CoreTradingSession; startMinute: number; endMinute: number }> = [
-  { id: 'Asian', startMinute: 0, endMinute: 480 },
-  { id: 'London', startMinute: 480, endMinute: 780 },
+  { id: 'Asian', startMinute: 0, endMinute: 540 },
+  { id: 'London', startMinute: 480, endMinute: 1020 },
   { id: 'New York', startMinute: 780, endMinute: 1320 },
 ];
 
@@ -45,7 +45,9 @@ export function inferMarketSessionFromEntryTime(entryTime: string | undefined): 
 
   const totalMinutes = hours * 60 + minutes;
   if (totalMinutes < 480) return 'Asia';
+  if (totalMinutes < 540) return 'Overlap_Asia_London';
   if (totalMinutes < 780) return 'London';
+  if (totalMinutes < 1020) return 'Overlap_London_NY';
   if (totalMinutes < 1320) return 'NewYork';
   return 'Off_Hours';
 }

@@ -705,7 +705,7 @@ export default function Analytics() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="bg-card border-border">
           <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Account Balance</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">Journal Balance</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <p className={`text-2xl font-bold ${currentAccountBalance >= investedCapital ? 'text-green-400' : 'text-red-400'}`}>

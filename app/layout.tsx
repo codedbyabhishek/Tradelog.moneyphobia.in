@@ -1,6 +1,6 @@
 import React, { Suspense } from "react"
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Geist_Mono, Poppins } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { ChunkRecovery } from '@/components/chunk-recovery'
@@ -12,8 +12,13 @@ import { getSiteUrl } from '@/lib/seo'
 import { Toaster } from '@/components/ui/toaster'
 import './globals.css'
 
-const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-poppins',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
@@ -215,7 +220,7 @@ export default function RootLayout({
         ) : null}
         <script id="chunk-fallback" dangerouslySetInnerHTML={{ __html: chunkFallbackScript }} />
       </head>
-      <body className={`font-sans antialiased`} suppressHydrationWarning>
+      <body className={`${poppins.variable} font-sans antialiased`} suppressHydrationWarning>
         <ThemeProvider>
           <ErrorBoundary>
             <ChunkRecovery />

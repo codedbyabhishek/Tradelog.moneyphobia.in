@@ -23,6 +23,7 @@ import CurrencySettings from '@/components/currency-settings';
 import StartingBalanceSettings from '@/components/starting-balance-settings';
 import CapitalAdjustmentsSettings from '@/components/capital-adjustments-settings';
 import BillingSettings from '@/components/billing-settings';
+import ProfileSettings from '@/components/profile-settings';
 import { useToast } from '@/hooks/use-toast';
 import type { CapitalAdjustment, Currency, TradeIdea } from '@/lib/types';
 import { normalizeTradingPlan, type TradingPlan } from '@/lib/trading-plan';
@@ -377,6 +378,8 @@ export default function DataUtilities() {
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.95fr)]">
           <div className="space-y-6">
+            <ProfileSettings />
+
             <Card className="border-border bg-card">
               <CardHeader>
                 <CardTitle>Preferences</CardTitle>

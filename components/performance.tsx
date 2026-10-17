@@ -72,7 +72,7 @@ export default function Performance() {
 
           <div className="grid w-full gap-3 sm:grid-cols-2 xl:max-w-xl">
             <div className="rounded-2xl border border-border/70 bg-background/75 p-4 backdrop-blur">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Current Equity</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Cumulative Trade P&amp;L</p>
               <p className={`mt-2 text-2xl font-semibold ${overview.currentEquity >= 0 ? 'text-foreground' : 'text-red-600'}`}>
                 {formatCurrency(overview.currentEquity)}
               </p>

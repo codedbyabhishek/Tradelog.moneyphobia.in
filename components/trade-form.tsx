@@ -15,6 +15,7 @@ import { ScreenshotViewer } from './screenshot-viewer';
 import { useToast } from '@/hooks/use-toast';
 import { clearPreTradeDraft, readPreTradeDraft } from '@/lib/pre-trade-draft';
 import { useTemplates } from '@/lib/templates-context';
+import { SymbolAutocomplete } from '@/components/symbol-autocomplete';
 
 interface TradeFormProps {
   onSuccess?: () => void;
@@ -107,12 +108,12 @@ const TRADE_TYPE_OPTIONS: TradeFormData['tradeType'][] = ['Intraday', 'Scalping'
 const POSITION_OPTIONS: TradeFormData['position'][] = ['Buy', 'Sell'];
 const TIMEFRAME_OPTIONS = ['1m', '3m', '5m', '15m', '1H', '4H', 'Daily'] as const;
 const PENDING_OUTCOME_TAG = 'Pending Outcome';
-const SESSION_OPTIONS: Array<{ value: MarketSession; label: string }> = [
-  { value: 'Asia', label: 'Asian (00:00–08:00 UTC)' },
-  { value: 'London', label: 'London (08:00–13:00 UTC)' },
+export const SESSION_OPTIONS: Array<{ value: MarketSession; label: string }> = [
+  { value: 'Asia', label: 'Asian (00:00–09:00 UTC)' },
+  { value: 'London', label: 'London (08:00–17:00 UTC)' },
   { value: 'NewYork', label: 'New York (13:00–22:00 UTC)' },
-  { value: 'Overlap_Asia_London', label: 'Asia–London overlap' },
-  { value: 'Overlap_London_NY', label: 'London–New York overlap' },
+  { value: 'Overlap_Asia_London', label: 'Asia–London overlap (08:00–09:00 UTC)' },
+  { value: 'Overlap_London_NY', label: 'London–New York overlap (13:00–17:00 UTC)' },
   { value: 'Off_Hours', label: 'Off hours' },
 ];
 
@@ -224,6 +225,11 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
   const setQuickField = <K extends keyof TradeFormData>(field: K, value: TradeFormData[K]) => {
     setRiskGateAcknowledged(false);
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const setSymbol = (symbol: string) => {
+    setRiskGateAcknowledged(false);
+    setFormData((prev) => ({ ...prev, symbol: sanitizeString(symbol, false) }));
   };
 
   useEffect(() => {
@@ -619,6 +625,8 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
         timeFrame: formData.timeFrame || 'Fast',
         exit: quickTargetPrice.trim(),
         ruleFollowed: true,
+        session: formData.session,
+        entryTime: formData.entryTime,
         marketCondition: formData.marketCondition,
       };
 
@@ -631,6 +639,8 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
         stopLoss: '',
         quantity: '',
         setupName: '',
+        session: undefined,
+        entryTime: '',
         preNotes: '',
         postNotes: '',
         manualProfit: '',
@@ -908,16 +918,48 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-foreground mb-2">Market / Symbol*</label>
-                        <input
-                          type="text"
-                          name="symbol"
+                        <SymbolAutocomplete
+                          id="fast-trade-symbol"
                           value={formData.symbol}
-                          onChange={handleInputChange}
+                          onValueChange={setSymbol}
+                          recentSymbols={recentSymbols}
                           placeholder="e.g., NIFTY, BTC, AAPL"
-                          className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.symbol ? 'border-red-500' : 'border-border'}`}
+                          aria-describedby={errors.symbol ? 'fast-symbol-error' : undefined}
+                          className={`bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.symbol ? 'border-red-500' : 'border-border'}`}
                         />
-                        {errors.symbol && <p className="text-xs text-red-500 mt-1">{errors.symbol}</p>}
+                        <p className="mt-1 text-xs text-muted-foreground">Start typing to search saved, global, NSE, BSE, MCX, and F&O symbols.</p>
+                        {errors.symbol && <p id="fast-symbol-error" className="text-xs text-red-500 mt-1">{errors.symbol}</p>}
                       </div>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">Forex Market Session</label>
+                      <select
+                        name="session"
+                        value={formData.session || ''}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="">Select session (optional)</option>
+                        {SESSION_OPTIONS.map((session) => (
+                          <option key={session.value} value={session.value}>{session.label}</option>
+                        ))}
+                      </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">Entry Time (UTC)</label>
+                        <input
+                          type="time"
+                          name="entryTime"
+                          value={formData.entryTime || ''}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground sm:col-span-2">
+                        Forex session hours are approximate UTC and shift with daylight saving. If you leave the session blank, Performance estimates it from entry time.
+                      </p>
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -1368,31 +1410,17 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Market / Symbol*</label>
-                <input
-                  type="text"
-                  name="symbol"
+                <SymbolAutocomplete
+                  id="detailed-trade-symbol"
                   value={formData.symbol}
-                  onChange={handleInputChange}
+                  onValueChange={setSymbol}
+                  recentSymbols={recentSymbols}
                   placeholder="e.g., AAPL, EURUSD"
-                  className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  aria-describedby={errors.symbol ? 'detailed-symbol-error' : undefined}
+                  className={`bg-input border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${errors.symbol ? 'border-red-500' : 'border-border'}`}
                 />
-                {recentSymbols.length > 0 ? (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {recentSymbols.map((symbol) => (
-                      <button
-                        key={symbol}
-                        type="button"
-                        onClick={() => {
-                          setRiskGateAcknowledged(false);
-                          setFormData((prev) => ({ ...prev, symbol }));
-                        }}
-                        className="rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
-                      >
-                        {symbol}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
+                <p className="mt-1 text-xs text-muted-foreground">Type two characters to search the live Indian instrument catalogue.</p>
+                {errors.symbol && <p id="detailed-symbol-error" className="text-xs text-red-500 mt-1">{errors.symbol}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Setup Name*</label>

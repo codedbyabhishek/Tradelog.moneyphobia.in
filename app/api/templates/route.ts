@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbExecute, dbQuery } from '@/lib/server/db';
 import { getCurrentUser } from '@/lib/server/auth';
 import { jsonError } from '@/lib/server/http';
+import { getTemplateImageValidationError } from '@/lib/server/template-image-validation';
 
 export const runtime = 'nodejs';
 
@@ -47,6 +48,8 @@ export async function POST(request: NextRequest) {
     if (!template || typeof template !== 'object' || !template.id) {
       return jsonError('Invalid template payload.', 400);
     }
+    const imageError = getTemplateImageValidationError(template.imageDataUrl);
+    if (imageError) return jsonError(imageError, 400);
 
     await dbExecute(
       `INSERT INTO templates (user_id, template_id, template_json, updated_at)

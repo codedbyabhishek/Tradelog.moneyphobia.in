@@ -32,6 +32,11 @@ function trade(overrides: Partial<Trade>): Trade {
 describe('session performance', () => {
   it('uses UTC entry time when a session was not saved', () => {
     expect(inferMarketSessionFromEntryTime('07:30')).toBe('Asia');
+    expect(inferMarketSessionFromEntryTime('08:30')).toBe('Overlap_Asia_London');
+    expect(inferMarketSessionFromEntryTime('09:00')).toBe('London');
+    expect(inferMarketSessionFromEntryTime('14:15')).toBe('Overlap_London_NY');
+    expect(inferMarketSessionFromEntryTime('17:00')).toBe('NewYork');
+    expect(inferMarketSessionFromEntryTime('22:00')).toBe('Off_Hours');
     expect(getCoreTradingSession(trade({ entryTime: '07:30' }))).toBe('Asian');
     expect(getCoreTradingSession(trade({ entryTime: '14:15' }))).toBe('New York');
     expect(getCoreTradingSession(trade({ session: 'Overlap_London_NY' }))).toBe('New York');

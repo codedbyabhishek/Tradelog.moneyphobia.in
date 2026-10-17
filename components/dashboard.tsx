@@ -1,8 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useTrades } from '@/lib/trade-context';
 import { useSettings } from '@/lib/settings-context';
+import { useAuth } from '@/lib/auth-context';
 import {
   getAccountStats,
   getTradeCharges,
@@ -15,17 +17,15 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { TrendingUp, TrendingDown, DollarSign, Target, AlertCircle, Zap, Clock3, ChevronDown, Activity, ShieldCheck, ArrowUpRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, AlertCircle, Clock3, RefreshCw, Wallet, Award, Flame, Share2 } from 'lucide-react';
 import CalendarView from './calendar-view';
-import GitHubSyncButton from './github-sync-button';
 import FavoritesBoard from './favorites-board';
-import BrokerSyncHub from './broker-sync-hub';
 import { EmptyStateIllustration } from './brand-illustrations';
 import UpgradeBanner from './upgrade-banner';
+import MonthlyPerformanceShare from './monthly-performance-share';
 import { isProPlan } from '@/lib/subscription';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
-import { addMonths, format, isThisYear, startOfMonth, startOfYear, subDays } from 'date-fns';
+import { addMonths, format, startOfMonth, startOfYear, subDays } from 'date-fns';
 import { Trade } from '@/lib/types';
 
 interface StatCardProps {
@@ -468,32 +468,61 @@ function TradingActivityCard({
 export default function Dashboard() {
   const { trades } = useTrades();
   const { baseCurrency, startingBalance, capitalAdjustments, billingState } = useSettings();
-  const [brokerHubOpen, setBrokerHubOpen] = useState(false);
+  const { user } = useAuth();
+  const [isMonthShareOpen, setIsMonthShareOpen] = useState(false);
   const stats = getAccountStats(trades);
   const netCapitalAdjustments = getNetCapitalAdjustments(capitalAdjustments);
   const investedCapital = startingBalance + netCapitalAdjustments;
   const currentBalance = investedCapital + stats.totalPnL;
-  const totalPnLPercentage = investedCapital > 0 ? (stats.totalPnL / investedCapital) * 100 : null;
   const formatBaseAmount = (value: number, decimals: number = 2) => formatBaseCurrencyAmount(value, baseCurrency, decimals);
-  const latestTrade = useMemo(() => {
-    return [...trades]
-      .filter((trade) => {
-        const parsedDate = new Date(trade.date);
-        return !Number.isNaN(parsedDate.getTime());
-      })
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] ?? null;
-  }, [trades]);
-  const activeTradingDays = useMemo(() => new Set(trades.map((trade) => trade.date)).size, [trades]);
-  const averageTradesPerDay = activeTradingDays > 0 ? stats.totalTrades / activeTradingDays : 0;
-  const strongMonthTradeCount = useMemo(
-    () =>
-      trades.filter((trade) => {
-        const parsedDate = new Date(trade.date);
-        return !Number.isNaN(parsedDate.getTime()) && isThisYear(parsedDate);
-      }).length,
-    [trades],
-  );
-  
+  const currentMonth = format(new Date(), 'yyyy-MM');
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const tradingSummary = useMemo(() => {
+    const dailyPnL = new Map<string, number>();
+
+    for (const trade of trades) {
+      const tradeDate = new Date(trade.date);
+      if (Number.isNaN(tradeDate.getTime())) continue;
+      const day = format(tradeDate, 'yyyy-MM-dd');
+      dailyPnL.set(day, (dailyPnL.get(day) || 0) + getTradeBasePnL(trade));
+    }
+
+    const tradingDays = Array.from(dailyPnL, ([date, pnl]) => ({ date, pnl }))
+      .sort((left, right) => left.date.localeCompare(right.date));
+    const bestDay = tradingDays.reduce<(typeof tradingDays)[number] | null>(
+      (best, day) => !best || day.pnl > best.pnl ? day : best,
+      null,
+    );
+    const lastDay = tradingDays.at(-1);
+    let winningStreak = 0;
+
+    if (lastDay && lastDay.pnl > 0) {
+      for (let index = tradingDays.length - 1; index >= 0 && tradingDays[index].pnl > 0; index -= 1) {
+        winningStreak += 1;
+      }
+    }
+
+    return {
+      todayPnL: dailyPnL.get(today) || 0,
+      bestDayPnL: bestDay?.pnl ?? null,
+      winningStreak,
+    };
+  }, [today, trades]);
+  const displayName = user?.name?.trim() || user?.email.split('@')[0] || 'Trader';
+  const performancePnLs = trades.map(getTradeBasePnL);
+  const winningPnLs = performancePnLs.filter((pnl) => pnl > 0);
+  const losingPnLs = performancePnLs.filter((pnl) => pnl < 0);
+  const biggestWin = winningPnLs.length > 0 ? Math.max(...winningPnLs) : null;
+  const averageWin = winningPnLs.length > 0
+    ? winningPnLs.reduce((total, pnl) => total + pnl, 0) / winningPnLs.length
+    : 0;
+  const averageLoss = losingPnLs.length > 0
+    ? Math.abs(losingPnLs.reduce((total, pnl) => total + pnl, 0) / losingPnLs.length)
+    : 0;
+  const thisMonthPnL = trades.reduce((total, trade) => (
+    trade.date.startsWith(currentMonth) ? total + getTradeBasePnL(trade) : total
+  ), 0);
+
   // Total brokerage paid across all trades
   const totalBrokerage = trades.reduce((sum, t) => {
     const charges = getTradeCharges(t);
@@ -501,38 +530,7 @@ export default function Dashboard() {
     return sum + baseCharges;
   }, 0);
   const proPlan = isProPlan(billingState);
-  const primaryCards: StatCardProps[] = [
-    {
-      icon: DollarSign,
-      title: `Current Balance (${baseCurrency})`,
-      value: formatBaseAmount(currentBalance),
-      subtitle: `Capital: ${formatBaseAmount(investedCapital)}`,
-      isPositive: currentBalance >= investedCapital,
-    },
-    {
-      icon: TrendingUp,
-      title: `Net P&L (${baseCurrency})`,
-      value: formatBaseAmount(stats.totalPnL),
-      subtitle: (
-        <div className="space-y-1">
-          <p className={stats.totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}>
-            {totalPnLPercentage === null ? 'No capital base yet' : `${stats.totalPnL >= 0 ? '+' : ''}${totalPnLPercentage.toFixed(2)}%`}
-          </p>
-          <p>Avg R: {stats.averageR.toFixed(2)}</p>
-        </div>
-      ),
-      isPositive: stats.totalPnL >= 0,
-    },
-    {
-      icon: Target,
-      title: `Max Drawdown (${baseCurrency})`,
-      value: formatBaseAmount(stats.maxDrawdown),
-      subtitle: 'Peak to trough',
-    },
-  ];
-
   const secondaryCards: StatCardProps[] = [
-    { icon: Zap, title: 'Total Trades', value: stats.totalTrades, subtitle: `${stats.winRate}% win rate` },
     { icon: Clock3, title: 'Best Timeframe', value: stats.bestTimeFrame, subtitle: 'Highest total P&L timeframe', isPositive: true },
     { icon: Clock3, title: 'Worst Timeframe', value: stats.worstTimeFrame, subtitle: 'Lowest total P&L timeframe', isPositive: false },
   ];
@@ -559,7 +557,7 @@ export default function Dashboard() {
     },
     {
       color: 'bg-cyan-400',
-      title: `Current Balance: ${formatBaseAmount(currentBalance)} (${baseCurrency})`,
+      title: `Journal Balance: ${formatBaseAmount(currentBalance)} (${baseCurrency})`,
       description: `Capital base is ${formatBaseAmount(investedCapital)} including deposits and withdrawals.`,
     },
     {
@@ -578,24 +576,133 @@ export default function Dashboard() {
     <div className="w-full min-w-0 flex flex-col bg-background">
       {/* Main content with responsive padding and proper spacing */}
       <div className="flex w-full flex-col gap-2 p-2 sm:gap-3 sm:p-3 lg:gap-4 lg:p-4">
+        <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-4 shadow-lg shadow-black/5 sm:rounded-[30px] sm:p-5 lg:p-6">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.1),transparent_38%)]" />
+          <div className="relative">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground sm:text-sm">Welcome back,</p>
+                <h1 className="mt-0.5 truncate text-xl font-bold text-foreground sm:text-2xl lg:text-3xl">{displayName}</h1>
+              </div>
+              <Button asChild size="sm" variant="outline" className="shrink-0 gap-2 rounded-xl">
+                <Link href="/app/broker-hub">
+                  <RefreshCw className="h-4 w-4" />
+                  <span>Sync Trades</span>
+                </Link>
+              </Button>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:mt-6 sm:grid-cols-[minmax(180px,1fr)_auto] sm:items-end sm:gap-6">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground sm:text-xs sm:tracking-[0.2em]">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500">
+                    <TrendingUp className="h-3.5 w-3.5" />
+                  </span>
+                  Today&apos;s P&amp;L
+                </div>
+                <p className={cn('mt-1 text-4xl font-bold leading-none tracking-tight sm:text-5xl', tradingSummary.todayPnL >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
+                  {tradingSummary.todayPnL > 0 ? '+' : ''}{formatBaseAmount(tradingSummary.todayPnL, 2)}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="min-w-0 rounded-2xl border border-border/70 bg-background/60 px-3 py-2.5 sm:min-w-[112px] sm:px-3.5">
+                  <p className="flex items-center gap-1.5 truncate text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground sm:text-[10px] sm:tracking-[0.14em]">
+                    <Wallet className="h-3 w-3 shrink-0" /> Balance
+                  </p>
+                  <p className="mt-1 truncate text-base font-semibold text-foreground sm:text-lg">{formatBaseAmount(currentBalance)}</p>
+                </div>
+                <div className="min-w-0 rounded-2xl border border-border/70 bg-background/60 px-3 py-2.5 sm:min-w-[112px] sm:px-3.5">
+                  <p className="flex items-center gap-1.5 truncate text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground sm:text-[10px] sm:tracking-[0.14em]">
+                    <TrendingUp className="h-3 w-3 shrink-0" /> Total P&amp;L
+                  </p>
+                  <p className={cn('mt-1 truncate text-base font-semibold sm:text-lg', stats.totalPnL >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
+                    {stats.totalPnL > 0 ? '+' : ''}{formatBaseAmount(stats.totalPnL)}
+                  </p>
+                </div>
+                <div className="min-w-0 rounded-2xl border border-border/70 bg-background/60 px-3 py-2.5 sm:min-w-[112px] sm:px-3.5">
+                  <p className="flex items-center gap-1.5 truncate text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground sm:text-[10px] sm:tracking-[0.14em]">
+                    <Award className="h-3 w-3 shrink-0" /> Best Day
+                  </p>
+                  <p className="mt-1 truncate text-base font-semibold text-foreground sm:text-lg">
+                    {tradingSummary.bestDayPnL === null ? '—' : formatBaseAmount(tradingSummary.bestDayPnL)}
+                  </p>
+                </div>
+                <div className="min-w-0 rounded-2xl border border-border/70 bg-background/60 px-3 py-2.5 sm:min-w-[112px] sm:px-3.5">
+                  <p className="flex items-center gap-1.5 truncate text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground sm:text-[10px] sm:tracking-[0.14em]">
+                    <Flame className="h-3 w-3 shrink-0" /> Streak
+                  </p>
+                  <p className="mt-1 truncate text-base font-semibold text-foreground sm:text-lg">
+                    {tradingSummary.winningStreak > 0 ? `${tradingSummary.winningStreak} day${tradingSummary.winningStreak === 1 ? '' : 's'}` : '—'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {!proPlan && (
           <UpgradeBanner
             title="Unlock Dhan sync, advanced analytics, and exports with Pro"
             description="Start free, then upgrade when you want unlimited trades, deeper psychology review, and broker-connected journaling."
           />
         )}
+
         <div className="rounded-2xl border border-border/70 bg-card/60 p-3 shadow-sm shadow-black/5 sm:rounded-[30px] sm:p-4">
           <SectionIntro
-            eyebrow="Performance Snapshot"
-            title="Core account metrics"
-            description="Your most important account numbers, arranged for fast scanning."
+            eyebrow="Overview"
+            title="Account performance"
+            description="Your trading results at a glance."
           />
 
-          <div className="mt-2 grid w-full grid-cols-1 gap-2 sm:mt-3 min-[420px]:grid-cols-2 xl:grid-cols-4">
-            {primaryCards.map((card) => (
-              <StatCard key={card.title} {...card} />
-            ))}
+          <div className="mt-3 grid w-full grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+            <div className="min-w-0 rounded-xl border border-border/70 bg-background/60 px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
+              <p className="truncate text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground sm:text-[10px] sm:tracking-[0.14em]">Win Rate</p>
+              <p className="mt-1 truncate text-lg font-semibold text-foreground sm:text-xl">{Math.round(stats.winRate)}%</p>
+            </div>
+            <div className="min-w-0 rounded-xl border border-border/70 bg-background/60 px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
+              <p className="truncate text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground sm:text-[10px] sm:tracking-[0.14em]">Total Trades</p>
+              <p className="mt-1 truncate text-lg font-semibold text-foreground sm:text-xl">{stats.totalTrades}</p>
+            </div>
+            <div className="min-w-0 rounded-xl border border-border/70 bg-background/60 px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
+              <p className="truncate text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground sm:text-[10px] sm:tracking-[0.14em]">Biggest Win</p>
+              <p className="mt-1 truncate text-lg font-semibold text-emerald-500 sm:text-xl">{biggestWin === null ? '—' : formatBaseAmount(biggestWin)}</p>
+            </div>
+            <div className="min-w-0 rounded-xl border border-border/70 bg-background/60 px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
+              <p className="truncate text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground sm:text-[10px] sm:tracking-[0.14em]">Avg Win</p>
+              <p className="mt-1 truncate text-lg font-semibold text-emerald-500 sm:text-xl">{formatBaseAmount(averageWin)}</p>
+            </div>
+            <div className="min-w-0 rounded-xl border border-border/70 bg-background/60 px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
+              <p className="truncate text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground sm:text-[10px] sm:tracking-[0.14em]">Avg Loss</p>
+              <p className="mt-1 truncate text-lg font-semibold text-rose-500 sm:text-xl">{formatBaseAmount(averageLoss)}</p>
+            </div>
+            <div className="min-w-0 rounded-xl border border-border/70 bg-background/60 px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
+              <div className="flex items-center justify-between gap-1">
+                <p className="truncate text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground sm:text-[10px] sm:tracking-[0.14em]">This Month</p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Share monthly performance report"
+                  title="Share monthly report"
+                  className="-mr-2 -mt-1 h-6 w-6 text-muted-foreground hover:text-foreground"
+                  onClick={() => setIsMonthShareOpen(true)}
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <p className={cn('mt-1 truncate text-lg font-semibold sm:text-xl', thisMonthPnL >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
+                {thisMonthPnL > 0 ? '+' : ''}{formatBaseAmount(thisMonthPnL)}
+              </p>
+            </div>
           </div>
+          <MonthlyPerformanceShare
+            open={isMonthShareOpen}
+            onOpenChange={setIsMonthShareOpen}
+            trades={trades}
+            baseCurrency={baseCurrency}
+            displayName={displayName}
+          />
         </div>
 
         <div className="grid gap-2 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.75fr)]">
@@ -631,27 +738,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
-
-        <Collapsible open={brokerHubOpen} onOpenChange={setBrokerHubOpen} className="space-y-2 sm:space-y-2.5">
-          <div className="rounded-2xl border border-border/70 bg-card/60 p-3 shadow-sm shadow-black/5 sm:rounded-[30px] sm:p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <SectionIntro
-                eyebrow="Broker Connections"
-                title="Broker Sync Hub"
-                description="Keep broker setup, connection status, and sync actions in one dedicated section instead of mixing them with dashboard stats."
-              />
-              <CollapsibleTrigger asChild>
-                <Button variant="outline" className="h-9 self-start px-3 text-xs sm:h-10 sm:text-sm">
-                  {brokerHubOpen ? 'Hide Broker Hub' : 'Show Broker Hub'}
-                  <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${brokerHubOpen ? 'rotate-180' : ''}`} />
-                </Button>
-              </CollapsibleTrigger>
-            </div>
-          </div>
-          <CollapsibleContent>
-            <BrokerSyncHub />
-          </CollapsibleContent>
-        </Collapsible>
 
         <div className="rounded-2xl border border-border/70 bg-card/60 p-3 shadow-sm shadow-black/5 sm:rounded-[30px] sm:p-4">
           <SectionIntro
@@ -707,113 +793,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="grid gap-2 sm:gap-2.5">
-          <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-3 shadow-lg shadow-black/5 sm:rounded-[30px] sm:p-4 sm:shadow-xl lg:p-5">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_40%),linear-gradient(120deg,rgba(59,130,246,0.10),transparent_45%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]" />
-            <div className="relative z-10 flex flex-col gap-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div className="space-y-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary sm:text-sm sm:tracking-wider">Control Center</p>
-                  <div>
-                    <h1 className="text-lg font-bold text-foreground sm:text-2xl lg:text-3xl">Trading Dashboard</h1>
-                    <p className="mt-1 max-w-2xl text-[11px] leading-snug text-muted-foreground sm:mt-1.5 sm:text-sm lg:text-[15px]">
-                      Track outcomes, monitor risk, and review execution quality from one sharper command view.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-300 sm:px-3 sm:text-xs">
-                      Total Trades: {stats.totalTrades}
-                    </span>
-                    <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary sm:px-3 sm:text-xs">
-                      Win Rate: {stats.winRate}%
-                    </span>
-                    <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-[11px] font-medium text-sky-300 sm:px-3 sm:text-xs">
-                      Avg R: {stats.averageR.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-                <div className="shrink-0">
-                  <GitHubSyncButton trades={trades} />
-                </div>
-              </div>
-
-              <div className="grid gap-2 sm:gap-2.5 sm:grid-cols-3">
-                <div className="rounded-2xl border border-border/70 bg-background/60 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:rounded-[22px] sm:p-3">
-                  <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground sm:text-xs sm:tracking-[0.18em]">
-                    <Activity className="h-4 w-4 text-primary" />
-                    Desk Pulse
-                  </div>
-                  <p className="mt-2 text-sm font-medium text-foreground">
-                    {stats.totalPnL >= 0 ? 'Performance is positive and compounding.' : 'Performance needs tighter risk control.'}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {totalPnLPercentage === null ? 'Add starting capital to unlock return tracking.' : `${totalPnLPercentage >= 0 ? '+' : ''}${totalPnLPercentage.toFixed(2)}% vs deployed capital.`}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-border/70 bg-background/60 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:rounded-[22px] sm:p-3">
-                  <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground sm:text-xs sm:tracking-[0.18em]">
-                    <ShieldCheck className="h-4 w-4 text-primary" />
-                    Risk Posture
-                  </div>
-                  <p className="mt-2 text-sm font-medium text-foreground">Max drawdown is {formatBaseAmount(stats.maxDrawdown, 0)}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Average {averageTradesPerDay.toFixed(1)} trades per active day with {totalBrokerage > 0 ? `${formatBaseAmount(totalBrokerage, 0)} paid in charges.` : 'no charge data yet.'}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-border/70 bg-background/60 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:rounded-[22px] sm:p-3">
-                  <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground sm:text-xs sm:tracking-[0.18em]">
-                    <ArrowUpRight className="h-4 w-4 text-primary" />
-                    Latest Log
-                  </div>
-                  <p className="mt-2 text-sm font-medium text-foreground">
-                    {latestTrade ? `${latestTrade.symbol} on ${format(new Date(latestTrade.date), 'MMM d, yyyy')}` : 'No trades logged yet'}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {latestTrade ? `${getTradeBasePnL(latestTrade) >= 0 ? 'Closed green' : 'Closed red'} in ${latestTrade.tradeType}. ${strongMonthTradeCount} trades recorded this year.` : 'Start journaling to unlock your trading timeline.'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <Card className="overflow-hidden rounded-2xl border-white/10 bg-[#0c1016] text-white shadow-lg shadow-black/15 sm:rounded-[30px] sm:shadow-2xl sm:shadow-black/20">
-          <CardContent className="p-3 sm:p-4 lg:p-5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300/80 sm:text-[11px] sm:tracking-[0.24em]">Snapshot</p>
-            <div className="mt-2.5 space-y-3 sm:mt-3 sm:space-y-4">
-              <div>
-                <p className="text-sm text-slate-400">Current balance</p>
-                <p className="mt-1 break-words text-2xl font-semibold text-white sm:text-3xl">{formatBaseAmount(currentBalance, 0)}</p>
-              </div>
-              <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 sm:gap-3">
-                <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-2.5 backdrop-blur-sm sm:rounded-[22px] sm:p-3">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 sm:text-[11px] sm:tracking-[0.18em]">Net P&amp;L</p>
-                  <p className={cn('mt-1.5 break-words text-lg font-semibold sm:mt-2 sm:text-xl', stats.totalPnL >= 0 ? 'text-emerald-300' : 'text-rose-300')}>
-                    {formatBaseAmount(stats.totalPnL, 0)}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-2.5 backdrop-blur-sm sm:rounded-[22px] sm:p-3">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 sm:text-[11px] sm:tracking-[0.18em]">Capital</p>
-                  <p className="mt-1.5 break-words text-lg font-semibold text-slate-100 sm:mt-2 sm:text-xl">{formatBaseAmount(investedCapital, 0)}</p>
-                </div>
-              </div>
-              <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-2.5 backdrop-blur-sm sm:rounded-[22px] sm:p-3">
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span>Trade quality</span>
-                  <span>{stats.winRate}% win rate</span>
-                </div>
-                <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/10">
-                  <div className="h-full rounded-full bg-emerald-400" style={{ width: `${Math.min(100, Math.max(0, stats.winRate))}%` }} />
-                </div>
-                <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
-                  <span>{stats.totalTrades} trades</span>
-                  <span>{activeTradingDays} active days</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         <div className="space-y-2 rounded-2xl border border-border/70 bg-card/60 p-3 shadow-sm shadow-black/5 sm:space-y-2.5 sm:rounded-[30px] sm:p-4">
           <SectionIntro
             eyebrow="Pinned Focus"
@@ -823,24 +802,6 @@ export default function Dashboard() {
           <FavoritesBoard />
         </div>
 
-        {/* Getting Started */}
-        {trades.length === 0 && (
-          <Card className="bg-primary/10 border-primary">
-            <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="text-base sm:text-lg">Getting Started</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6 pt-2 space-y-3">
-              <p className="text-xs sm:text-sm text-foreground">Welcome to your trading journal! Here&apos;s how to get started:</p>
-              <ol className="list-decimal list-inside space-y-2 text-xs sm:text-sm text-muted-foreground">
-                <li>Click &quot;Add Trade&quot; to record your first trade</li>
-                <li>Fill in all trade details including entry, exit, and stop loss</li>
-                <li>Add notes about your setup and what you learned</li>
-                <li>View your progress in the Trade Log</li>
-                <li>Analyze patterns in the Analytics section</li>
-              </ol>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );

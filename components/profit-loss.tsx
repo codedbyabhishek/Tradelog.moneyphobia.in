@@ -283,7 +283,7 @@ export default function ProfitLoss() {
                     <Wallet className="h-3.5 w-3.5" />
                     Performance snapshot in {baseCurrency}
                   </div>
-                  <p className="text-sm text-muted-foreground">Current account balance</p>
+                  <p className="text-sm text-muted-foreground">Journal balance</p>
                   <p className={`mt-2 text-3xl font-bold tracking-tight sm:text-4xl ${currentBalance >= investedCapital ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {formatBaseAmount(currentBalance)}
                   </p>
@@ -375,7 +375,7 @@ export default function ProfitLoss() {
             <div className="border-b border-border px-4 py-4 sm:px-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                  <h3 className="text-base font-semibold text-foreground sm:text-lg">Account Balance Over Time</h3>
+                  <h3 className="text-base font-semibold text-foreground sm:text-lg">Journal Balance Over Time</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
                     A cleaner equity curve showing how closed-trade P&amp;L and capital flows shaped the account.
                   </p>

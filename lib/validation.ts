@@ -30,12 +30,12 @@ export function validatePositiveNumber(value: string | undefined): number | null
 }
 
 /**
- * Validate trade symbol (e.g., AAPL, BTC/USD)
+ * Validate trade symbol (e.g., AAPL, BTC/USD, M&M, RELIANCE.NS).
  */
 export function validateSymbol(symbol: string): boolean {
   if (!symbol) return false;
   const sanitized = sanitizeString(symbol);
-  return /^[A-Z0-9\/\-]{1,20}$/.test(sanitized.toUpperCase());
+  return /^[A-Z0-9/&._\-]{1,64}$/.test(sanitized.toUpperCase());
 }
 
 /**

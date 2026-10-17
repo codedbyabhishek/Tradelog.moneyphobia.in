@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbExecute, dbQuery } from '@/lib/server/db';
 import { getCurrentUser } from '@/lib/server/auth';
 import { jsonError, parseJsonBody } from '@/lib/server/http';
+import { resolveBrokerAccount } from '@/lib/server/broker-accounts';
+import { assertBrokerAccountsSchemaReady } from '@/lib/server/schema';
 
 export const runtime = 'nodejs';
 
 interface TradeRow {
   trade_id: string;
+  account_id: string;
   trade_json: string;
 }
 
@@ -15,13 +18,14 @@ interface TradePayload {
   date?: string;
   symbol?: string;
   setupName?: string;
+  accountId?: string;
 }
 
 function parseTradeRows(rows: TradeRow[]) {
   return rows
     .map((row) => {
       try {
-        return JSON.parse(row.trade_json);
+        return { ...JSON.parse(row.trade_json), accountId: row.account_id };
       } catch {
         return null;
       }
@@ -29,19 +33,29 @@ function parseTradeRows(rows: TradeRow[]) {
     .filter(Boolean);
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser();
     if (!user) {
       return jsonError('Unauthorized', 401);
     }
+    await assertBrokerAccountsSchemaReady();
+
+    const requestedAccountId = request.nextUrl.searchParams.get('accountId')?.trim();
+    let whereClause = 'WHERE user_id = ?';
+    const values: unknown[] = [user.id];
+    if (requestedAccountId && requestedAccountId !== 'all') {
+      const account = await resolveBrokerAccount(user.id, requestedAccountId);
+      whereClause += ' AND account_id = ?';
+      values.push(account.id);
+    }
 
     const rows = await dbQuery<TradeRow[]>(
-      `SELECT trade_id, trade_json
+      `SELECT trade_id, account_id, trade_json
        FROM trades
-       WHERE user_id = ?
+       ${whereClause}
        ORDER BY trade_date DESC, updated_at DESC`,
-      [user.id]
+      values,
     );
 
     return NextResponse.json({ trades: parseTradeRows(rows) });
@@ -57,6 +71,7 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return jsonError('Unauthorized', 401);
     }
+    await assertBrokerAccountsSchemaReady();
 
     const body = await parseJsonBody(request);
     if (!body) {
@@ -77,16 +92,17 @@ export async function POST(request: NextRequest) {
       return jsonError('Trade ID, date, symbol, and setup name are required.', 400);
     }
 
-    const tradeJson = JSON.stringify(trade);
+    const account = await resolveBrokerAccount(user.id, trade.accountId);
+    const tradeJson = JSON.stringify({ ...trade, accountId: account.id });
 
     await dbExecute(
-      `INSERT INTO trades (user_id, trade_id, trade_json, trade_date, created_at, updated_at)
-       VALUES (?, ?, ?, ?, NOW(), NOW())
+      `INSERT INTO trades (user_id, account_id, trade_id, trade_json, trade_date, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, NOW(), NOW())
        ON DUPLICATE KEY UPDATE
          trade_json = VALUES(trade_json),
          trade_date = VALUES(trade_date),
          updated_at = NOW()`,
-      [user.id, tradeId, tradeJson, tradeDate]
+      [user.id, account.id, tradeId, tradeJson, tradeDate]
     );
 
     return NextResponse.json({ ok: true });
@@ -96,14 +112,21 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   try {
     const user = await getCurrentUser();
     if (!user) {
       return jsonError('Unauthorized', 401);
     }
+    await assertBrokerAccountsSchemaReady();
 
-    await dbExecute('DELETE FROM trades WHERE user_id = ?', [user.id]);
+    const requestedAccountId = request.nextUrl.searchParams.get('accountId')?.trim();
+    if (requestedAccountId && requestedAccountId !== 'all') {
+      const account = await resolveBrokerAccount(user.id, requestedAccountId);
+      await dbExecute('DELETE FROM trades WHERE user_id = ? AND account_id = ?', [user.id, account.id]);
+    } else {
+      await dbExecute('DELETE FROM trades WHERE user_id = ?', [user.id]);
+    }
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error('[trades/delete-all] error', error);

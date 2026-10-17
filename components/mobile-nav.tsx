@@ -3,9 +3,10 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BarChart3, PlusCircle, Table, LineChart, Activity, Settings, Calendar, TrendingUp, Lightbulb, Palette, Target, Search, FileText, Brain, Ellipsis, Sparkles, Images, Youtube, BookOpen, FileSpreadsheet, LogOut, Users, ClipboardCheck } from 'lucide-react';
+import { BarChart3, PlusCircle, Table, LineChart, Activity, Settings, Calendar, TrendingUp, Lightbulb, Palette, Target, Search, FileText, Brain, Ellipsis, Sparkles, Images, Youtube, BookOpen, FileSpreadsheet, LogOut, Users, ClipboardCheck, Landmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/theme-toggle';
+import AccountSwitcher from '@/components/account-switcher';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/lib/auth-context';
 import { buildAppPath, type Page } from '@/lib/app-routes';
@@ -27,6 +28,7 @@ export default function MobileNav({ currentPage }: MobileNavProps) {
   const moreItems = [
     { id: 'calendar', label: 'Calendar', icon: Calendar },
     { id: 'performance', label: 'Performance', icon: Activity },
+    { id: 'broker-hub', label: 'Broker Hub', icon: Landmark },
     { id: 'import-analysis', label: 'Import Analysis', icon: FileSpreadsheet },
     { id: 'pre-trade', label: 'Pre-Trade', icon: Sparkles },
     { id: 'plan', label: 'Plan', icon: ClipboardCheck },
@@ -137,6 +139,7 @@ export default function MobileNav({ currentPage }: MobileNavProps) {
           </div>
 
           <div className="border-t border-border px-4 py-4">
+            <AccountSwitcher className="mb-4" />
             <p className="truncate text-xs text-muted-foreground" title={user?.email || ''}>{user?.email}</p>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <button

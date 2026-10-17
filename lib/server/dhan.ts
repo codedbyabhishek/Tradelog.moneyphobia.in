@@ -56,8 +56,19 @@ interface DhanPositionItem {
 }
 
 interface DhanFundLimit {
-  availabelBalance?: number;
-  withdrawableBalance?: number;
+  availabelBalance?: number | string;
+  withdrawableBalance?: number | string;
+}
+
+function parseFundAmount(value: number | string | undefined, label: string): number {
+  if (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) {
+    throw new Error(`Dhan returned no ${label}.`);
+  }
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) {
+    throw new Error(`Dhan returned an invalid ${label}.`);
+  }
+  return amount;
 }
 
 interface OpenLot {
@@ -183,13 +194,17 @@ export async function getDhanStatus(config: DhanStoredConfig) {
     dhanFetch<DhanPositionItem[]>('/positions', config.accessToken),
     dhanFetch<DhanFundLimit>('/fundlimit', config.accessToken),
   ]);
+  const withdrawableBalance =
+    fundLimit.withdrawableBalance === undefined || fundLimit.withdrawableBalance === null
+      ? null
+      : parseFundAmount(fundLimit.withdrawableBalance, 'withdrawable balance');
 
   return {
     holdingsCount: holdings.length,
     positionsCount: positions.length,
     openPositionCount: positions.filter((position) => Number(position.netQty || 0) !== 0).length,
-    availableBalance: Number(fundLimit.availabelBalance || 0),
-    withdrawableBalance: Number(fundLimit.withdrawableBalance || 0),
+    availableBalance: parseFundAmount(fundLimit.availabelBalance, 'available balance'),
+    withdrawableBalance,
     sampleHoldings: holdings.slice(0, 5).map((item) => item.tradingSymbol || item.securityId || 'Unknown'),
   };
 }
@@ -335,7 +350,13 @@ function mapDhanTradesToJournalTrades(items: DhanTradeHistoryItem[]): Trade[] {
   return trades.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
-export async function syncDhanTradesToJournal(userId: number, config: DhanStoredConfig, fromDate: string, toDate: string) {
+export async function syncDhanTradesToJournal(
+  userId: number,
+  config: DhanStoredConfig,
+  fromDate: string,
+  toDate: string,
+  accountId: string,
+) {
   const sourceTrades = await fetchHistoricalTrades(config, fromDate, toDate);
   const mappedTrades = mapDhanTradesToJournalTrades(sourceTrades);
 
@@ -351,20 +372,20 @@ export async function syncDhanTradesToJournal(userId: number, config: DhanStored
   const ids = mappedTrades.map((trade) => trade.id);
   const placeholders = ids.map(() => '?').join(', ');
   const existingRows = await dbQuery<{ trade_id: string }[]>(
-    `SELECT trade_id FROM trades WHERE user_id = ? AND trade_id IN (${placeholders})`,
-    [userId, ...ids]
+    `SELECT trade_id FROM trades WHERE user_id = ? AND account_id = ? AND trade_id IN (${placeholders})`,
+    [userId, accountId, ...ids]
   );
   const existingIds = new Set(existingRows.map((row) => row.trade_id));
 
   for (const trade of mappedTrades) {
     await dbExecute(
-      `INSERT INTO trades (user_id, trade_id, trade_json, trade_date, created_at, updated_at)
-       VALUES (?, ?, ?, ?, NOW(), NOW())
+      `INSERT INTO trades (user_id, account_id, trade_id, trade_json, trade_date, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, NOW(), NOW())
        ON DUPLICATE KEY UPDATE
          trade_json = VALUES(trade_json),
          trade_date = VALUES(trade_date),
          updated_at = NOW()`,
-      [userId, trade.id, JSON.stringify(trade), trade.date]
+      [userId, accountId, trade.id, JSON.stringify({ ...trade, accountId }), trade.date]
     );
   }
 

@@ -3,9 +3,10 @@
 import { useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BarChart3, PlusCircle, Table, LineChart, Activity, Settings, Calendar, TrendingUp, Lightbulb, Target, Search, Zap, FileText, Brain, Sparkles, Images, Youtube, BookOpen, FileSpreadsheet, PanelLeftClose, PanelLeftOpen, LogOut, Users, ClipboardCheck } from 'lucide-react';
+import { BarChart3, PlusCircle, Table, LineChart, Activity, Settings, Calendar, TrendingUp, Lightbulb, Target, Search, Zap, FileText, Brain, Sparkles, Images, Youtube, BookOpen, FileSpreadsheet, PanelLeftClose, PanelLeftOpen, LogOut, Users, ClipboardCheck, Landmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/theme-toggle';
+import AccountSwitcher from '@/components/account-switcher';
 import { useAuth } from '@/lib/auth-context';
 import { buildAppPath, type Page } from '@/lib/app-routes';
 
@@ -65,6 +66,7 @@ export default function Sidebar({ currentPage }: SidebarProps) {
     { id: 'log', label: 'Trade Log', icon: Table },
     { id: 'calendar', label: 'Calendar View', icon: Calendar },
     { id: 'performance', label: 'Performance', icon: Activity },
+    { id: 'broker-hub', label: 'Broker Hub', icon: Landmark },
     { id: 'import-analysis', label: 'Import Analysis', icon: FileSpreadsheet },
     { id: 'pre-trade', label: 'Pre-Trade', icon: Sparkles },
     { id: 'plan', label: 'Plan', icon: ClipboardCheck },
@@ -146,6 +148,7 @@ export default function Sidebar({ currentPage }: SidebarProps) {
           isCollapsed ? 'space-y-3 p-3' : 'space-y-4 p-4'
         )}
       >
+        <AccountSwitcher compact={isCollapsed} />
         <div className={cn('space-y-2', isCollapsed && 'flex flex-col items-center')}>
           <p className={cn('text-xs text-sidebar-foreground font-semibold px-2', isCollapsed && 'sr-only')}>Theme</p>
           <div className={cn(isCollapsed ? 'w-9 overflow-hidden [&_span]:hidden [&_svg.hidden]:hidden' : 'px-2')}>

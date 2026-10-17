@@ -6,6 +6,7 @@ import {
   assertBillingSchemaReady,
   assertPasswordResetSchemaReady,
   assertRateLimitSchemaReady,
+  assertBrokerAccountsSchemaReady,
   assertSharedCardsSchemaReady,
 } from '@/lib/server/schema';
 
@@ -61,6 +62,7 @@ export async function GET(request: Request) {
       assertPasswordResetSchemaReady(),
       assertBillingSchemaReady(),
       assertSharedCardsSchemaReady(),
+      assertBrokerAccountsSchemaReady(),
     ]);
 
     return NextResponse.json(

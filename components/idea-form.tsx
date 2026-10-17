@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ScreenshotViewer } from '@/components/screenshot-viewer';
 import { Upload, X } from 'lucide-react';
+import { SymbolAutocomplete } from '@/components/symbol-autocomplete';
 
 interface IdeaFormProps {
   onSuccess?: () => void;
@@ -182,14 +183,14 @@ export default function IdeaForm({ onSuccess, editIdea }: IdeaFormProps) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Symbol (Optional)</label>
-                <input
-                  type="text"
-                  name="symbol"
+                <SymbolAutocomplete
+                  id="trade-idea-symbol"
                   value={formData.symbol}
-                  onChange={handleInputChange}
+                  onValueChange={(symbol) => setFormData((previous) => ({ ...previous, symbol }))}
                   placeholder="e.g., NIFTY, AAPL"
                   className={inputClass('symbol')}
                 />
+                <p className="mt-1 text-xs text-muted-foreground">Search saved and commonly traded symbols, plus the live Indian catalogue.</p>
               </div>
             </div>
 

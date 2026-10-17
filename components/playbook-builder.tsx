@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import Image from 'next/image';
+import { useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useTemplates, type TradeTemplate } from '@/lib/templates-context';
@@ -9,7 +10,10 @@ import { PRESET_SETUPS } from '@/components/trade-form';
 import { useTrades } from '@/lib/trade-context';
 import { useSettings } from '@/lib/settings-context';
 import { formatBaseCurrencyAmount, getTradeBasePnL } from '@/lib/trade-utils';
-import { BookOpen, PencilLine, PlusCircle, Trash2, TrendingUp, AlertTriangle, Target } from 'lucide-react';
+import { BookOpen, ImagePlus, PencilLine, PlusCircle, Trash2, TrendingUp, AlertTriangle, Target, X } from 'lucide-react';
+
+const MAX_PLAYBOOK_IMAGE_BYTES = 1024 * 1024;
+const ACCEPTED_PLAYBOOK_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 type PlaybookFormState = {
   name: string;
@@ -112,12 +116,15 @@ function isCustomSetup(setupName?: string) {
 }
 
 export default function PlaybookBuilder() {
-  const { templates, addTemplate, updateTemplate, deleteTemplate } = useTemplates();
+  const { templates, addTemplate, updateTemplate, deleteTemplate, error: templateError, clearError } = useTemplates();
   const { trades } = useTrades();
   const { baseCurrency } = useSettings();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState<PlaybookFormState>(EMPTY_PLAYBOOK);
   const [isCustomSetupName, setIsCustomSetupName] = useState(false);
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [imageError, setImageError] = useState('');
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const selectedTemplate = useMemo(
     () => templates.find((template) => template.id === selectedId) || null,
@@ -196,16 +203,47 @@ export default function PlaybookBuilder() {
   const handleNewPlaybook = () => {
     setSelectedId(null);
     setForm(EMPTY_PLAYBOOK);
+    setImageDataUrl(null);
+    setImageError('');
     setIsCustomSetupName(false);
   };
 
   const handleSelectPlaybook = (template: TradeTemplate) => {
     setSelectedId(template.id);
     setForm(toFormState(template));
+    setImageDataUrl(template.imageDataUrl || null);
+    setImageError('');
     setIsCustomSetupName(isCustomSetup(template.setupName));
   };
 
+  const handleImageChange = (file?: File) => {
+    setImageError('');
+    if (!file) return;
+    if (!ACCEPTED_PLAYBOOK_IMAGE_TYPES.includes(file.type)) {
+      setImageError('Choose a JPEG, PNG, or WebP image.');
+      if (imageInputRef.current) imageInputRef.current.value = '';
+      return;
+    }
+    if (file.size === 0 || file.size > MAX_PLAYBOOK_IMAGE_BYTES) {
+      setImageError('Choose an image that is 1 MB or smaller.');
+      if (imageInputRef.current) imageInputRef.current.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setImageDataUrl(reader.result);
+      } else {
+        setImageError('We couldn’t read that image. Please choose another file.');
+      }
+    };
+    reader.onerror = () => setImageError('We couldn’t read that image. Please choose another file.');
+    reader.readAsDataURL(file);
+  };
+
   const handleSave = () => {
+    clearError();
     if (!form.name.trim() || !form.setupName.trim()) {
       window.alert('Playbook name and setup name are required.');
       return;
@@ -236,6 +274,7 @@ export default function PlaybookBuilder() {
       targetRules: form.targetRules.trim() || undefined,
       idealConditions: form.idealConditions.trim() || undefined,
       commonMistakes: form.commonMistakes.trim() || undefined,
+      imageDataUrl: imageDataUrl || undefined,
       tags: form.tags
         ? Array.from(new Set(form.tags.split(',').map((tag) => tag.trim()).filter(Boolean)))
         : undefined,
@@ -301,6 +340,16 @@ export default function PlaybookBuilder() {
                       isActive ? 'border-primary bg-primary/10' : 'border-border bg-background/40 hover:bg-secondary/60'
                     }`}
                   >
+                    {template.imageDataUrl ? (
+                      <Image
+                        src={template.imageDataUrl}
+                        alt=""
+                        width={480}
+                        height={240}
+                        unoptimized
+                        className="mb-3 max-h-36 w-full rounded-lg object-cover"
+                      />
+                    ) : null}
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-semibold text-foreground">{template.name}</p>
@@ -343,6 +392,8 @@ export default function PlaybookBuilder() {
                     variant="outline"
                     onClick={() => {
                       setForm(toFormState(selectedTemplate));
+                      setImageDataUrl(selectedTemplate.imageDataUrl || null);
+                      setImageError('');
                       setIsCustomSetupName(isCustomSetup(selectedTemplate.setupName));
                     }}
                   >
@@ -467,6 +518,52 @@ export default function PlaybookBuilder() {
               </div>
             </div>
 
+            <div className="space-y-3 rounded-xl border border-border/70 p-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground">Setup image <span className="font-normal text-muted-foreground">(optional)</span></label>
+                <p className="mt-1 text-xs text-muted-foreground">Add a chart or visual reference to help remember this setup.</p>
+              </div>
+              {imageDataUrl ? (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                  <Image
+                    src={imageDataUrl}
+                    alt="Playbook setup preview"
+                    width={640}
+                    height={360}
+                    unoptimized
+                    className="max-h-56 w-full rounded-lg border border-border object-contain sm:max-w-md"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setImageDataUrl(null);
+                      setImageError('');
+                      if (imageInputRef.current) imageInputRef.current.value = '';
+                    }}
+                  >
+                    <X className="mr-2 size-4" />
+                    Remove image
+                  </Button>
+                </div>
+              ) : null}
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) => handleImageChange(event.target.files?.[0])}
+                className="sr-only"
+                aria-label="Choose setup image"
+              />
+              <Button type="button" variant="outline" size="sm" onClick={() => imageInputRef.current?.click()}>
+                <ImagePlus className="mr-2 size-4" />
+                {imageDataUrl ? 'Change image' : 'Choose image'}
+              </Button>
+              {imageError ? <p role="alert" className="text-sm text-destructive">{imageError}</p> : null}
+              <p className="text-xs text-muted-foreground">JPEG, PNG, or WebP · up to 1 MB</p>
+            </div>
+
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Planned R Target</label>
@@ -581,6 +678,7 @@ export default function PlaybookBuilder() {
                 </Button>
               ) : null}
             </div>
+            {templateError ? <p role="alert" className="text-sm text-destructive">{templateError}</p> : null}
           </CardContent>
         </Card>
       </div>

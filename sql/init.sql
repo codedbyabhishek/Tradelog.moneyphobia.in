@@ -59,15 +59,35 @@ CREATE TABLE IF NOT EXISTS email_verification_tokens (
 CREATE TABLE IF NOT EXISTS trades (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id BIGINT UNSIGNED NOT NULL,
+  account_id VARCHAR(64) NOT NULL,
   trade_id VARCHAR(64) NOT NULL,
   trade_date DATE NOT NULL,
   trade_json LONGTEXT NOT NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
   PRIMARY KEY (id),
-  UNIQUE KEY uniq_user_trade (user_id, trade_id),
+  UNIQUE KEY uniq_user_account_trade (user_id, account_id, trade_id),
   KEY idx_trades_user_date (user_id, trade_date),
+  KEY idx_trades_user_account_date (user_id, account_id, trade_date),
   CONSTRAINT fk_trades_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS broker_accounts (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  account_id VARCHAR(64) NOT NULL,
+  broker_id VARCHAR(32) NOT NULL,
+  account_name VARCHAR(80) NOT NULL,
+  account_reference_encrypted LONGTEXT NULL,
+  account_number_last4 VARCHAR(4) NULL,
+  currency VARCHAR(3) NOT NULL DEFAULT 'INR',
+  is_default TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uniq_broker_accounts_user_account (user_id, account_id),
+  KEY idx_broker_accounts_user_default (user_id, is_default),
+  CONSTRAINT fk_broker_accounts_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS ideas (

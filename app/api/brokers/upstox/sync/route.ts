@@ -3,6 +3,7 @@ import { requireUser } from '@/lib/server/auth';
 import { jsonError } from '@/lib/server/http';
 import { getStoredUpstoxConfig, syncUpstoxTradesToJournal } from '@/lib/server/upstox';
 import { consumeRateLimit } from '@/lib/server/rate-limit';
+import { resolveBrokerAccount } from '@/lib/server/broker-accounts';
 
 export const runtime = 'nodejs';
 
@@ -38,12 +39,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const fromDate = String(body?.fromDate || '').trim();
     const toDate = String(body?.toDate || '').trim();
+    const accountId = String(body?.accountId || '').trim();
 
     if (!isValidDate(fromDate) || !isValidDate(toDate)) {
       return jsonError('Provide valid from and to dates in YYYY-MM-DD format.', 400);
     }
 
-    const result = await syncUpstoxTradesToJournal(user.id, config, fromDate, toDate);
+    const account = await resolveBrokerAccount(user.id, accountId);
+
+    const result = await syncUpstoxTradesToJournal(user.id, config, fromDate, toDate, account.id);
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {

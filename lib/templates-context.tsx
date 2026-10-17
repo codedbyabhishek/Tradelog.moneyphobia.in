@@ -31,6 +31,7 @@ export interface TradeTemplate {
   idealConditions?: string;
   commonMistakes?: string;
   tags?: string[];
+  imageDataUrl?: string;
   createdAt: string;
   updatedAt: string;
   usageCount: number;

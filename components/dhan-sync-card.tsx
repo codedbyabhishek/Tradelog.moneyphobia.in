@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Database, Loader2, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react';
 import { useTrades } from '@/lib/trade-context';
 import { useSettings } from '@/lib/settings-context';
+import { useAccounts } from '@/lib/accounts-context';
 import { isProPlan } from '@/lib/subscription';
 import {
   Dialog,
@@ -32,7 +33,7 @@ interface DhanStatusResponse {
     positionsCount: number;
     openPositionCount: number;
     availableBalance: number;
-    withdrawableBalance: number;
+    withdrawableBalance: number | null;
     sampleHoldings: string[];
   };
 }
@@ -56,6 +57,7 @@ function daysAgoString(daysAgo: number) {
 
 export default function DhanSyncCard() {
   const { refreshTrades } = useTrades();
+  const { activeAccount, activeAccountId, defaultAccountId } = useAccounts();
   const { billingState } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
   const [clientId, setClientId] = useState('');
@@ -209,13 +211,18 @@ export default function DhanSyncCard() {
       });
       return;
     }
+    const accountId = activeAccountId === 'all' ? defaultAccountId : activeAccountId;
+    if (!accountId) {
+      toast({ title: 'Choose an account', description: 'Create or select a journal account before syncing.', variant: 'destructive' });
+      return;
+    }
     setIsSyncing(true);
     try {
       const res = await fetch('/api/brokers/dhan/sync', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromDate, toDate }),
+        body: JSON.stringify({ fromDate, toDate, accountId }),
       });
       const data = (await res.json()) as DhanSyncResponse & { error?: string };
       if (!res.ok) {
@@ -356,9 +363,12 @@ export default function DhanSyncCard() {
               <p className="mt-1 text-lg font-semibold text-foreground">{status?.openPositionCount ?? '-'}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Balance</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Available Balance</p>
               <p className="mt-1 text-lg font-semibold text-foreground">
                 {status ? `₹${status.availableBalance.toFixed(2)}` : '-'}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Withdrawable: {status?.withdrawableBalance == null ? '—' : `₹${status.withdrawableBalance.toFixed(2)}`}
               </p>
             </div>
           </div>
@@ -369,6 +379,7 @@ export default function DhanSyncCard() {
               <p className="text-xs text-muted-foreground">
                 Imports matched closed trades from Dhan history. Open legs remain untouched until they are closed.
               </p>
+              <p className="mt-2 text-xs font-medium text-primary">Sync destination: {activeAccount?.name || 'Legacy journal'}</p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
