@@ -1,11 +1,11 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTrades } from '@/lib/trade-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import type { MarketSession, Trade } from '@/lib/types';
+import type { EmotionTag, MarketSession, Trade } from '@/lib/types';
 import { Trash2, Eye, Filter, Star, Pencil, Upload, X, Share2, Download } from 'lucide-react';
 import { calculateRFactor, convertToBaseCurrency, CURRENCY_SYMBOLS, getExchangeRateToBase, getTradeOutcome, getTradeResultLabel } from '@/lib/trade-utils';
 import { ScreenshotViewer } from './screenshot-viewer';
@@ -21,6 +21,9 @@ import { useTemplates, type TradeTemplate } from '@/lib/templates-context';
 import { openTradeJournalReportPDF } from '@/lib/trade-report';
 
 const PENDING_OUTCOME_TAG = 'Pending Outcome';
+const EMOTION_OPTIONS: EmotionTag[] = [
+  'Calm', 'Confident', 'Anxious', 'Fearful', 'Greedy', 'Frustrated', 'Revenge', 'FOMO', 'Neutral',
+];
 type EditResultDirection = 'Pending' | 'Win' | 'Loss' | 'Break-Even';
 const EDIT_RESULT_OPTIONS: EditResultDirection[] = ['Pending', 'Win', 'Loss', 'Break-Even'];
 
@@ -47,8 +50,12 @@ function isJournalEnrichedTrade(trade: Trade) {
     trade.beforeTradeScreenshot ||
       trade.afterExitScreenshot ||
       trade.hftScreenshot ||
+      trade.hasScreenshots ||
       trade.preNotes?.trim() ||
       trade.postNotes?.trim() ||
+      trade.duringTradeNotes?.trim() ||
+      trade.emotionEntry ||
+      trade.emotionExit ||
       (trade.setupName && !trade.setupName.startsWith('Dhan Sync')) ||
       trade.limit ||
       trade.exit
@@ -80,7 +87,7 @@ function getTradeSessionLabel(trade: Trade) {
 }
 
 export default function TradeLog() {
-  const { trades, deleteTrade, updateTrade } = useTrades();
+  const { trades, deleteTrade, updateTrade, getTradeDetails } = useTrades();
   const { user } = useAuth();
   const { addTemplate } = useTemplates();
   const tableScrollRailRef = useRef<HTMLDivElement | null>(null);
@@ -100,6 +107,10 @@ export default function TradeLog() {
   const [editIsCustomSetup, setEditIsCustomSetup] = useState(false);
   const [editPreNotes, setEditPreNotes] = useState('');
   const [editPostNotes, setEditPostNotes] = useState('');
+  const [editDuringTradeNotes, setEditDuringTradeNotes] = useState('');
+  const [editEmotionEntry, setEditEmotionEntry] = useState<EmotionTag | ''>('');
+  const [editEmotionExit, setEditEmotionExit] = useState<EmotionTag | ''>('');
+  const [editRuleFollowed, setEditRuleFollowed] = useState<boolean | null>(null);
   const [editBeforeScreenshot, setEditBeforeScreenshot] = useState<string | null>(null);
   const [editAfterScreenshot, setEditAfterScreenshot] = useState<string | null>(null);
   const [editHftScreenshot, setEditHftScreenshot] = useState<string | null>(null);
@@ -110,12 +121,37 @@ export default function TradeLog() {
   const [filterSetup, setFilterSetup] = useState('All');
   const [filterTag, setFilterTag] = useState('All');
   const [filterDate, setFilterDate] = useState<'All' | 'Today' | 'Last 7 Days'>('All');
+  const [currentPage, setCurrentPage] = useState(1);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const handleDownloadTradeReport = (trade: Trade) => {
+  const openTradeDetails = useCallback(async (trade: Trade) => {
+    setSelectedTrade(trade);
+    if (!trade.hasScreenshots) return;
     try {
-      if (!openTradeJournalReportPDF(trade, user?.name, () => {
+      const fullTrade = await getTradeDetails(trade.id, trade.accountId);
+      setSelectedTrade((current) => (
+        current?.id === trade.id && current.accountId === trade.accountId ? fullTrade : current
+      ));
+    } catch (error) {
+      console.error('[TradeLog] Failed to load trade screenshots:', error);
+      toast({
+        title: 'Could not load trade screenshots',
+        description: 'Trade details are available, but screenshots could not be loaded. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }, [getTradeDetails, toast]);
+
+  const handleDownloadTradeReport = async (trade: Trade) => {
+    try {
+      const reportTrade = trade.hasScreenshots &&
+        !trade.beforeTradeScreenshot &&
+        !trade.afterExitScreenshot &&
+        !trade.hftScreenshot
+        ? await getTradeDetails(trade.id, trade.accountId)
+        : trade;
+      if (!openTradeJournalReportPDF(reportTrade, user?.name, () => {
         toast({
           title: 'PDF print failed',
           description: 'The report opened, but the browser could not start printing. Please try again.',
@@ -208,13 +244,13 @@ export default function TradeLog() {
     const matchingTrade = trades.find((trade) => trade.id === pendingTradeId);
     if (matchingTrade) {
       const timeoutId = window.setTimeout(() => {
-        setSelectedTrade(matchingTrade);
+        void openTradeDetails(matchingTrade);
         window.sessionStorage.removeItem('td-open-trade-id');
       }, 0);
 
       return () => window.clearTimeout(timeoutId);
     }
-  }, [trades]);
+  }, [getTradeDetails, openTradeDetails, trades]);
 
   const setupNames = useMemo(() => {
     return ['All', ...new Set(trades.map(t => t.setupName))];
@@ -246,6 +282,18 @@ export default function TradeLog() {
     });
   }, [trades, sortBy, filterSetup, filterTag, filterDate]);
 
+  const pageSize = 50;
+  const totalPages = Math.max(1, Math.ceil(filteredAndSortedTrades.length / pageSize));
+  const pageTrades = useMemo(
+    () => {
+      const page = Math.min(currentPage, totalPages);
+      return filteredAndSortedTrades.slice((page - 1) * pageSize, page * pageSize);
+    },
+    [currentPage, filteredAndSortedTrades, totalPages],
+  );
+
+  const visiblePage = Math.min(currentPage, totalPages);
+
   useEffect(() => {
     const table = tableElementRef.current;
     const viewport = tableViewportRef.current;
@@ -260,14 +308,27 @@ export default function TradeLog() {
     observer.observe(table);
     observer.observe(viewport);
     return () => observer.disconnect();
-  }, [filteredAndSortedTrades.length]);
+  }, [pageTrades.length]);
 
   const syncTableScroll = (source: HTMLDivElement | null, target: HTMLDivElement | null) => {
     if (!source || !target || target.scrollLeft === source.scrollLeft) return;
     target.scrollLeft = source.scrollLeft;
   };
 
-  const openEditTrade = (trade: Trade) => {
+  const openEditTrade = async (trade: Trade) => {
+    if (trade.hasScreenshots) {
+      try {
+        trade = await getTradeDetails(trade.id, trade.accountId);
+      } catch (error) {
+        console.error('[TradeLog] Failed to load trade for editing:', error);
+        toast({
+          title: 'Could not load trade',
+          description: 'Please try opening this trade again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
     setEditingTrade(trade);
     setEditSetupName(trade.setupName || '');
     setEditTags(trade.tags?.join(', ') || '');
@@ -279,6 +340,10 @@ export default function TradeLog() {
     setEditIsCustomSetup(!PRESET_SETUPS.includes((trade.setupName || '') as (typeof PRESET_SETUPS)[number]));
     setEditPreNotes(trade.preNotes || '');
     setEditPostNotes(trade.postNotes || '');
+    setEditDuringTradeNotes(trade.duringTradeNotes || '');
+    setEditEmotionEntry(trade.emotionEntry || '');
+    setEditEmotionExit(trade.emotionExit || '');
+    setEditRuleFollowed(typeof trade.ruleFollowed === 'boolean' ? trade.ruleFollowed : null);
     setEditBeforeScreenshot(trade.beforeTradeScreenshot || null);
     setEditAfterScreenshot(trade.afterExitScreenshot || null);
     setEditHftScreenshot(trade.hftScreenshot || null);
@@ -307,6 +372,10 @@ export default function TradeLog() {
     setEditIsCustomSetup(false);
     setEditPreNotes('');
     setEditPostNotes('');
+    setEditDuringTradeNotes('');
+    setEditEmotionEntry('');
+    setEditEmotionExit('');
+    setEditRuleFollowed(null);
     setEditBeforeScreenshot(null);
     setEditAfterScreenshot(null);
     setEditHftScreenshot(null);
@@ -417,17 +486,27 @@ export default function TradeLog() {
       exitRFactor: Number.isFinite(nextRFactor) ? nextRFactor : editingTrade.exitRFactor,
       preNotes: editPreNotes,
       postNotes: editPostNotes,
+      duringTradeNotes: editDuringTradeNotes.trim() || undefined,
+      emotionEntry: editEmotionEntry || undefined,
+      emotionExit: editEmotionExit || undefined,
+      ruleFollowed: editRuleFollowed === null ? editingTrade.ruleFollowed : editRuleFollowed,
+      ruleViolations: editRuleFollowed === true ? [] : editingTrade.ruleViolations,
       beforeTradeScreenshot: editBeforeScreenshot || undefined,
       afterExitScreenshot: editAfterScreenshot || undefined,
       hftScreenshot: editHftScreenshot || undefined,
     };
 
-    updateTrade(editingTrade.id, updatedTrade);
+    const clearScreenshots = [
+      editingTrade.beforeTradeScreenshot && !editBeforeScreenshot ? 'beforeTradeScreenshot' : null,
+      editingTrade.afterExitScreenshot && !editAfterScreenshot ? 'afterExitScreenshot' : null,
+      editingTrade.hftScreenshot && !editHftScreenshot ? 'hftScreenshot' : null,
+    ].filter((field): field is string => field !== null);
+    updateTrade(editingTrade.id, updatedTrade, { clearScreenshots });
     setSelectedTrade((current) => (current?.id === updatedTrade.id ? updatedTrade : current));
     closeEditTrade();
     toast({
       title: 'Trade Updated',
-      description: 'Your trade details, Fibonacci levels, notes, and screenshots were saved.',
+      description: 'Your trade details, mindset review, notes, and screenshots were saved.',
     });
   };
 
@@ -444,7 +523,10 @@ export default function TradeLog() {
           <Filter className="w-4 h-4 text-muted-foreground flex-shrink-0" />
           <select
             value={filterSetup}
-            onChange={e => setFilterSetup(e.target.value)}
+            onChange={e => {
+              setCurrentPage(1);
+              setFilterSetup(e.target.value);
+            }}
             className="flex-1 px-3 py-2 bg-secondary border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             {setupNames.map(setup => (
@@ -459,7 +541,10 @@ export default function TradeLog() {
           <span className="text-sm text-muted-foreground flex-shrink-0">Tag:</span>
           <select
             value={filterTag}
-            onChange={e => setFilterTag(e.target.value)}
+            onChange={e => {
+              setCurrentPage(1);
+              setFilterTag(e.target.value);
+            }}
             className="flex-1 px-3 py-2 bg-secondary border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             {tagNames.map(tag => (
@@ -474,7 +559,10 @@ export default function TradeLog() {
           <span className="text-sm text-muted-foreground flex-shrink-0">Date:</span>
           <select
             value={filterDate}
-            onChange={e => setFilterDate(e.target.value as 'All' | 'Today' | 'Last 7 Days')}
+            onChange={e => {
+              setCurrentPage(1);
+              setFilterDate(e.target.value as 'All' | 'Today' | 'Last 7 Days');
+            }}
             className="flex-1 px-3 py-2 bg-secondary border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="All">All</option>
@@ -487,7 +575,10 @@ export default function TradeLog() {
           <span className="text-sm text-muted-foreground flex-shrink-0">Sort:</span>
           <select
             value={sortBy}
-            onChange={e => setSortBy(e.target.value as 'date' | 'pnl')}
+            onChange={e => {
+              setCurrentPage(1);
+              setSortBy(e.target.value as 'date' | 'pnl');
+            }}
             className="flex-1 px-3 py-2 bg-secondary border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="date">Date (Newest)</option>
@@ -561,7 +652,7 @@ export default function TradeLog() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAndSortedTrades.map(trade => (
+                  {pageTrades.map(trade => (
                     <tr key={trade.id} className="border-b border-border hover:bg-secondary transition-colors">
                       <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm text-foreground">{trade.date}</td>
                       <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm text-muted-foreground">{trade.dayOfWeek.slice(0, 3)}</td>
@@ -637,7 +728,7 @@ export default function TradeLog() {
                       </td>
                       <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-center">
                         <div className="flex items-center justify-center gap-1 sm:gap-2">
-                          <button onClick={() => setSelectedTrade(trade)} className="text-primary hover:text-primary/80 transition-colors p-1" title="View">
+                          <button onClick={() => void openTradeDetails(trade)} className="text-primary hover:text-primary/80 transition-colors p-1" title="View">
                             <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           </button>
                           <button onClick={() => openEditTrade(trade)} className="text-blue-400 hover:text-blue-300 transition-colors p-1" title="Edit">
@@ -661,7 +752,7 @@ export default function TradeLog() {
 
           {/* Mobile & Tablet Card View */}
           <div className="lg:hidden space-y-2 sm:space-y-3">
-            {filteredAndSortedTrades.map(trade => (
+            {pageTrades.map(trade => (
               <Card key={trade.id} className="bg-card border-border">
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-2">
@@ -756,7 +847,7 @@ export default function TradeLog() {
                       <Star className={`w-4 h-4 ${trade.isFavorite ? 'fill-current' : ''}`} />
                       <span className="text-xs font-medium">{trade.isFavorite ? 'Unfavorite' : 'Favorite'}</span>
                     </button>
-                    <button onClick={() => setSelectedTrade(trade)} className="flex-1 flex items-center justify-center gap-1 text-primary hover:text-primary/80 transition-colors py-2">
+                    <button onClick={() => void openTradeDetails(trade)} className="flex-1 flex items-center justify-center gap-1 text-primary hover:text-primary/80 transition-colors py-2">
                       <Eye className="w-4 h-4" />
                       <span className="text-xs font-medium">Details</span>
                     </button>
@@ -777,6 +868,22 @@ export default function TradeLog() {
               </Card>
             ))}
           </div>
+          {totalPages > 1 ? (
+            <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+              <p className="text-sm text-muted-foreground">
+                Showing {(visiblePage - 1) * pageSize + 1}–{Math.min(visiblePage * pageSize, filteredAndSortedTrades.length)} of {filteredAndSortedTrades.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" size="sm" disabled={visiblePage === 1} onClick={() => setCurrentPage(visiblePage - 1)}>
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">{visiblePage} / {totalPages}</span>
+                <Button type="button" variant="outline" size="sm" disabled={visiblePage === totalPages} onClick={() => setCurrentPage(visiblePage + 1)}>
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </>
       )}
 
@@ -950,6 +1057,43 @@ export default function TradeLog() {
                 )}
               </div>
 
+              <section className="space-y-3 rounded-xl border border-border bg-card p-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Mindset &amp; Execution</h3>
+                  <p className="text-xs text-muted-foreground">Review the emotional journey from entry through exit.</p>
+                </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded-lg border border-border bg-secondary/40 p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">At entry</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">{selectedTrade.emotionEntry || 'Emotion not recorded'}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Confidence: {Number.isFinite(selectedTrade.confidence) ? `${selectedTrade.confidence}/10` : 'Not recorded'}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-secondary/40 p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">During the trade</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+                      {selectedTrade.duringTradeNotes?.trim() || 'No in-trade context recorded'}
+                    </p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Plan: {typeof selectedTrade.ruleFollowed === 'boolean'
+                        ? selectedTrade.ruleFollowed ? 'Followed' : 'Not followed'
+                        : 'Not recorded'}
+                    </p>
+                    {!!selectedTrade.ruleViolations?.length && (
+                      <p className="mt-1 text-xs text-muted-foreground">Rule violations: {selectedTrade.ruleViolations.join(', ')}</p>
+                    )}
+                    {selectedTrade.mistakeTag && (
+                      <p className="mt-1 text-xs text-muted-foreground">Mistake: {selectedTrade.mistakeTag}</p>
+                    )}
+                  </div>
+                  <div className="rounded-lg border border-border bg-secondary/40 p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">At exit</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">{selectedTrade.emotionExit || 'Emotion not recorded'}</p>
+                  </div>
+                </div>
+              </section>
+
               {/* Notes */}
               {selectedTrade.tags && selectedTrade.tags.length > 0 && (
                 <div>
@@ -975,16 +1119,6 @@ export default function TradeLog() {
                 <div>
                   <p className="text-sm font-semibold text-foreground mb-2">Post-Trade Notes</p>
                   <p className="text-sm text-muted-foreground bg-secondary p-3 rounded-lg">{selectedTrade.postNotes}</p>
-                </div>
-              )}
-
-              {/* Mistake Tag */}
-              {selectedTrade.mistakeTag && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-2">Mistake Tag</p>
-                  <span className="inline-block px-3 py-1 bg-destructive/20 text-destructive rounded-full text-sm font-medium">
-                    {selectedTrade.mistakeTag}
-                  </span>
                 </div>
               )}
 
@@ -1049,7 +1183,7 @@ export default function TradeLog() {
                 <div>
                   <CardTitle id="edit-trade-title" className="text-xl">Edit Trade</CardTitle>
                   <CardDescription className="mt-1">
-                    Update notes and screenshots for {editingTrade.symbol} on {editingTrade.date}
+                    Update journal details and review for {editingTrade.symbol} on {editingTrade.date}
                   </CardDescription>
                 </div>
                 <button
@@ -1082,7 +1216,7 @@ export default function TradeLog() {
                   <p className="mt-2 text-lg font-semibold text-foreground">
                     {isJournalEnrichedTrade(editingTrade) ? 'Journal Enriched' : 'Base Import'}
                   </p>
-                  <p className="text-sm text-muted-foreground">Notes, setup labels, fib levels, and screenshots count as enrichment.</p>
+                  <p className="text-sm text-muted-foreground">Notes, setup labels, psychology review, and screenshots count as enrichment.</p>
                 </div>
               </div>
 
@@ -1314,6 +1448,59 @@ export default function TradeLog() {
                   placeholder="Add review notes, mistakes, or lessons learned..."
                 />
               </div>
+
+              <section className="space-y-4 rounded-xl border border-border p-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Mindset &amp; Execution</h3>
+                  <p className="text-xs text-muted-foreground">Capture how you felt and what changed while the trade was open.</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-foreground">Entry Emotion</label>
+                    <select
+                      value={editEmotionEntry}
+                      onChange={(event) => setEditEmotionEntry(event.target.value as EmotionTag | '')}
+                      className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Not recorded</option>
+                      {EMOTION_OPTIONS.map((emotion) => <option key={emotion} value={emotion}>{emotion}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-foreground">Exit Emotion</label>
+                    <select
+                      value={editEmotionExit}
+                      onChange={(event) => setEditEmotionExit(event.target.value as EmotionTag | '')}
+                      className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Not recorded</option>
+                      {EMOTION_OPTIONS.map((emotion) => <option key={emotion} value={emotion}>{emotion}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-foreground">Followed the plan?</label>
+                    <select
+                      value={editRuleFollowed === null ? '' : editRuleFollowed ? 'yes' : 'no'}
+                      onChange={(event) => setEditRuleFollowed(event.target.value === '' ? null : event.target.value === 'yes')}
+                      className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Not recorded</option>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-foreground">What happened during the trade?</label>
+                  <textarea
+                    value={editDuringTradeNotes}
+                    onChange={(event) => setEditDuringTradeNotes(event.target.value)}
+                    rows={3}
+                    className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="Note a trigger, urge, hesitation, or change to your plan."
+                  />
+                </div>
+              </section>
 
               <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 <div className="space-y-3">

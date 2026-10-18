@@ -66,6 +66,10 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
       description: share.record.caption || share.record.summaryText || 'Traderlogify shared performance card',
       images: [imageUrl],
     },
+    robots: {
+      index: false,
+      follow: false,
+    },
   };
 }
 

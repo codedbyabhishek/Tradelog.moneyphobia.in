@@ -13,6 +13,8 @@ interface SettingsContextType {
   setBaseCurrency: (currency: Currency) => Promise<void>;
   startingBalance: number;
   setStartingBalance: (balance: number) => Promise<void>;
+  monthlyReturnTarget: number;
+  setMonthlyReturnTarget: (target: number) => Promise<void>;
   capitalAdjustments: CapitalAdjustment[];
   saveCapitalAdjustments: (adjustments: CapitalAdjustment[]) => Promise<void>;
   billingState: BillingState;
@@ -25,6 +27,7 @@ export const SettingsContext = createContext<SettingsContextType | undefined>(un
 
 const DEFAULT_BASE_CURRENCY: Currency = 'INR';
 const DEFAULT_STARTING_BALANCE = 0;
+const DEFAULT_MONTHLY_RETURN_TARGET = 1000;
 const DEFAULT_CAPITAL_ADJUSTMENTS: CapitalAdjustment[] = [];
 
 function normalizeCapitalAdjustments(input: unknown): CapitalAdjustment[] {
@@ -80,6 +83,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const { user, isLoading: isAuthLoading } = useAuth();
   const [baseCurrency, setBaseCurrencyState] = useState<Currency>(DEFAULT_BASE_CURRENCY);
   const [startingBalance, setStartingBalanceState] = useState<number>(DEFAULT_STARTING_BALANCE);
+  const [monthlyReturnTarget, setMonthlyReturnTargetState] = useState<number>(DEFAULT_MONTHLY_RETURN_TARGET);
   const [capitalAdjustments, setCapitalAdjustmentsState] = useState<CapitalAdjustment[]>(DEFAULT_CAPITAL_ADJUSTMENTS);
   const [billingState, setBillingState] = useState<BillingState>(DEFAULT_BILLING_STATE);
   const [tradingPlan, setTradingPlan] = useState<TradingPlan>(() => createDefaultTradingPlan());
@@ -90,6 +94,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       if (!user) {
         setBaseCurrencyState(DEFAULT_BASE_CURRENCY);
         setStartingBalanceState(DEFAULT_STARTING_BALANCE);
+        setMonthlyReturnTargetState(DEFAULT_MONTHLY_RETURN_TARGET);
         setCapitalAdjustmentsState(DEFAULT_CAPITAL_ADJUSTMENTS);
         setBillingState(DEFAULT_BILLING_STATE);
         setTradingPlan(createDefaultTradingPlan());
@@ -101,6 +106,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       if (bootstrap) {
         const storedCurrency = bootstrap.settings?.baseCurrency;
         const storedStartingBalance = Number(bootstrap.settings?.startingBalance);
+        const storedMonthlyReturnTarget = Number(bootstrap.settings?.monthlyReturnTarget);
         const storedCapitalAdjustments = normalizeCapitalAdjustments(bootstrap.settings?.capitalAdjustments);
 
         if (storedCurrency) {
@@ -110,6 +116,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         }
 
         setStartingBalanceState(Number.isFinite(storedStartingBalance) ? storedStartingBalance : DEFAULT_STARTING_BALANCE);
+        setMonthlyReturnTargetState(
+          Number.isFinite(storedMonthlyReturnTarget) && storedMonthlyReturnTarget >= 0
+            ? storedMonthlyReturnTarget
+            : DEFAULT_MONTHLY_RETURN_TARGET
+        );
         setCapitalAdjustmentsState(storedCapitalAdjustments);
         setBillingState(normalizeBillingState(bootstrap.settings?.billing));
         setTradingPlan(normalizeTradingPlan(bootstrap.settings?.tradingPlan));
@@ -122,12 +133,16 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json();
         const storedCurrency = data?.settings?.baseCurrency;
         const storedStartingBalance = Number(data?.settings?.startingBalance);
+        const storedMonthlyReturnTarget = Number(data?.settings?.monthlyReturnTarget);
         const storedCapitalAdjustments = normalizeCapitalAdjustments(data?.settings?.capitalAdjustments);
         if (storedCurrency) {
           setBaseCurrencyState(storedCurrency as Currency);
         }
         if (Number.isFinite(storedStartingBalance)) {
           setStartingBalanceState(storedStartingBalance);
+        }
+        if (Number.isFinite(storedMonthlyReturnTarget) && storedMonthlyReturnTarget >= 0) {
+          setMonthlyReturnTargetState(storedMonthlyReturnTarget);
         }
         setBillingState(normalizeBillingState(data?.settings?.billing));
         const storedTradingPlan = normalizeTradingPlan(data?.settings?.tradingPlan);
@@ -139,6 +154,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             ...settings,
             ...(storedCurrency ? { baseCurrency: storedCurrency as Currency } : {}),
             ...(Number.isFinite(storedStartingBalance) ? { startingBalance: storedStartingBalance } : {}),
+            ...(Number.isFinite(storedMonthlyReturnTarget) && storedMonthlyReturnTarget >= 0
+              ? { monthlyReturnTarget: storedMonthlyReturnTarget }
+              : {}),
             capitalAdjustments: storedCapitalAdjustments,
             billing: normalizeBillingState(data?.settings?.billing),
             tradingPlan: storedTradingPlan,
@@ -200,6 +218,35 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         startingBalance: previousBalance,
       }));
       throw err;
+    }
+  };
+
+  const setMonthlyReturnTarget = async (target: number) => {
+    if (!Number.isFinite(target) || target < 0) {
+      throw new Error('Monthly return target must be a valid amount that is zero or greater.');
+    }
+    if (target === monthlyReturnTarget) return;
+
+    const previousTarget = monthlyReturnTarget;
+    setMonthlyReturnTargetState(target);
+    if (user) {
+      updateBootstrapSettings(user.id, (settings) => ({
+        ...settings,
+        monthlyReturnTarget: target,
+      }));
+    }
+
+    if (!user) return;
+
+    try {
+      await persistSetting('monthlyReturnTarget', target);
+    } catch (error) {
+      setMonthlyReturnTargetState(previousTarget);
+      updateBootstrapSettings(user.id, (settings) => ({
+        ...settings,
+        monthlyReturnTarget: previousTarget,
+      }));
+      throw error;
     }
   };
 
@@ -293,6 +340,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setBaseCurrency,
         startingBalance,
         setStartingBalance,
+        monthlyReturnTarget,
+        setMonthlyReturnTarget,
         capitalAdjustments,
         saveCapitalAdjustments,
         billingState,

@@ -13,7 +13,8 @@ export function createPublicMetadata({
   path: string;
 }): Metadata {
   const siteUrl = getSiteUrl();
-  const canonical = `${siteUrl}${path}`;
+  const canonical = new URL(path, `${siteUrl}/`).toString();
+  const socialImage = new URL('/opengraph-image', `${siteUrl}/`).toString();
 
   return {
     title,
@@ -29,7 +30,7 @@ export function createPublicMetadata({
       type: 'website',
       images: [
         {
-          url: `${siteUrl}/icon.svg`,
+          url: socialImage,
         },
       ],
     },
@@ -37,7 +38,7 @@ export function createPublicMetadata({
       card: 'summary_large_image',
       title,
       description,
-      images: [`${siteUrl}/icon.svg`],
+      images: [socialImage],
     },
   };
 }

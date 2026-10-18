@@ -2,10 +2,12 @@
 
 import type { ReactNode } from 'react';
 import { useMemo, useState } from "react";
+import Link from 'next/link';
 import { useTrades } from '@/lib/trade-context';
 import { useSettings } from '@/lib/settings-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Activity, AlertTriangle, Brain, CalendarRange, Clock3, Gauge, Layers3, Shield, TrendingDown, TrendingUp } from 'lucide-react';
 import { Trade } from '@/lib/types';
@@ -557,8 +559,24 @@ export default function AdvancedAnalytics() {
           </p>
         </div>
         <Card className="border-border bg-card">
-          <CardContent className="pt-6">
-            <p className="text-muted-foreground">No trades yet. Start trading and track your performance here!</p>
+          <CardContent className="flex flex-col items-center gap-4 p-6 text-center sm:p-10">
+            <div className="rounded-2xl border border-primary/20 bg-primary/10 p-3 text-primary">
+              <Activity className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-lg font-semibold text-foreground">Your advanced insights start with a trade</h2>
+              <p className="mx-auto max-w-lg text-sm leading-6 text-muted-foreground">
+                Add a trade or import your history to explore risk, session, duration, and performance patterns.
+              </p>
+            </div>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <Button asChild className="w-full sm:w-auto">
+                <Link href="/app/add-trade">Add a trade</Link>
+              </Button>
+              <Button asChild variant="outline" className="w-full sm:w-auto">
+                <Link href="/app/import-analysis">Import trade history</Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -566,21 +584,21 @@ export default function AdvancedAnalytics() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
       <section className="relative overflow-hidden rounded-[32px] border border-border/70 bg-card px-4 py-6 sm:px-6 lg:px-8">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.14),transparent_30%)]" />
-        <div className="relative flex min-w-0 flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="relative grid min-w-0 gap-6">
           <div className="min-w-0 max-w-3xl">
             <Badge className="border-primary/20 bg-primary/10 text-primary">Advanced Analytics</Badge>
-            <h1 className="mt-4 text-3xl font-bold tracking-tight text-foreground sm:text-4xl break-words">
+            <h1 className="mt-4 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
               See the full story behind your trading performance
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base break-words">
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
               The core purpose stays the same: deeper performance review, emotional and session correlations,
               risk metrics, and a denser stats layer than the main analytics page.
             </p>
           </div>
-          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:w-full xl:max-w-[560px] 2xl:max-w-[760px] 2xl:grid-cols-4">
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <HeroMetricCard
               title="Win Rate"
               value={formatPercent(analytics.winRate)}
@@ -609,57 +627,6 @@ export default function AdvancedAnalytics() {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card className="border-border bg-card">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Win Rate</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{analytics.winRate.toFixed(1)}%</div>
-            <div className="mt-2">
-              <Progress value={analytics.winRate} className="h-2" />
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {trades.filter((t) => getTradeBasePnL(t) > 0).length} wins / {trades.length} trades
-            </p>
-          </CardContent>
-        </Card>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <Card className="border-border bg-card">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Profit Factor</CardTitle>
-            </CardHeader>
-            <CardContent className="min-w-0">
-              <div className="break-all text-xl font-bold sm:text-2xl">{analytics.profitFactor.toFixed(2)}</div>
-              <p className="mt-2 break-words text-xs text-muted-foreground">Avg Win: {formatPnl(analytics.avgWin)}</p>
-              <p className="break-words text-xs text-muted-foreground">Avg Loss: {formatPnl(analytics.avgLoss)}</p>
-            </CardContent>
-          </Card>
-          <Card className="border-border bg-card">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Best Day</CardTitle>
-            </CardHeader>
-            <CardContent className="min-w-0">
-              <div className={`break-all text-xl font-bold sm:text-2xl ${analytics.bestDay.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatPnl(analytics.bestDay.pnl)}
-              </div>
-              <p className="mt-2 break-words text-xs text-muted-foreground">{analytics.bestDay.date}</p>
-            </CardContent>
-          </Card>
-          <Card className="border-border bg-card">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Worst Day</CardTitle>
-            </CardHeader>
-            <CardContent className="min-w-0">
-              <div className={`break-all text-xl font-bold sm:text-2xl ${analytics.worstDay.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatPnl(analytics.worstDay.pnl)}
-              </div>
-              <p className="mt-2 break-words text-xs text-muted-foreground">{analytics.worstDay.date}</p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
       {/* Your Stats */}
       <Card className="bg-card border-border overflow-hidden">
         <CardHeader className="pb-3 flex flex-col gap-3 border-b border-border/60 bg-gradient-to-r from-background/60 to-transparent sm:flex-row sm:items-center sm:justify-between">
@@ -677,7 +644,8 @@ export default function AdvancedAnalytics() {
                   key={days}
                   type="button"
                   onClick={() => setStatsRangeDays(days)}
-                  className={`px-2 py-1 rounded-full ${
+                  aria-pressed={statsRangeDays === days}
+                  className={`min-h-8 min-w-10 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                     statsRangeDays === days
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:bg-muted/40"
@@ -689,7 +657,8 @@ export default function AdvancedAnalytics() {
               <button
                 type="button"
                 onClick={() => setStatsRangeDays(-1)}
-                className={`px-2 py-1 rounded-full ${
+                aria-pressed={statsRangeDays === -1}
+                className={`min-h-8 min-w-10 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                   statsRangeDays === -1
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-muted/40"
@@ -700,13 +669,13 @@ export default function AdvancedAnalytics() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent>
           {!yourStats ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="py-2 text-sm text-muted-foreground">
               No data in the selected range. Try expanding the date range or add trades.
             </p>
           ) : (
-            <>
+            <div className="grid min-w-0 grid-cols-1 gap-7 xl:grid-cols-2">
               <InsightSection
                 icon={CalendarRange}
                 title="Monthly Performance"
@@ -836,7 +805,7 @@ export default function AdvancedAnalytics() {
                   <StatPanel label="Maximum Drawdown %" value={formatPercent(yourStats.risk.maxDrawdownPct)} accent="negative" />
                 </div>
               </InsightSection>
-            </>
+            </div>
           )}
         </CardContent>
       </Card>

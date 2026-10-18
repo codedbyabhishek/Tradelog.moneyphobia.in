@@ -3,7 +3,6 @@ import { getSiteUrl } from '@/lib/seo';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = getSiteUrl();
-  const now = new Date();
   const publicRoutes: Array<{
     path: string;
     changeFrequency: 'daily' | 'weekly' | 'monthly';
@@ -24,8 +23,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   ];
 
   return publicRoutes.map((route) => ({
-    url: `${baseUrl}${route.path}`,
-    lastModified: now,
+    url: new URL(route.path || '/', `${baseUrl}/`).toString(),
     changeFrequency: route.changeFrequency,
     priority: route.priority,
   }));

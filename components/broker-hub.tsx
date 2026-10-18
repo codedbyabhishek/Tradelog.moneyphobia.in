@@ -225,7 +225,13 @@ export default function BrokerHub() {
   }, []);
 
   useEffect(() => {
-    void loadConnections();
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) void loadConnections();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [loadConnections]);
 
   const connectionById = useMemo(

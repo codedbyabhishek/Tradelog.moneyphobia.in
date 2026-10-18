@@ -292,6 +292,7 @@ export function convertFormToTrade(formData: TradeFormData): Trade {
     confidence: parseInt(formData.confidence),
     preNotes: formData.preNotes,
     postNotes: formData.postNotes,
+    duringTradeNotes: formData.duringTradeNotes?.trim() || undefined,
     beforeTradeScreenshot: formData.beforeTradeScreenshot,
     afterExitScreenshot: formData.afterExitScreenshot,
     hftScreenshot: formData.hftScreenshot,

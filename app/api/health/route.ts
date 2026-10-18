@@ -8,6 +8,7 @@ import {
   assertRateLimitSchemaReady,
   assertBrokerAccountsSchemaReady,
   assertSharedCardsSchemaReady,
+  assertWorkspaceSchemaReady,
 } from '@/lib/server/schema';
 
 export const runtime = 'nodejs';
@@ -63,6 +64,7 @@ export async function GET(request: Request) {
       assertBillingSchemaReady(),
       assertSharedCardsSchemaReady(),
       assertBrokerAccountsSchemaReady(),
+      assertWorkspaceSchemaReady(),
     ]);
 
     return NextResponse.json(
@@ -86,6 +88,7 @@ export async function GET(request: Request) {
       { status: 200 }
     );
   } catch (error) {
+    console.error('[health] database or schema check failed', error);
     return NextResponse.json(
       {
         ok: false,

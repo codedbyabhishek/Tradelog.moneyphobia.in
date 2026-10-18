@@ -51,17 +51,13 @@ export const metadata: Metadata = {
     url: '/',
     siteName: 'Traderlogify',
     type: 'website',
-    images: [
-      {
-        url: '/icon.svg',
-      },
-    ],
+    images: ['/opengraph-image'],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Traderlogify',
     description: 'Track trades, sync Dhan history, review setups, and build a disciplined trading journal.',
-    images: ['/icon.svg'],
+    images: ['/opengraph-image'],
   },
   robots: {
     index: true,

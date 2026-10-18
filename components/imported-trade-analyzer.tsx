@@ -230,6 +230,10 @@ export default function ImportedTradeAnalyzer() {
   const [selectedPreset, setSelectedPreset] = useState<ImportPresetId>('custom');
   const [targetAccountId, setTargetAccountId] = useState('');
   const [isSavingToJournal, setIsSavingToJournal] = useState(false);
+  const preferredAccountId = activeAccountId === 'all' ? defaultAccountId : activeAccount?.id;
+  const resolvedTargetAccountId = accounts.some((account) => account.id === targetAccountId)
+    ? targetAccountId
+    : preferredAccountId || accounts[0]?.id || '';
 
   const analytics: ImportedTradeAnalytics | null = useMemo(() => {
     if (!parseResult) return null;
@@ -239,13 +243,6 @@ export default function ImportedTradeAnalyzer() {
   const hasUsableAnalysis = Boolean(parseResult && analytics && analytics.summary.analyzedTrades > 0);
   const usableAnalytics = hasUsableAnalysis ? analytics : null;
   const hasSavedMapping = selectedPreset !== 'custom' && Object.keys(loadSavedMappingForPreset(selectedPreset)).length > 0;
-
-  useEffect(() => {
-    const preferred = activeAccountId === 'all' ? defaultAccountId : activeAccount?.id;
-    if (!targetAccountId || !accounts.some((account) => account.id === targetAccountId)) {
-      setTargetAccountId(preferred || accounts[0]?.id || '');
-    }
-  }, [accounts, activeAccount?.id, activeAccountId, defaultAccountId, targetAccountId]);
 
   const applyMapping = (
     nextMapping: Partial<Record<ColumnKey, string>>,
@@ -343,15 +340,15 @@ export default function ImportedTradeAnalyzer() {
   };
 
   const handleSaveToJournal = async () => {
-    if (!parseResult || !targetAccountId) {
+    if (!parseResult || !resolvedTargetAccountId) {
       toast({ title: 'Choose an account', description: 'Create or select a broker account before saving this import.', variant: 'destructive' });
       return;
     }
 
-    const targetAccount = accounts.find((account) => account.id === targetAccountId);
+    const targetAccount = accounts.find((account) => account.id === resolvedTargetAccountId);
     if (!targetAccount) return;
     const journalTrades = parseResult.records
-      .map((record) => toJournalTrade(record, targetAccountId, targetAccount.currency, fileName, selectedPreset))
+      .map((record) => toJournalTrade(record, resolvedTargetAccountId, targetAccount.currency, fileName, selectedPreset))
       .filter((trade): trade is Trade => Boolean(trade));
 
     if (journalTrades.length === 0) {
@@ -365,7 +362,7 @@ export default function ImportedTradeAnalyzer() {
 
     setIsSavingToJournal(true);
     try {
-      const result = await saveImportedTrades(journalTrades, targetAccountId);
+      const result = await saveImportedTrades(journalTrades, resolvedTargetAccountId);
       toast({
         title: 'Trades saved to journal',
         description: `${result.savedCount} trades are now assigned to ${targetAccount.name}. Re-uploading this file updates the same rows instead of creating duplicates.`,
@@ -652,7 +649,7 @@ export default function ImportedTradeAnalyzer() {
                 </div>
                 <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/[0.04] p-3">
                   <p className="text-sm font-medium">Journal destination</p>
-                  <Select value={targetAccountId} onValueChange={setTargetAccountId}>
+                  <Select value={resolvedTargetAccountId} onValueChange={setTargetAccountId}>
                     <SelectTrigger>
                       <SelectValue placeholder="Choose broker account" />
                     </SelectTrigger>
@@ -665,7 +662,7 @@ export default function ImportedTradeAnalyzer() {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">{journalTradesHint(parseResult.records)} valid rows will be stored with this account. Re-importing the same file updates matching rows.</p>
-                  <Button className="w-full" onClick={() => void handleSaveToJournal()} disabled={isSavingToJournal || !targetAccountId}>
+                  <Button className="w-full" onClick={() => void handleSaveToJournal()} disabled={isSavingToJournal || !resolvedTargetAccountId}>
                     {isSavingToJournal ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
                     Save verified trades to journal
                   </Button>

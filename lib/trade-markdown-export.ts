@@ -63,6 +63,13 @@ export function tradeToMarkdown(trade: Trade): string {
 
 ## Trade Analysis
 
+### Emotional Journey
+- **Entry emotion:** ${trade.emotionEntry || 'Not recorded'}
+- **During-trade context:** ${trade.duringTradeNotes || 'Not recorded'}
+- **Exit emotion:** ${trade.emotionExit || 'Not recorded'}
+- **Followed plan:** ${typeof trade.ruleFollowed === 'boolean' ? (trade.ruleFollowed ? 'Yes' : 'No') : 'Not recorded'}
+- **Rule violations:** ${trade.ruleViolations?.join(', ') || 'None recorded'}
+
 ### Pre-Trade Notes
 ${trade.preNotes || '*No pre-trade notes recorded*'}
 

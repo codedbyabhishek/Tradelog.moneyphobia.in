@@ -1,3 +1,7 @@
+import nextEnv from '@next/env';
+
+nextEnv.loadEnvConfig(process.cwd(), false);
+
 const REQUIRED_VARS = [
   'DB_HOST',
   'DB_USER',
@@ -44,11 +48,7 @@ if (filled('NEXT_PUBLIC_SITE_URL') && !isValidAbsoluteUrl(process.env.NEXT_PUBLI
   errors.push('NEXT_PUBLIC_SITE_URL must be an absolute URL');
 }
 
-if (
-  process.env.NODE_ENV === 'production' &&
-  filled('NEXT_PUBLIC_SITE_URL') &&
-  !process.env.NEXT_PUBLIC_SITE_URL.trim().startsWith('https://')
-) {
+if (filled('NEXT_PUBLIC_SITE_URL') && !process.env.NEXT_PUBLIC_SITE_URL.trim().startsWith('https://')) {
   errors.push('NEXT_PUBLIC_SITE_URL must use HTTPS in production');
 }
 
@@ -67,6 +67,9 @@ for (const [label, names] of Object.entries(OPTIONAL_GROUPS)) {
   const present = names.filter(filled);
   if (present.length > 0 && present.length < names.length) {
     warnings.push(`${label} is only partially configured: ${present.join(', ')}`);
+  }
+  if (label === 'SMTP' && present.length === 0) {
+    warnings.push('SMTP is not configured; verification and password-reset emails cannot be delivered');
   }
 }
 

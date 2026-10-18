@@ -8,6 +8,7 @@ import { Trade } from '@/lib/types';
 import { useSettings } from '@/lib/settings-context';
 import { getTradeBasePnL, getTradeCharges, convertToBaseCurrency, CURRENCY_SYMBOLS, convertBaseAmountToDisplayCurrency } from '@/lib/trade-utils';
 import { ScreenshotViewer } from '@/components/screenshot-viewer';
+import { useTrades } from '@/lib/trade-context';
 
 /** Format a local Date as YYYY-MM-DD without any UTC conversion */
 function toLocalDateStr(d: Date): string {
@@ -197,6 +198,8 @@ export default function CalendarView({ trades }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTradeForDetails, setSelectedTradeForDetails] = useState<Trade | null>(null);
+  const [tradeDetailsError, setTradeDetailsError] = useState<string | null>(null);
+  const { getTradeDetails } = useTrades();
   const { baseCurrency } = useSettings();
   const baseCurrencySymbol = CURRENCY_SYMBOLS[baseCurrency];
 
@@ -210,6 +213,21 @@ export default function CalendarView({ trades }: CalendarViewProps) {
     }
     return chunked;
   }, [daysInMonth]);
+
+  const openTradeDetails = async (trade: Trade) => {
+    setSelectedTradeForDetails(trade);
+    setTradeDetailsError(null);
+    if (!trade.hasScreenshots) return;
+    try {
+      const fullTrade = await getTradeDetails(trade.id, trade.accountId);
+      setSelectedTradeForDetails((current) => (
+        current?.id === trade.id && current.accountId === trade.accountId ? fullTrade : current
+      ));
+    } catch (error) {
+      console.error('[CalendarView] Failed to load trade screenshots:', error);
+      setTradeDetailsError('Screenshots could not be loaded. Please close and reopen this trade to retry.');
+    }
+  };
 
   // Calculate monthly stats - using base currency
   const monthlyStats = useMemo(() => {
@@ -633,7 +651,7 @@ export default function CalendarView({ trades }: CalendarViewProps) {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setSelectedTradeForDetails(trade)}
+                        onClick={() => void openTradeDetails(trade)}
                         className="mt-4 w-full justify-center gap-2"
                       >
                         <Eye className="h-4 w-4" />
@@ -848,6 +866,7 @@ export default function CalendarView({ trades }: CalendarViewProps) {
                       <ScreenshotViewer imageUrl={selectedTradeForDetails.beforeTradeScreenshot} title="Before Trade Screenshot" />
                     </div>
                   )}
+                  {tradeDetailsError ? <p role="alert" className="text-sm text-destructive">{tradeDetailsError}</p> : null}
                   {selectedTradeForDetails.afterExitScreenshot && (
                     <div>
                       <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">After Exit</p>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Trade } from '@/lib/types';
 import { buildTradeJournalReportHtml } from '@/lib/trade-report';
+import { tradeToMarkdown } from '@/lib/trade-markdown-export';
 
 function trade(overrides: Partial<Trade> = {}): Trade {
   return {
@@ -70,5 +71,37 @@ describe('trade journal PDF report', () => {
     expect(html).toContain('PENDING');
     expect(html).toContain('Outcome not recorded');
     expect(html).not.toContain('BREAKEVEN CLOSE');
+  });
+
+  it('includes the emotional journey in printable and Markdown trade reports', () => {
+    const source = trade({
+      emotionEntry: 'Confident',
+      duringTradeNotes: 'Felt an urge to exit early.',
+      emotionExit: 'Anxious',
+      ruleFollowed: false,
+      ruleViolations: ['Moved stop loss'],
+    });
+    const html = buildTradeJournalReportHtml(source);
+    const markdown = tradeToMarkdown(source);
+
+    expect(html).toContain('Emotion at entry');
+    expect(html).toContain('Confident');
+    expect(html).toContain('During-trade context');
+    expect(html).toContain('Felt an urge to exit early.');
+    expect(html).toContain('Emotion at exit');
+    expect(html).toContain('Anxious');
+    expect(html).toContain('Moved stop loss');
+    expect(markdown).toContain('### Emotional Journey');
+    expect(markdown).toContain('Felt an urge to exit early.');
+    expect(markdown).toContain('**Followed plan:** No');
+  });
+
+  it('escapes in-trade context in the printable report', () => {
+    const html = buildTradeJournalReportHtml(trade({
+      duringTradeNotes: '<script>alert(1)</script>',
+    }));
+
+    expect(html).not.toContain('<script>alert(1)</script>');
+    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
   });
 });

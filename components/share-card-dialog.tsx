@@ -182,16 +182,34 @@ export default function ShareCardDialog({
   });
 
   useEffect(() => {
-    setVisualTheme(getDefaultVisualTheme(mode, resolvedTheme, theme));
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setVisualTheme(getDefaultVisualTheme(mode, resolvedTheme, theme));
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [mode, resolvedTheme, theme]);
 
   useEffect(() => {
     const fallbackName = user?.name?.trim() || user?.email?.split('@')[0] || 'Trader';
-    setUsername(fallbackName);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setUsername(fallbackName);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   useEffect(() => {
-    setHostedShare(null);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setHostedShare(null);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [mode, trade, rangePreset, customFrom, customTo, graphType, shareLayout, visualTheme, caption, username, include]);
 
   const range = useMemo(

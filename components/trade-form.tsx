@@ -162,6 +162,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
       confidence: '5',
       preNotes: '',
       postNotes: '',
+      duringTradeNotes: '',
       mistakeTag: undefined,
       exitRFactor: '',
       timeFrame: draft?.timeFrame || storedDefaults.timeFrame || '',
@@ -213,7 +214,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
     // Sanitize text inputs to prevent XSS
     // Pass trim=false during live typing so spaces between words are preserved
     let sanitizedValue = value;
-    const textFields = ['symbol', 'setupName', 'preNotes', 'postNotes', 'timeFrame', 'tags', 'riskRewardRatio'];
+    const textFields = ['symbol', 'setupName', 'preNotes', 'duringTradeNotes', 'postNotes', 'timeFrame', 'tags', 'riskRewardRatio'];
     if (textFields.includes(name)) {
       sanitizedValue = sanitizeString(value, false);
     }
@@ -529,6 +530,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
         confidence: '5',
         preNotes: '',
         postNotes: '',
+        duringTradeNotes: '',
         mistakeTag: undefined,
         exitRFactor: '',
         timeFrame: '',
@@ -620,6 +622,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
           formData.preNotes,
         ].filter(Boolean).join('\n'),
         postNotes: '',
+        duringTradeNotes: formData.duringTradeNotes?.trim() || undefined,
         beforeTradeScreenshot: beforeScreenshot || undefined,
         hftScreenshot: hftScreenshot || undefined,
         timeFrame: formData.timeFrame || 'Fast',
@@ -643,6 +646,7 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
         entryTime: '',
         preNotes: '',
         postNotes: '',
+        duringTradeNotes: '',
         manualProfit: '',
         exitRFactor: '',
       }));
@@ -2019,6 +2023,21 @@ export default function TradeForm({ onSuccess }: TradeFormProps) {
                       className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                       rows={3}
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">What happened during the trade?</label>
+                    <textarea
+                      name="duringTradeNotes"
+                      value={formData.duringTradeNotes || ''}
+                      onChange={handleInputChange}
+                      placeholder="What changed after entry? Note a trigger, urge, hesitation, or change to your plan."
+                      className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      rows={3}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Optional context for understanding your entry-to-exit emotional journey.
+                    </p>
                   </div>
 
                   <div>

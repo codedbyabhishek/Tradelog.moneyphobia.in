@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useSettings } from '@/lib/settings-context';
 import { CURRENCY_SYMBOLS } from '@/lib/trade-utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,13 +9,10 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function StartingBalanceSettings() {
   const { baseCurrency, startingBalance, setStartingBalance } = useSettings();
-  const [draftValue, setDraftValue] = useState(String(startingBalance));
+  const [draftState, setDraftState] = useState({ balance: startingBalance, value: String(startingBalance) });
+  const draftValue = draftState.balance === startingBalance ? draftState.value : String(startingBalance);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const { toast } = useToast();
-
-  useEffect(() => {
-    setDraftValue(String(startingBalance));
-  }, [startingBalance]);
 
   const handleSave = async () => {
     const parsed = Number(draftValue);
@@ -69,7 +66,7 @@ export default function StartingBalanceSettings() {
                 inputMode="decimal"
                 step="0.01"
                 value={draftValue}
-                onChange={(e) => setDraftValue(e.target.value)}
+                onChange={(e) => setDraftState({ balance: startingBalance, value: e.target.value })}
                 className="h-10 w-full bg-transparent outline-none"
                 placeholder="0.00"
               />

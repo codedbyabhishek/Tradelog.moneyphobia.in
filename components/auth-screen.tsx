@@ -29,7 +29,13 @@ export default function AuthScreen({ initialMode = 'login' }: { initialMode?: Au
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
 
   useEffect(() => {
-    setRememberedAccounts(readRememberedAccounts());
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setRememberedAccounts(readRememberedAccounts());
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const switchMode = (nextMode: AuthMode) => {

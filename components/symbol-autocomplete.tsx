@@ -21,6 +21,7 @@ interface SymbolAutocompleteProps {
 }
 
 const MAX_VISIBLE_SUGGESTIONS = 12;
+const NO_SYMBOL_SUGGESTIONS: SymbolSuggestion[] = [];
 
 export function SymbolAutocomplete({
   value,
@@ -40,29 +41,23 @@ export function SymbolAutocomplete({
   const [dhanSuggestions, setDhanSuggestions] = useState<SymbolSuggestion[]>([]);
   const [isLoadingDhan, setIsLoadingDhan] = useState(false);
   const [hasDhanError, setHasDhanError] = useState(false);
+  const query = value.trim();
+  const visibleDhanSuggestions = query.length >= 2 ? dhanSuggestions : NO_SYMBOL_SUGGESTIONS;
 
   const localSuggestions = useMemo(
     () => getLocalSymbolSuggestions(value, recentSymbols, MAX_VISIBLE_SUGGESTIONS),
     [recentSymbols, value],
   );
   const suggestions = useMemo(() => {
-    if (dhanSuggestions.length === 0) return localSuggestions;
+    if (visibleDhanSuggestions.length === 0) return localSuggestions;
 
     const recent = localSuggestions.filter((suggestion) => suggestion.source === 'recent');
     const catalogue = localSuggestions.filter((suggestion) => suggestion.source !== 'recent');
-    return mergeSymbolSuggestions(recent, dhanSuggestions, catalogue).slice(0, MAX_VISIBLE_SUGGESTIONS);
-  }, [dhanSuggestions, localSuggestions]);
+    return mergeSymbolSuggestions(recent, visibleDhanSuggestions, catalogue).slice(0, MAX_VISIBLE_SUGGESTIONS);
+  }, [localSuggestions, visibleDhanSuggestions]);
 
   useEffect(() => {
-    setActiveIndex(0);
-  }, [value, suggestions.length]);
-
-  useEffect(() => {
-    const query = value.trim();
     if (query.length < 2) {
-      setDhanSuggestions([]);
-      setIsLoadingDhan(false);
-      setHasDhanError(false);
       return;
     }
 
@@ -94,8 +89,11 @@ export function SymbolAutocomplete({
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [value]);
+  }, [query]);
 
+  const activeSuggestionIndex = suggestions.length > 0
+    ? Math.min(activeIndex, suggestions.length - 1)
+    : -1;
   const chooseSuggestion = (suggestion: SymbolSuggestion) => {
     onValueChange(suggestion.symbol);
     setIsOpen(false);
@@ -112,15 +110,17 @@ export function SymbolAutocomplete({
       if (suggestions.length === 0) return;
       setIsOpen(true);
       setActiveIndex((current) => (isOpen ? Math.max(current - 1, 0) : suggestions.length - 1));
-    } else if (event.key === 'Enter' && isOpen && suggestions[activeIndex]) {
+    } else if (event.key === 'Enter' && isOpen && activeSuggestionIndex >= 0) {
       event.preventDefault();
-      chooseSuggestion(suggestions[activeIndex]);
+      chooseSuggestion(suggestions[activeSuggestionIndex]);
     } else if (event.key === 'Escape') {
       setIsOpen(false);
     }
   };
 
-  const showSuggestions = isOpen && (suggestions.length > 0 || isLoadingDhan || hasDhanError);
+  const showDhanLoading = query.length >= 2 && isLoadingDhan;
+  const showDhanError = query.length >= 2 && hasDhanError;
+  const showSuggestions = isOpen && (suggestions.length > 0 || showDhanLoading || showDhanError);
 
   return (
     <div className="relative">
@@ -132,6 +132,7 @@ export function SymbolAutocomplete({
           name={name}
           value={value}
           onChange={(event) => {
+            setActiveIndex(0);
             onValueChange(event.target.value);
             setIsOpen(true);
           }}
@@ -144,7 +145,7 @@ export function SymbolAutocomplete({
           aria-autocomplete="list"
           aria-controls={listboxId}
           aria-expanded={showSuggestions}
-          aria-activedescendant={showSuggestions && suggestions[activeIndex] ? `${listboxId}-${activeIndex}` : undefined}
+          aria-activedescendant={showSuggestions && activeSuggestionIndex >= 0 ? `${listboxId}-${activeSuggestionIndex}` : undefined}
           aria-describedby={ariaDescribedBy}
           className={cn('w-full px-3 py-2', className, '!pl-9')}
         />
@@ -160,13 +161,13 @@ export function SymbolAutocomplete({
                     id={`${listboxId}-${index}`}
                     type="button"
                     role="option"
-                    aria-selected={index === activeIndex}
+                    aria-selected={index === activeSuggestionIndex}
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => chooseSuggestion(suggestion)}
                     onMouseMove={() => setActiveIndex(index)}
                     className={cn(
                       'flex w-full items-center gap-3 px-3 py-2 text-left transition-colors',
-                      index === activeIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-secondary/70',
+                      index === activeSuggestionIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-secondary/70',
                     )}
                   >
                     <span className="min-w-0 flex-1">
@@ -183,14 +184,14 @@ export function SymbolAutocomplete({
             </ul>
           ) : null}
 
-          {isLoadingDhan ? (
+          {showDhanLoading ? (
             <p className="flex items-center gap-2 border-t border-border px-3 py-2 text-xs text-muted-foreground">
               <LoaderCircle aria-hidden="true" className="size-3.5 animate-spin" />
               Searching the live Indian instrument catalogue…
             </p>
           ) : null}
 
-          {hasDhanError ? (
+          {showDhanError ? (
             <p className="border-t border-border px-3 py-2 text-xs text-muted-foreground">
               Showing saved and common symbols. The live Indian catalogue is temporarily unavailable.
             </p>

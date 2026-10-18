@@ -56,6 +56,7 @@ const form: TradeFormData = {
   confidence: '7',
   preNotes: 'Entry followed the plan.',
   postNotes: 'Target achieved.',
+  duringTradeNotes: '  Hesitated when price pulled back.  ',
   hftScreenshot: 'data:image/png;base64,hft-screenshot',
   timeFrame: '15m',
   limit: 'L0.5',
@@ -82,6 +83,7 @@ describe('trade calculations', () => {
     expect(result.tradeResult).toBe('Win');
     expect(result.tags).toEqual(['breakout', 'earnings']);
     expect(result.hftScreenshot).toBe('data:image/png;base64,hft-screenshot');
+    expect(result.duringTradeNotes).toBe('Hesitated when price pulled back.');
   });
 });
 

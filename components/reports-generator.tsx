@@ -28,15 +28,23 @@ export default function ReportsGenerator() {
   }, [trades, selectedYear, selectedMonth]);
 
   const dailyPerformanceData = useMemo(() => {
-    let cumulative = 0;
-    return currentReport.dailyStats.map((day) => {
-      cumulative += day.totalPnL;
+    return currentReport.dailyStats.reduce<{
+      cumulative: number;
+      rows: { label: string; pnl: number; cumulative: number }[];
+    }>((result, day) => {
+      const cumulative = result.cumulative + day.totalPnL;
       return {
-        label: format(new Date(`${day.date}T00:00:00`), 'MMM d'),
-        pnl: Number(day.totalPnL.toFixed(2)),
-        cumulative: Number(cumulative.toFixed(2)),
+        cumulative,
+        rows: [
+          ...result.rows,
+          {
+            label: format(new Date(`${day.date}T00:00:00`), 'MMM d'),
+            pnl: Number(day.totalPnL.toFixed(2)),
+            cumulative: Number(cumulative.toFixed(2)),
+          },
+        ],
       };
-    });
+    }, { cumulative: 0, rows: [] }).rows;
   }, [currentReport.dailyStats]);
 
   const handleDownloadHTML = () => {

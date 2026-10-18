@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +16,7 @@ import {
 } from '@/lib/pre-trade-matcher';
 import { formatBaseCurrencyAmount, getTradeBasePnL } from '@/lib/trade-utils';
 import { ScreenshotViewer } from '@/components/screenshot-viewer';
+import type { Trade } from '@/lib/types';
 import { Eye, Sparkles } from 'lucide-react';
 
 interface PreTradeChecklistWorkspaceProps {
@@ -23,7 +24,7 @@ interface PreTradeChecklistWorkspaceProps {
 }
 
 export default function PreTradeChecklistWorkspace({ onStartTrade }: PreTradeChecklistWorkspaceProps) {
-  const { trades } = useTrades();
+  const { trades, getTradeDetails } = useTrades();
   const { baseCurrency } = useSettings();
   const formatBaseAmount = (value: number, decimals: number = 2) => formatBaseCurrencyAmount(value, baseCurrency, decimals);
 
@@ -38,6 +39,8 @@ export default function PreTradeChecklistWorkspace({ onStartTrade }: PreTradeChe
     firstFiveMinuteCandleType: '',
   });
   const [selectedMatchedTradeId, setSelectedMatchedTradeId] = useState<string | null>(null);
+  const [matchedTradeDetails, setMatchedTradeDetails] = useState<{ trade: Trade; accountId?: string } | null>(null);
+  const [matchedTradeDetailsError, setMatchedTradeDetailsError] = useState<{ message: string; tradeId: string } | null>(null);
 
   const similarTradeMatches = useMemo(
     () => getSimilarTradeMatches(trades, checklist, 10),
@@ -54,10 +57,45 @@ export default function PreTradeChecklistWorkspace({ onStartTrade }: PreTradeChe
     [trades],
   );
 
-  const selectedMatchedTrade = useMemo(
+  const selectedMatchedTradeMatch = useMemo(
     () => similarTradeMatches.find((match) => match.trade.id === selectedMatchedTradeId) || null,
     [similarTradeMatches, selectedMatchedTradeId],
   );
+  const selectedMatchedTrade = useMemo(
+    () => selectedMatchedTradeMatch
+      ? {
+        ...selectedMatchedTradeMatch,
+        trade: matchedTradeDetails?.trade.id === selectedMatchedTradeMatch.trade.id
+          && matchedTradeDetails.accountId === selectedMatchedTradeMatch.trade.accountId
+          ? matchedTradeDetails.trade
+          : selectedMatchedTradeMatch.trade,
+      }
+      : null,
+    [matchedTradeDetails, selectedMatchedTradeMatch],
+  );
+
+  useEffect(() => {
+    if (!selectedMatchedTradeMatch?.trade.hasScreenshots) return;
+    let cancelled = false;
+    void getTradeDetails(selectedMatchedTradeMatch.trade.id, selectedMatchedTradeMatch.trade.accountId)
+      .then((trade) => {
+        if (!cancelled) {
+          setMatchedTradeDetails({ trade, accountId: selectedMatchedTradeMatch.trade.accountId });
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('[PreTradeChecklist] Failed to load matched trade screenshots:', error);
+        if (!cancelled) {
+          setMatchedTradeDetailsError({
+            message: 'Screenshots could not be loaded. Close and reopen this trade to retry.',
+            tradeId: selectedMatchedTradeMatch.trade.id,
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [getTradeDetails, selectedMatchedTradeMatch]);
 
   const updateChecklist = (field: keyof PreTradeChecklistInput, value: string) => {
     setChecklist((prev) => ({ ...prev, [field]: value }));
@@ -388,6 +426,9 @@ export default function PreTradeChecklistWorkspace({ onStartTrade }: PreTradeChe
             </DialogHeader>
             {selectedMatchedTrade ? (
               <div className="space-y-4">
+                {matchedTradeDetailsError && matchedTradeDetailsError.tradeId === selectedMatchedTradeMatch?.trade.id ? (
+                  <p role="alert" className="text-sm text-destructive">{matchedTradeDetailsError.message}</p>
+                ) : null}
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                   <div className="rounded-lg border border-border bg-secondary/40 p-3">
                     <p className="text-xs text-muted-foreground">Date</p>

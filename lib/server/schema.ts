@@ -205,3 +205,27 @@ export async function assertBrokerAccountsSchemaReady() {
     },
   });
 }
+
+export async function assertWorkspaceSchemaReady() {
+  await assertSchemaReady({
+    cacheKey: 'workspace',
+    requiredTables: [
+      'trades',
+      'ideas',
+      'goals',
+      'filters',
+      'templates',
+      'learning_videos',
+      'user_settings',
+    ],
+    requiredColumns: {
+      trades: ['user_id', 'account_id', 'trade_id', 'trade_date', 'trade_json'],
+      ideas: ['user_id', 'idea_id', 'idea_json'],
+      goals: ['user_id', 'goal_id', 'goal_json'],
+      filters: ['user_id', 'filter_id', 'filter_json'],
+      templates: ['user_id', 'template_id', 'template_json'],
+      learning_videos: ['user_id', 'video_id', 'video_json'],
+      user_settings: ['user_id', 'key_name', 'value_json'],
+    },
+  });
+}

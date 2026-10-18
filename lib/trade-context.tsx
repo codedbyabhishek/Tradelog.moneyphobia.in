@@ -11,12 +11,14 @@ import { useAccounts } from '@/lib/accounts-context';
 
 interface TradeContextType {
   trades: Trade[];
+  getTradeDetails: (id: string, accountId?: string) => Promise<Trade>;
+  loadTradesWithScreenshots: () => Promise<Trade[]>;
   addTrade: (trade: Trade) => void;
   deleteTrade: (id: string) => void;
   clearTrades: () => Promise<void>;
-  updateTrade: (id: string, trade: Trade) => void;
+  updateTrade: (id: string, trade: Trade, options?: { clearScreenshots?: string[] }) => void;
   refreshTrades: () => Promise<void>;
-  exportJSON: () => void;
+  exportJSON: () => Promise<void>;
   exportCSV: () => void;
   importJSON: (file: Blob, options?: { mode?: 'merge' | 'replace' }) => Promise<{ importedCount: number; duplicateCount: number; totalCount: number }>;
   saveImportedTrades: (trades: Trade[], accountId: string) => Promise<{ savedCount: number; totalCount: number }>;
@@ -84,6 +86,25 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [storagePercentage] = useState(0);
 
+  const getTradeDetails = useCallback(async (id: string, accountId?: string) => {
+    const query = accountId ? `?accountId=${encodeURIComponent(accountId)}` : '';
+    const res = await apiRequest(`/api/trades/${encodeURIComponent(id)}${query}`, { method: 'GET' });
+    const data = await res.json();
+    if (!data.trade || data.trade.id !== id) {
+      throw new Error('The requested trade details were not returned.');
+    }
+    return normalizeTrade(data.trade);
+  }, []);
+
+  const loadTradesWithScreenshots = useCallback(async () => {
+    if (isAuthLoading || isAccountsLoading || !user) return [];
+    const query = new URLSearchParams({ includeScreenshots: 'true' });
+    if (activeAccountId !== 'all') query.set('accountId', activeAccountId);
+    const res = await apiRequest(`/api/trades?${query.toString()}`, { method: 'GET' });
+    const data = await res.json();
+    return Array.isArray(data.trades) ? data.trades.map(normalizeTrade) : [];
+  }, [activeAccountId, isAccountsLoading, isAuthLoading, user]);
+
   const refreshTrades = useCallback(async () => {
     if (isAuthLoading || isAccountsLoading) {
       return;
@@ -110,7 +131,13 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
   }, [activeAccountId, isAccountsLoading, isAuthLoading, user]);
 
   useEffect(() => {
-    void refreshTrades();
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) void refreshTrades();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [refreshTrades]);
 
   const addTrade = (trade: Trade) => {
@@ -187,7 +214,7 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const updateTrade = (id: string, updatedTrade: Trade) => {
+  const updateTrade = (id: string, updatedTrade: Trade, options?: { clearScreenshots?: string[] }) => {
     try {
       if (!id) {
         throw new Error('Trade ID is required');
@@ -207,7 +234,7 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
 
       void apiRequest(`/api/trades/${encodeURIComponent(id)}`, {
         method: 'PUT',
-        body: JSON.stringify({ trade: normalized }),
+        body: JSON.stringify({ trade: normalized, clearScreenshots: options?.clearScreenshots }),
       }).catch((err) => {
         console.error('[TradeContext] Failed to update trade:', err);
         setError(err instanceof Error ? err.message : 'Failed to update trade');
@@ -218,14 +245,15 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const exportJSON = () => {
+  const exportJSON = async () => {
     try {
       if (trades.length === 0) {
         setError('No trades to export');
         return;
       }
 
-      const data = JSON.stringify(trades, null, 2);
+      const exportTrades = await loadTradesWithScreenshots();
+      const data = JSON.stringify(exportTrades, null, 2);
       const blob = new Blob([data], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -445,6 +473,8 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
     <TradeContext.Provider
       value={{
         trades,
+        getTradeDetails,
+        loadTradesWithScreenshots,
         addTrade,
         deleteTrade,
         clearTrades,

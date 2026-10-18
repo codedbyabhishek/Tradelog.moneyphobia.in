@@ -183,17 +183,24 @@ export default function BrokerSyncHub({
   }, [isLiveBroker, isZerodha, selectedBroker]);
 
   useEffect(() => {
-    setStatus(null);
-    setLastSync(null);
-    setConfigured(false);
-    setHasAccessToken(false);
-    setUpdatedAt(null);
-    setClientId('');
-    setAccessToken('');
-    setZerodhaApiKey('');
-    setZerodhaApiSecret('');
-    setZerodhaHasApiSecret(false);
-    setZerodhaRedirectUri('');
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setStatus(null);
+      setLastSync(null);
+      setConfigured(false);
+      setHasAccessToken(false);
+      setUpdatedAt(null);
+      setClientId('');
+      setAccessToken('');
+      setZerodhaApiKey('');
+      setZerodhaApiSecret('');
+      setZerodhaHasApiSecret(false);
+      setZerodhaRedirectUri('');
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [selectedBroker]);
 
   const resetLiveState = () => {

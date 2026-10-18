@@ -1,17 +1,32 @@
 'use client';
 
-import { useMemo } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 import { useTrades } from '@/lib/trade-context';
 import { PerformanceDashboard } from '@/components/performance-dashboard';
 import { generatePerformanceMetrics } from '@/lib/performance-analytics';
 import { useSettings } from '@/lib/settings-context';
 import { formatBaseCurrencyAmount, getTradeBasePnL } from '@/lib/trade-utils';
 import { SessionPerformanceCard } from '@/components/session-performance-card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Performance() {
   const { trades } = useTrades();
-  const { baseCurrency } = useSettings();
-  const metrics = useMemo(() => generatePerformanceMetrics(trades), [trades]);
+  const { baseCurrency, monthlyReturnTarget, setMonthlyReturnTarget } = useSettings();
+  const { toast } = useToast();
+  const [targetDraftState, setTargetDraftState] = useState({
+    target: monthlyReturnTarget,
+    value: String(monthlyReturnTarget),
+  });
+  const targetDraft = targetDraftState.target === monthlyReturnTarget
+    ? targetDraftState.value
+    : String(monthlyReturnTarget);
+  const [savingTarget, setSavingTarget] = useState(false);
+  const metrics = useMemo(
+    () => generatePerformanceMetrics(trades, monthlyReturnTarget),
+    [trades, monthlyReturnTarget]
+  );
 
   const overview = useMemo(() => {
     const currentEquity = metrics.equityCurve.at(-1)?.equity ?? 0;
@@ -38,6 +53,36 @@ export default function Performance() {
 
   const formatCurrency = (value: number) => formatBaseCurrencyAmount(value, baseCurrency);
   const formatPercent = (value: number) => `${value.toFixed(1)}%`;
+
+  const saveTarget = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const target = Number(targetDraft);
+    if (!Number.isFinite(target) || target < 0) {
+      toast({
+        title: 'Invalid monthly target',
+        description: 'Enter a valid amount that is zero or greater.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSavingTarget(true);
+    try {
+      await setMonthlyReturnTarget(target);
+      toast({
+        title: 'Monthly target saved',
+        description: `Your monthly P&L target is ${formatCurrency(target)}.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Monthly target not saved',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingTarget(false);
+    }
+  };
 
   return (
     <section className="space-y-6 p-4 pb-24 sm:p-6 lg:p-8">
@@ -100,6 +145,45 @@ export default function Performance() {
       </div>
 
       <SessionPerformanceCard trades={trades} baseCurrency={baseCurrency} />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Monthly Return Target</CardTitle>
+          <CardDescription>
+            Set the monthly P&amp;L goal used for every month in your performance chart and target progress.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form className="flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={saveTarget}>
+            <div className="flex-1 space-y-2">
+              <label htmlFor="monthly-return-target" className="text-sm font-medium">
+                Monthly target ({baseCurrency})
+              </label>
+              <input
+                id="monthly-return-target"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                required
+                value={targetDraft}
+                onChange={(event) => setTargetDraftState({
+                  target: monthlyReturnTarget,
+                  value: event.target.value,
+                })}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                aria-describedby="monthly-return-target-help"
+              />
+              <p id="monthly-return-target-help" className="text-xs text-muted-foreground">
+                Applies to past and future months. Current target: {formatCurrency(monthlyReturnTarget)}.
+              </p>
+            </div>
+            <Button type="submit" disabled={savingTarget}>
+              {savingTarget ? 'Saving...' : 'Save target'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">

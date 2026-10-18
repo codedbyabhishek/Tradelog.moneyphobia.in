@@ -12,6 +12,7 @@ export interface AppBootstrapData {
   settings: {
     baseCurrency?: string;
     startingBalance?: number;
+    monthlyReturnTarget?: number;
     capitalAdjustments?: CapitalAdjustment[];
     billing?: import('@/lib/types').BillingState;
     tradingPlan?: TradingPlan;

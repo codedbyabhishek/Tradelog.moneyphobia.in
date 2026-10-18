@@ -82,6 +82,9 @@ export function buildTradeJournalReportHtml(trade: Trade, traderName?: string | 
     detail('Market condition', trade.marketCondition),
     detail('Market trend', trade.marketTrend),
     detail('Emotion', trade.emotion),
+    detail('Emotion at entry', trade.emotionEntry),
+    detail('Emotion at exit', trade.emotionExit),
+    detail('Rule violations', trade.ruleViolations?.join(', ')),
     detail('Risk / reward', trade.riskRewardRatio === undefined ? undefined : `${trade.riskRewardRatio.toFixed(2)}R`),
     detail('R-factor', Number.isFinite(trade.rFactor) ? `${trade.rFactor.toFixed(2)}R` : undefined),
     detail('Fees', formatAmount(trade.fees || 0, currencySymbol)),
@@ -90,6 +93,7 @@ export function buildTradeJournalReportHtml(trade: Trade, traderName?: string | 
   ].filter(Boolean).join('');
   const notes = [
     noteBlock('Pre-trade plan', trade.preNotes),
+    noteBlock('During-trade context', trade.duringTradeNotes),
     noteBlock('Post-trade review', trade.postNotes || trade.notes),
   ].join('');
 

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowDownRight, ArrowUpRight, CalendarRange, Share2, Target, Wallet } from 'lucide-react';
 import ShareCardDialog from '@/components/share-card-dialog';
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 
 function sortedDateKeys(dates: string[]) {
   return [...dates].sort((a, b) => a.localeCompare(b));
@@ -431,8 +432,12 @@ export default function ProfitLoss() {
                       boxShadow: '0 18px 50px rgba(15, 23, 42, 0.18)',
                     }}
                     labelFormatter={(_, payload) => payload?.[0]?.payload?.fullDate || ''}
-                    formatter={(value: number | string | undefined, name?: string, item?: any) => {
-                      const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
+                    formatter={(value: ValueType | undefined, name?: NameType, item?: { payload?: { eventLabel?: string } }) => {
+                      const numericValue = typeof value === 'number'
+                        ? value
+                        : typeof value === 'string'
+                        ? Number(value)
+                        : Number(value?.[0] ?? 0);
                       if (name === 'accountBalance') return [formatBaseAmount(numericValue), 'Balance'];
                       if (name === 'capitalFlow') {
                         if (!numericValue) return null;

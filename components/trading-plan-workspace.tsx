@@ -89,8 +89,15 @@ export default function TradingPlanWorkspace() {
   const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
-    setDraft(tradingPlan);
-    setIsDirty(false);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setDraft(tradingPlan);
+      setIsDirty(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [tradingPlan]);
 
   const progress = useMemo(() => getTradingPlanProgress(draft), [draft]);

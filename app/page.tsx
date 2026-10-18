@@ -11,6 +11,7 @@ import {
   Target,
 } from 'lucide-react';
 import { createPublicMetadata } from '@/lib/seo';
+import { getSiteUrl } from '@/lib/env';
 import { Button } from '@/components/ui/button';
 import SiteFooter from '@/components/site-footer';
 import { HeroBoardIllustration } from '@/components/brand-illustrations';
@@ -186,7 +187,7 @@ const structuredData = {
     {
       '@type': 'Organization',
       name: 'Traderlogify',
-      url: 'https://traderlogify.online',
+      url: getSiteUrl(),
     },
     {
       '@type': 'SoftwareApplication',

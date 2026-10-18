@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTrades } from '@/lib/trade-context';
 import { useIdeas } from '@/lib/ideas-context';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,8 +27,30 @@ function FavoriteTradeCard({
   trade: ReturnType<typeof useTrades>['trades'][number];
   onToggle: () => void;
 }) {
-  const imageUrl = trade.afterExitScreenshot || trade.hftScreenshot || trade.beforeTradeScreenshot;
+  const { getTradeDetails } = useTrades();
+  const [imageUrl, setImageUrl] = useState(
+    trade.afterExitScreenshot || trade.hftScreenshot || trade.beforeTradeScreenshot || null,
+  );
+  const [imageError, setImageError] = useState(false);
   const outcome = getTradeOutcome(trade.pnl);
+
+  useEffect(() => {
+    if (imageUrl || !trade.hasScreenshots) return;
+    let cancelled = false;
+    void getTradeDetails(trade.id, trade.accountId)
+      .then((fullTrade) => {
+        if (!cancelled) {
+          setImageUrl(fullTrade.afterExitScreenshot || fullTrade.hftScreenshot || fullTrade.beforeTradeScreenshot || null);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('[FavoritesBoard] Failed to load favorite trade image:', error);
+        if (!cancelled) setImageError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [getTradeDetails, imageUrl, trade.accountId, trade.hasScreenshots, trade.id]);
 
   return (
     <Card className="group overflow-hidden rounded-2xl border-border/70 bg-[#09090f] text-white shadow-[0_16px_40px_rgba(0,0,0,0.35)]">
@@ -51,7 +73,9 @@ function FavoriteTradeCard({
             </button>
           </ScreenshotViewer>
         ) : (
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.22),transparent_38%),linear-gradient(135deg,rgba(39,39,42,1),rgba(9,9,11,1))]" />
+          <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.22),transparent_38%),linear-gradient(135deg,rgba(39,39,42,1),rgba(9,9,11,1))]">
+            {imageError ? <p role="alert" className="text-xs text-zinc-300">Screenshot could not be loaded.</p> : null}
+          </div>
         )}
         <div className="absolute inset-x-0 top-0 flex items-center justify-between p-3">
           <Badge className="border-amber-400/30 bg-amber-300/15 text-[11px] text-amber-200">

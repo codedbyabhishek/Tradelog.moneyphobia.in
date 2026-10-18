@@ -99,7 +99,13 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
   }, [isAuthLoading, user]);
 
   useEffect(() => {
-    void refreshAccounts();
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) void refreshAccounts();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [refreshAccounts]);
 
   const createAccount = useCallback(async (input: {

@@ -20,7 +20,9 @@ export default function BillingSettings() {
   const planLabel = getPlanLabel(plan);
   const limits = SUBSCRIPTION_LIMITS[plan];
   const pro = isProPlan(billingState);
-  const screenshotCount = trades.filter((trade) => trade.beforeTradeScreenshot || trade.afterExitScreenshot || trade.hftScreenshot).length;
+  const screenshotCount = trades.filter((trade) => (
+    trade.hasScreenshots || trade.beforeTradeScreenshot || trade.afterExitScreenshot || trade.hftScreenshot
+  )).length;
 
   const usageItems = [
     { label: 'Trades', used: trades.length, limit: limits.trades },

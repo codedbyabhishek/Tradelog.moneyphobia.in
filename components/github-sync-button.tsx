@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { Upload, Github, Loader2 } from 'lucide-react';
-import { Trade } from '@/lib/types';
-import { commitToGithub, uploadTradesToGithub } from '@/lib/github-service';
+import type { Trade } from '@/lib/types';
+import { useTrades } from '@/lib/trade-context';
+import { commitToGithub } from '@/lib/github-service';
 import { tradeToMarkdown, tradesToCSV, generateMonthlySummary } from '@/lib/trade-markdown-export';
 import {
   Dialog,
@@ -21,6 +22,7 @@ interface GitHubSyncButtonProps {
 }
 
 export default function GitHubSyncButton({ trades }: GitHubSyncButtonProps) {
+  const { loadTradesWithScreenshots } = useTrades();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [owner, setOwner] = useState('');
@@ -51,16 +53,26 @@ export default function GitHubSyncButton({ trades }: GitHubSyncButtonProps) {
     setIsLoading(true);
 
     try {
+      const tradesToSync = await loadTradesWithScreenshots();
+      if (tradesToSync.length === 0) {
+        toast({
+          title: 'No Trades',
+          description: 'There are no trades to sync.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       const today = new Date();
       const month = today.getMonth() + 1;
       const year = today.getFullYear();
 
       // Generate JSON backup with all trades
-      const jsonContent = JSON.stringify(trades, null, 2);
+      const jsonContent = JSON.stringify(tradesToSync, null, 2);
       const jsonResult = await commitToGithub(
         `trades/all_trades.json`,
         jsonContent,
-        `Update all trades JSON - ${trades.length} trades total`,
+        `Update all trades JSON - ${tradesToSync.length} trades total`,
         { owner, repo, token, branch }
       );
 
@@ -69,11 +81,11 @@ export default function GitHubSyncButton({ trades }: GitHubSyncButtonProps) {
       }
 
       // Generate CSV for all trades
-      const csvContent = tradesToCSV(trades);
+      const csvContent = tradesToCSV(tradesToSync);
       const csvResult = await commitToGithub(
         'trades/all_trades.csv',
         csvContent,
-        `Update all trades - ${trades.length} trades total`,
+        `Update all trades - ${tradesToSync.length} trades total`,
         { owner, repo, token, branch }
       );
 
@@ -82,7 +94,7 @@ export default function GitHubSyncButton({ trades }: GitHubSyncButtonProps) {
       }
 
       // Generate monthly summary
-      const monthlySummary = generateMonthlySummary(trades, month, year);
+      const monthlySummary = generateMonthlySummary(tradesToSync, month, year);
       const summaryResult = await commitToGithub(
         `trades/${year}/${String(month).padStart(2, '0')}/summary.md`,
         monthlySummary,
@@ -96,7 +108,7 @@ export default function GitHubSyncButton({ trades }: GitHubSyncButtonProps) {
 
       // Upload individual trades
       let successCount = 0;
-      for (const trade of trades) {
+      for (const trade of tradesToSync) {
         const markdown = tradeToMarkdown(trade);
         const [year, month, day] = trade.date.split('-');
         const tradeFilePath = `trades/${year}/${month}/${day}/${trade.id}.md`;

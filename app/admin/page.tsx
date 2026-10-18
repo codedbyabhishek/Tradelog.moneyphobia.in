@@ -12,6 +12,9 @@ import { normalizeBillingState } from '@/lib/subscription';
 export const metadata: Metadata = {
   title: 'Admin Dashboard | Traderlogify',
   description: 'Private admin dashboard for Traderlogify operators.',
+  alternates: {
+    canonical: null,
+  },
   robots: {
     index: false,
     follow: false,

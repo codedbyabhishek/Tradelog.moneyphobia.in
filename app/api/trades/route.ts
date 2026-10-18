@@ -4,6 +4,8 @@ import { getCurrentUser } from '@/lib/server/auth';
 import { jsonError, parseJsonBody } from '@/lib/server/http';
 import { resolveBrokerAccount } from '@/lib/server/broker-accounts';
 import { assertBrokerAccountsSchemaReady } from '@/lib/server/schema';
+import { toTradeListPayload } from '@/lib/trade-payload';
+import type { Trade } from '@/lib/types';
 
 export const runtime = 'nodejs';
 
@@ -21,16 +23,15 @@ interface TradePayload {
   accountId?: string;
 }
 
-function parseTradeRows(rows: TradeRow[]) {
-  return rows
-    .map((row) => {
-      try {
-        return { ...JSON.parse(row.trade_json), accountId: row.account_id };
-      } catch {
-        return null;
-      }
-    })
-    .filter(Boolean);
+function parseTradeRows(rows: TradeRow[], includeScreenshots: boolean) {
+  return rows.map((row) => {
+    const trade = JSON.parse(row.trade_json) as Trade;
+    if (!trade || typeof trade !== 'object' || Array.isArray(trade)) {
+      throw new Error(`Invalid stored trade payload for trade ${row.trade_id}.`);
+    }
+    const responseTrade = includeScreenshots ? trade : toTradeListPayload(trade);
+    return { ...responseTrade, accountId: row.account_id };
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -42,6 +43,7 @@ export async function GET(request: NextRequest) {
     await assertBrokerAccountsSchemaReady();
 
     const requestedAccountId = request.nextUrl.searchParams.get('accountId')?.trim();
+    const includeScreenshots = request.nextUrl.searchParams.get('includeScreenshots') === 'true';
     let whereClause = 'WHERE user_id = ?';
     const values: unknown[] = [user.id];
     if (requestedAccountId && requestedAccountId !== 'all') {
@@ -58,7 +60,7 @@ export async function GET(request: NextRequest) {
       values,
     );
 
-    return NextResponse.json({ trades: parseTradeRows(rows) });
+    return NextResponse.json({ trades: parseTradeRows(rows, includeScreenshots) });
   } catch (error) {
     console.error('[trades/get] error', error);
     return jsonError('Failed to load trades.', 500);

@@ -18,6 +18,7 @@ type DayFilter = 'All Days' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 
 type TimeframeFilter = 'All Time' | 'Today' | 'Last 7 Days' | 'This Month' | 'Last 30 Days';
 type TradeTimeFrameFilter = 'All Time Frames' | string;
 const GALLERY_LAYOUT_STORAGE_KEY = 'td-gallery-layout';
+const EMPTY_TRADES: ReturnType<typeof useTrades>['trades'] = [];
 const DAY_FILTER_OPTIONS: DayFilter[] = [
   'All Days',
   'Monday',
@@ -95,7 +96,15 @@ function isWithinTimeframe(dateString: string, timeframe: TimeframeFilter) {
 
 export default function ScreenshotGallery() {
   const router = useRouter();
-  const { trades } = useTrades();
+  const { loadTradesWithScreenshots } = useTrades();
+  const [galleryResult, setGalleryResult] = useState<{
+    loader: typeof loadTradesWithScreenshots;
+    trades: ReturnType<typeof useTrades>['trades'];
+    error: string | null;
+  } | null>(null);
+  const isLoadingTrades = galleryResult?.loader !== loadTradesWithScreenshots;
+  const galleryTrades = galleryResult?.loader === loadTradesWithScreenshots ? galleryResult.trades : EMPTY_TRADES;
+  const loadError = galleryResult?.loader === loadTradesWithScreenshots ? galleryResult.error : null;
   const [filter, setFilter] = useState<ScreenshotFilter>('All');
   const [dayFilter, setDayFilter] = useState<DayFilter>('All Days');
   const [timeframeFilter, setTimeframeFilter] = useState<TimeframeFilter>('All Time');
@@ -104,12 +113,29 @@ export default function ScreenshotGallery() {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
+    void loadTradesWithScreenshots()
+      .then((loadedTrades) => {
+        if (cancelled) return;
+        setGalleryResult({ loader: loadTradesWithScreenshots, trades: loadedTrades, error: null });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : 'Failed to load screenshots.';
+        setGalleryResult({ loader: loadTradesWithScreenshots, trades: [], error: message });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadTradesWithScreenshots]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(GALLERY_LAYOUT_STORAGE_KEY, layout);
   }, [layout]);
 
   const screenshots = useMemo<ScreenshotEntry[]>(() => {
-    return trades
+    return galleryTrades
       .flatMap((trade) => {
         const items: ScreenshotEntry[] = [];
 
@@ -158,7 +184,7 @@ export default function ScreenshotGallery() {
         return items;
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [trades]);
+  }, [galleryTrades]);
 
   const tradeTimeFrameOptions = useMemo<TradeTimeFrameFilter[]>(() => {
     const options = Array.from(new Set(screenshots.map((item) => item.timeFrame))).sort((a, b) => a.localeCompare(b));
@@ -259,6 +285,14 @@ export default function ScreenshotGallery() {
 
   return (
     <div className="flex-1 min-h-screen p-3 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+    {loadError ? (
+      <p role="alert" className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+        {loadError}
+      </p>
+    ) : null}
+    {isLoadingTrades ? (
+      <p className="mb-4 text-sm text-muted-foreground">Loading screenshots…</p>
+    ) : null}
       <Card className="bg-card border-border">
         <CardHeader className="p-4 sm:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">

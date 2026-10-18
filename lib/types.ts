@@ -79,6 +79,7 @@ export type MistakeTag = (typeof MISTAKE_TAG_OPTIONS)[number];
 
 export interface Trade {
   id: string;
+  hasScreenshots?: boolean;
   /** The broker or manual account that owns this trade. */
   accountId?: string;
   isFavorite?: boolean;
@@ -118,6 +119,7 @@ export interface Trade {
   confidence: number;
   preNotes: string;
   postNotes: string;
+  duringTradeNotes?: string;
   notes?: string;
   emotion?: EmotionTag;
   beforeTradeScreenshot?: string;
@@ -215,6 +217,7 @@ export interface TradeFormData {
   confidence: string;
   preNotes: string;
   postNotes: string;
+  duringTradeNotes?: string;
   beforeTradeScreenshot?: string;
   afterExitScreenshot?: string;
   hftScreenshot?: string;

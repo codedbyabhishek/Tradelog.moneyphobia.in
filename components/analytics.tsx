@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import Link from 'next/link';
 import {
   getTradeBasePnL,
   getTradeCharges,
@@ -37,7 +38,7 @@ import {
 } from 'recharts';
 import { EmptyStateIllustration } from './brand-illustrations';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, X } from 'lucide-react';
+import { Activity, ArrowRight, CheckCircle2, Filter, RotateCcw, Target, TrendingUp, Wallet, X } from 'lucide-react';
 
 type DateRangeKey = 'today' | '7d' | '30d' | '90d' | '1y' | 'all' | 'custom';
 type BrokerFilter = 'all' | BrokerId;
@@ -144,6 +145,24 @@ export default function Analytics() {
   const [outcomeFilter, setOutcomeFilter] = useState<OutcomeFilter>('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+
+  const activeFilterCount = [
+    dateRange !== 'all',
+    outcomeFilter !== 'all',
+    brokerFilter !== 'all',
+    setupFilter !== 'all',
+    tagFilter !== 'all',
+  ].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setDateRange('all');
+    setSetupFilter('all');
+    setTagFilter('all');
+    setBrokerFilter('all');
+    setOutcomeFilter('all');
+    setCustomStartDate('');
+    setCustomEndDate('');
+  };
 
   const formatBaseAmount = (value: number, decimals: number = 2) => formatBaseCurrencyAmount(value, baseCurrency, decimals);
   const netCapitalAdjustments = getNetCapitalAdjustments(capitalAdjustments);
@@ -585,21 +604,22 @@ export default function Analytics() {
         </p>
       </div>
 
-      <Card className="overflow-hidden border-border bg-[#0d0d11] text-white">
-        <CardContent className="space-y-4 p-4 sm:p-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-            <div className="space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Time Period</p>
+      <Card className="overflow-hidden border-border/70 bg-card shadow-sm">
+        <CardContent className="space-y-5 p-4 sm:p-5">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0 space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Time Period</p>
               <div className="flex flex-wrap gap-2">
                 {DATE_RANGE_OPTIONS.map((option) => (
                   <button
                     key={option.key}
                     type="button"
                     onClick={() => setDateRange(option.key)}
-                    className={`min-h-11 rounded-2xl border px-5 text-sm font-semibold transition-colors ${
+                    aria-pressed={dateRange === option.key}
+                    className={`min-h-10 shrink-0 rounded-xl border px-3 sm:px-4 text-sm font-medium transition-colors ${
                       dateRange === option.key
-                        ? 'border-[#1f6fff] bg-[#1668ff] text-white shadow-[0_0_0_1px_rgba(22,104,255,0.25)]'
-                        : 'border-white/10 bg-white/[0.06] text-white/55 hover:bg-white/[0.09] hover:text-white/80'
+                        ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                        : 'border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground'
                     }`}
                   >
                     {option.label}
@@ -608,8 +628,16 @@ export default function Analytics() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Filter By</p>
+            <div className="space-y-2 xl:min-w-[280px]">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Trade Outcome</p>
+                {activeFilterCount > 0 ? (
+                  <Button type="button" variant="ghost" size="sm" onClick={clearFilters} className="h-8 px-2 text-xs">
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Clear filters
+                  </Button>
+                ) : null}
+              </div>
               <div className="flex flex-wrap gap-2">
                 {[
                   { key: 'all', label: 'All Trades' },
@@ -624,10 +652,11 @@ export default function Analytics() {
                       key={option.key}
                       type="button"
                       onClick={() => setOutcomeFilter(option.key as OutcomeFilter)}
-                      className={`inline-flex min-h-11 items-center gap-2 rounded-2xl border px-5 text-sm font-semibold transition-colors ${
+                      aria-pressed={isActive}
+                      className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 sm:px-4 text-sm font-medium transition-colors ${
                         isActive
-                          ? 'border-[#1f6fff] bg-[#1668ff] text-white shadow-[0_0_0_1px_rgba(22,104,255,0.25)]'
-                          : 'border-white/10 bg-white/[0.06] text-white/55 hover:bg-white/[0.09] hover:text-white/80'
+                          ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                          : 'border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground'
                       }`}
                     >
                       {Icon ? <Icon className="h-4 w-4" /> : null}
@@ -640,25 +669,33 @@ export default function Analytics() {
           </div>
 
           {dateRange === 'custom' && (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:max-w-2xl">
-              <input
-                type="date"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                className="h-11 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-sm text-white"
-              />
-              <input
-                type="date"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                className="h-11 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-sm text-white"
-              />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:max-w-2xl">
+              <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+                Start date
+                <input
+                  type="date"
+                  aria-label="Start date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground"
+                />
+              </label>
+              <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+                End date
+                <input
+                  type="date"
+                  aria-label="End date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground"
+                />
+              </label>
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <Select value={brokerFilter} onValueChange={(value) => setBrokerFilter(value as BrokerFilter)}>
-              <SelectTrigger className="h-11 rounded-xl border-white/10 bg-white/[0.06] text-white">
+              <SelectTrigger aria-label="Filter by broker" className="h-11 rounded-xl border-input bg-background">
                 <SelectValue placeholder="Broker" />
               </SelectTrigger>
               <SelectContent>
@@ -672,7 +709,7 @@ export default function Analytics() {
             </Select>
 
             <Select value={setupFilter} onValueChange={setSetupFilter}>
-              <SelectTrigger className="h-11 rounded-xl border-white/10 bg-white/[0.06] text-white">
+              <SelectTrigger aria-label="Filter by setup" className="h-11 rounded-xl border-input bg-background">
                 <SelectValue placeholder="Setup" />
               </SelectTrigger>
               <SelectContent>
@@ -686,7 +723,7 @@ export default function Analytics() {
             </Select>
 
             <Select value={tagFilter} onValueChange={setTagFilter}>
-              <SelectTrigger className="h-11 rounded-xl border-white/10 bg-white/[0.06] text-white">
+              <SelectTrigger aria-label="Filter by tag" className="h-11 rounded-xl border-input bg-background">
                 <SelectValue placeholder="Tag" />
               </SelectTrigger>
               <SelectContent>
@@ -699,74 +736,120 @@ export default function Analytics() {
               </SelectContent>
             </Select>
           </div>
+          <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-4 text-xs text-muted-foreground">
+            <Filter className="h-3.5 w-3.5" />
+            <span>
+              {activeFilterCount === 0
+                ? 'Showing all trades'
+                : `${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'} applied`}
+            </span>
+            <span aria-live="polite" className="ml-auto font-medium text-foreground">
+              {filteredTrades.length} {filteredTrades.length === 1 ? 'trade' : 'trades'}
+            </span>
+          </div>
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="bg-card border-border">
-          <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Journal Balance</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <p className={`text-2xl font-bold ${currentAccountBalance >= investedCapital ? 'text-green-400' : 'text-red-400'}`}>
-              {formatBaseAmount(currentAccountBalance)}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">Capital Base: {formatBaseAmount(investedCapital)}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border">
-          <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Total Return</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <p className={`text-2xl font-bold ${totalAccountPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {totalAccountReturnPct === null ? 'Set Start Balance' : `${totalAccountReturnPct.toFixed(2)}%`}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">Whole account based on current contributed capital</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border">
-          <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Filtered Net P&amp;L</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <p className={`text-2xl font-bold ${filteredSummary.totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {formatBaseAmount(filteredSummary.totalPnL)}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {filteredSummary.filteredReturnPct === null ? 'Set capital base for % view' : `${filteredSummary.filteredReturnPct.toFixed(2)}% of current contributed capital`}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border">
-          <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Filtered Win Rate</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <p className="text-2xl font-bold text-foreground">{filteredSummary.winRate.toFixed(1)}%</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {filteredTrades.length} trades, avg {formatBaseAmount(filteredSummary.avgTrade)} per trade
-            </p>
-          </CardContent>
-        </Card>
+        {[
+          {
+            title: 'Account Balance',
+            value: formatBaseAmount(currentAccountBalance),
+            detail: `Capital base ${formatBaseAmount(investedCapital)}`,
+            icon: Wallet,
+            iconClass: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+            valueClass: currentAccountBalance >= investedCapital ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400',
+          },
+          {
+            title: 'All-time Return',
+            value: totalAccountReturnPct === null ? '—' : `${totalAccountReturnPct.toFixed(2)}%`,
+            detail: totalAccountReturnPct === null ? 'Add starting capital to calculate return' : 'Based on contributed capital',
+            icon: TrendingUp,
+            iconClass: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+            valueClass: totalAccountPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400',
+          },
+          {
+            title: 'Filtered Net P&L',
+            value: formatBaseAmount(filteredSummary.totalPnL),
+            detail: filteredSummary.filteredReturnPct === null
+              ? 'Filtered result for selected trades'
+              : `${filteredSummary.filteredReturnPct.toFixed(2)}% of period capital`,
+            icon: Activity,
+            iconClass: filteredSummary.totalPnL >= 0
+              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+              : 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+            valueClass: filteredSummary.totalPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400',
+          },
+          {
+            title: 'Win Rate',
+            value: `${filteredSummary.winRate.toFixed(1)}%`,
+            detail: `${filteredSummary.wins} wins · ${filteredSummary.losses} losses · ${filteredSummary.breakeven} flat`,
+            icon: Target,
+            iconClass: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+            valueClass: 'text-foreground',
+          },
+        ].map((metric) => {
+          const Icon = metric.icon;
+          return (
+            <Card key={metric.title} className="overflow-hidden border-border/70 bg-card shadow-sm">
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-muted-foreground">{metric.title}</p>
+                    <p className={`mt-3 break-words text-2xl font-semibold tracking-tight sm:text-3xl ${metric.valueClass}`}>
+                      {metric.value}
+                    </p>
+                  </div>
+                  <span className={`rounded-xl p-2.5 ${metric.iconClass}`}>
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                </div>
+                <p className="mt-2 min-h-5 text-xs leading-5 text-muted-foreground">{metric.detail}</p>
+                {metric.title === 'All-time Return' && totalAccountReturnPct === null ? (
+                  <Link
+                    href="/app/data-utilities"
+                    className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    Set starting balance <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                ) : null}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {filteredTrades.length === 0 ? (
-        <Card className="bg-card border-border">
-          <CardContent className="p-8 sm:p-12">
+        <Card className="overflow-hidden border-border/70 bg-card shadow-sm">
+          <CardContent className="p-6 sm:p-10">
             <Empty className="border-0 p-0">
-              <EmptyStateIllustration />
+              <EmptyStateIllustration className="max-w-[220px]" />
               <EmptyHeader>
-                <EmptyTitle>No trades match the current analytics filters</EmptyTitle>
-                <EmptyDescription>
-                  Broaden the date range, switch the broker filter, or choose a different setup to restore your charts.
+                <EmptyTitle className="text-xl sm:text-2xl">
+                  {trades.length === 0 ? 'Your analytics start with your first trade' : 'No trades match these filters'}
+                </EmptyTitle>
+                <EmptyDescription className="max-w-lg text-sm leading-6">
+                  {trades.length === 0
+                    ? 'Add a trade manually or import your broker history to unlock your balance curve, win rate, and setup insights.'
+                    : 'Try a wider date range or clear your filters to see more of your trading history.'}
                 </EmptyDescription>
               </EmptyHeader>
-              <EmptyContent>
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Your balance curve appears once matching trades exist</p>
+              <EmptyContent className="flex-col gap-3 sm:flex-row">
+                {trades.length === 0 ? (
+                  <>
+                    <Button asChild className="w-full sm:w-auto">
+                      <Link href="/app/add-trade">Add your first trade</Link>
+                    </Button>
+                    <Button asChild variant="outline" className="w-full sm:w-auto">
+                      <Link href="/app/import-analysis">Import trade history</Link>
+                    </Button>
+                  </>
+                ) : (
+                  <Button type="button" variant="outline" onClick={clearFilters}>
+                    <RotateCcw className="h-4 w-4" />
+                    Clear filters
+                  </Button>
+                )}
               </EmptyContent>
             </Empty>
           </CardContent>
@@ -822,35 +905,35 @@ export default function Analytics() {
           </div>
 
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.2fr_0.8fr]">
-            <Card className="flex h-full flex-col bg-card border-border">
+            <Card className="bg-card border-border xl:self-start">
               <CardHeader className="p-4 sm:p-6">
                 <CardTitle className="text-base sm:text-lg">Quick Stats</CardTitle>
                 <CardDescription className="text-xs sm:text-sm">
                   Fast read on winners, losers, streaks, risk profile, and open positions
                 </CardDescription>
               </CardHeader>
-              <CardContent className="grid flex-1 grid-cols-2 gap-3 p-4 pt-0 sm:grid-cols-4 sm:p-6 sm:pt-0">
+              <CardContent className="grid grid-cols-2 content-start gap-3 p-4 pt-0 sm:grid-cols-4 sm:p-6 sm:pt-0 xl:max-w-[760px]">
                 {quickStatsCards.map((item) => (
-                  <div key={item.label} className="flex min-h-[96px] flex-col justify-between rounded-2xl border border-border bg-background/50 p-3">
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{item.label}</p>
-                    <p className={`mt-2 text-lg font-semibold ${item.tone}`}>{item.value}</p>
+                  <div key={item.label} className="flex min-h-[84px] flex-col justify-between rounded-2xl border border-border bg-background/50 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{item.label}</p>
+                    <p className={`mt-2 break-words text-base font-semibold xl:text-lg ${item.tone}`}>{item.value}</p>
                   </div>
                 ))}
               </CardContent>
             </Card>
 
             <Card className="flex h-full flex-col bg-card border-border">
-              <CardHeader className="p-4 sm:p-6">
+              <CardHeader className="p-4 sm:p-6 xl:p-3">
                 <CardTitle className="text-base sm:text-lg">Recent Trades</CardTitle>
                 <CardDescription className="text-xs sm:text-sm">
                   Latest trades inside the current filter selection
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-1 flex-col gap-3 p-4 pt-0 sm:p-6 sm:pt-0">
+              <CardContent className="grid grid-cols-1 gap-2 p-4 pt-0 sm:p-6 sm:pt-0 xl:grid-cols-2 xl:gap-2 xl:p-3 xl:pt-0">
                 {recentTrades.map((trade) => {
                   const pnl = getTradeBasePnL(trade);
                   return (
-                    <div key={trade.id} className="flex min-h-[76px] items-center justify-between gap-3 rounded-2xl border border-border bg-background/50 p-3">
+                    <div key={trade.id} className="flex min-h-14 items-center justify-between gap-2 rounded-2xl border border-border bg-background/50 p-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="truncate text-sm font-semibold text-foreground">{trade.symbol}</p>

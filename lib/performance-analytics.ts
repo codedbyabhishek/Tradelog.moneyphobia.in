@@ -316,17 +316,18 @@ export function calculateSymbolPerformance(
  */
 export function calculateMonthlyReturnTargets(
   trades: Trade[],
-  monthlyTargets: Record<string, number> = {}
+  monthlyTargets: Record<string, number> = {},
+  defaultTarget = 1000
 ): Array<{ month: string; target: number; actual: number; percentage: number }> {
   const monthlyPnL = calculateMonthlyPnL(trades);
   
   return Object.entries(monthlyPnL).map(([month, actual]) => {
-    const target = monthlyTargets[month] || 1000;
+    const target = monthlyTargets[month] ?? defaultTarget;
     return {
       month,
       target,
       actual,
-      percentage: (actual / target) * 100
+      percentage: target > 0 ? (actual / target) * 100 : actual >= 0 ? 100 : 0,
     };
   });
 }
@@ -389,7 +390,7 @@ export function calculateAverageTradeSize(trades: Trade[]): Record<string, numbe
 /**
  * Generate all performance metrics
  */
-export function generatePerformanceMetrics(trades: Trade[]): PerformanceMetrics {
+export function generatePerformanceMetrics(trades: Trade[], monthlyReturnTarget = 1000): PerformanceMetrics {
   const { drawdownCurve, drawdownStats } = calculateDrawdownMetrics(trades);
 
   return {
@@ -402,7 +403,7 @@ export function generatePerformanceMetrics(trades: Trade[]): PerformanceMetrics 
     bestTradingHours: calculateBestTradingHours(trades),
     bestTradingDays: calculateBestTradingDays(trades),
     symbolPerformance: calculateSymbolPerformance(trades),
-    monthlyReturnTargets: calculateMonthlyReturnTargets(trades),
+    monthlyReturnTargets: calculateMonthlyReturnTargets(trades, {}, monthlyReturnTarget),
     monthlyWinRate: calculateMonthlyWinRate(trades),
     averageTradeSize: calculateAverageTradeSize(trades),
   };

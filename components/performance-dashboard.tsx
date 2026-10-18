@@ -39,8 +39,11 @@ interface PerformanceDashboardProps {
 }
 
 export function PerformanceDashboard({ trades }: PerformanceDashboardProps) {
-  const { baseCurrency } = useSettings();
-  const metrics = useMemo(() => generatePerformanceMetrics(trades), [trades]);
+  const { baseCurrency, monthlyReturnTarget } = useSettings();
+  const metrics = useMemo(
+    () => generatePerformanceMetrics(trades, monthlyReturnTarget),
+    [trades, monthlyReturnTarget]
+  );
 
   const renderCurrencyTooltip = (value: number) => formatBaseCurrencyAmount(value, baseCurrency);
   const renderPercentageTooltip = (value: number) => `${value.toFixed(1)}%`;
@@ -113,7 +116,7 @@ export function PerformanceDashboard({ trades }: PerformanceDashboardProps) {
       .sort(([monthA], [monthB]) => monthA.localeCompare(monthB))
       .map(([month, pnl]) => {
         const winRate = metrics.monthlyWinRate[month] || 0;
-        const target = metrics.monthlyReturnTargets.find((m) => m.month === month)?.target || 1000;
+        const target = metrics.monthlyReturnTargets.find((m) => m.month === month)?.target ?? monthlyReturnTarget;
         const pnlRounded = parseFloat(pnl.toFixed(2));
         const targetRounded = parseFloat(target.toFixed(2));
 
@@ -128,7 +131,7 @@ export function PerformanceDashboard({ trades }: PerformanceDashboardProps) {
           status: pnlRounded >= 0 ? 'positive' : 'negative',
         };
       });
-  }, [metrics.monthlyPnL, metrics.monthlyWinRate, metrics.monthlyReturnTargets]);
+  }, [metrics.monthlyPnL, metrics.monthlyWinRate, metrics.monthlyReturnTargets, monthlyReturnTarget]);
 
   const monthlySummary = useMemo(() => {
     const profitableMonths = monthlyData.filter((item) => item.pnl > 0).length;

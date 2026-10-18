@@ -4,6 +4,9 @@ import AuthPageShell from '@/components/auth-page-shell';
 export const metadata: Metadata = {
   title: 'Login',
   description: 'Log in to your Traderlogify account.',
+  alternates: {
+    canonical: null,
+  },
   robots: {
     index: false,
     follow: false,
